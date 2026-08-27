@@ -129,6 +129,17 @@
     ]
   },
   {
+    "title": "RTOS — Embedded",
+    "url": "/embedded/rtos/index.html",
+    "domain": "Embedded",
+    "category": "Rtos",
+    "description": "What a real-time operating system actually provides: tasks, preemptive priority scheduling, semaphores/mutexes/queues, priority inversion, and bare-metal vs RTOS vs Linux.",
+    "tags": [
+      "embedded",
+      "rtos"
+    ]
+  },
+  {
     "title": "Boot — Linux",
     "url": "/linux/boot/index.html",
     "domain": "Linux",

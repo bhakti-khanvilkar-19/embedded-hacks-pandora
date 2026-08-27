@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RTOS — Embedded — Embedded Pandora</title>
+<meta name="description" content="What a real-time operating system actually provides: tasks, preemptive priority scheduling, semaphores/mutexes/queues, priority inversion, and bare-metal vs RTOS vs Linux." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Embedded</p>
+  <h1>RTOS — Real-Time Operating System</h1>
+  <p class="lede">
+    A superloop works fine until a device has to do several genuinely
+    independent, timing-sensitive things at once. An RTOS is what steps
+    in at that point — not for extra features, but to guarantee that the
+    things which absolutely must happen on time actually do, no matter
+    what else the device is doing.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A scheduler-based kernel that runs multiple independent tasks, always giving the CPU to the highest-priority task that's ready to run.</dd>
+      <dt>Mental model</dt><dd>Not "an OS" in the desktop sense — a referee that instantly hands the CPU to whichever task matters most right now, every time that changes.</dd>
+      <dt>Key numbers</dt><dd>Each task has its own stack and priority; a higher-priority task preempts a lower one immediately, not at the next convenient moment.</dd>
+      <dt>Reach for it when</dt><dd>Multiple independent, timing-sensitive activities need to run concurrently and a superloop has become unmanageable.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#why">Why not just a bigger superloop?</a></li>
+      <li><a href="#tasks">Tasks and task states</a></li>
+      <li><a href="#scheduler">The scheduler: preemptive priority scheduling</a></li>
+      <li><a href="#primitives">Semaphores, mutexes, and queues</a></li>
+      <li><a href="#priority-inversion">Priority inversion</a></li>
+      <li><a href="#stacks">Stacks, and why sizing them matters</a></li>
+      <li><a href="#compare">Bare-metal vs. RTOS vs. Linux</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="why">Why not just a bigger superloop?</h2>
+  <p>
+    A bare-metal "superloop" (one big <code>while(1)</code> calling each
+    subsystem in turn) works well for simple devices, but it has one
+    structural weakness: everything runs at the same implicit priority,
+    in whatever order it was written. As soon as one device has several
+    genuinely independent timing requirements — a motor control loop that
+    needs a hard 1 ms deadline, a UI that can tolerate 100 ms, a
+    background upload that can wait entirely — a superloop forces the
+    programmer to manually interleave all of it by hand. An RTOS takes
+    that interleaving decision out of application code entirely and puts
+    it in a scheduler that makes it correctly, every time, based on
+    priority.
+  </p>
+
+  <h2 id="tasks">Tasks and task states</h2>
+  <p>
+    A <strong>task</strong> (sometimes "thread") is an independent unit
+    of execution with its own stack, its own saved register context, and
+    its own priority — from the programmer's point of view, each task can
+    be written as if it had the CPU entirely to itself.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 480 400" role="img" aria-labelledby="task-states-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="task-states-title">A task moves between Ready, Running, Blocked, and Suspended states as the scheduler and application code act on it</title>
+
+      <rect class="frame-box block-amber" x="190" y="20" width="100" height="50" rx="6" />
+      <text class="frame-label" x="240" y="50" text-anchor="middle" font-weight="700">Running</text>
+
+      <rect class="frame-box block-blue" x="30" y="170" width="100" height="50" rx="6" />
+      <text class="frame-label" x="80" y="200" text-anchor="middle" font-weight="700">Ready</text>
+
+      <rect class="frame-box block-violet" x="350" y="170" width="100" height="50" rx="6" />
+      <text class="frame-label" x="400" y="200" text-anchor="middle" font-weight="700">Blocked</text>
+
+      <rect class="frame-box block-green" x="190" y="320" width="100" height="50" rx="6" />
+      <text class="frame-label" x="240" y="350" text-anchor="middle" font-weight="700">Suspended</text>
+
+      <line x1="135" y1="185" x2="195" y2="65" class="seq-arrow" stroke-width="2" marker-start="none" />
+      <polygon class="seq-arrowhead" points="200,58 190,62 194,72" />
+      <polygon class="seq-arrowhead" points="128,192 138,188 134,178" />
+      <text class="seq-sub" x="115" y="115" text-anchor="middle">scheduled ⇄ preempted</text>
+
+      <line x1="285" y1="65" x2="352" y2="172" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="358,180 348,176 352,166" />
+      <text class="seq-sub" x="365" y="120" text-anchor="middle">waiting on a</text>
+      <text class="seq-sub" x="365" y="134" text-anchor="middle">semaphore/queue/delay</text>
+
+      <line x1="350" y1="222" x2="135" y2="222" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="128,222 138,217 138,227" />
+      <text class="seq-sub" x="240" y="242" text-anchor="middle">event occurs / timeout</text>
+
+      <line x1="105" y1="222" x2="205" y2="318" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="212,326 202,322 206,312" />
+      <polygon class="seq-arrowhead" points="98,214 108,210 104,220" />
+      <text class="seq-sub" x="110" y="280" text-anchor="middle">suspend ⇄ resume</text>
+    </svg>
+    <figcaption class="diagram__caption">A task can also be suspended directly from Running in most RTOS implementations — simplified here to keep the diagram readable.</figcaption>
+  </figure>
+
+  <h2 id="scheduler">The scheduler: preemptive priority scheduling</h2>
+  <p>
+    The dominant RTOS scheduling model is simple to state:
+    <strong>the highest-priority task that's ready to run, runs — always,
+    immediately.</strong> If a low-priority task is running and a
+    higher-priority task becomes ready (a semaphore it was waiting on is
+    given, a timer expires), the scheduler preempts the running task on
+    the spot, not at some future convenient checkpoint.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 220" role="img" aria-labelledby="preempt-timeline-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="preempt-timeline-title">A low-priority task running, immediately preempted when a high-priority task becomes ready, then resuming once the high-priority task finishes</title>
+
+      <text class="frame-caption" x="20" y="48" text-anchor="start" font-size="10">Task A (low priority)</text>
+      <rect class="frame-box block-blue" x="20" y="55" width="180" height="30" />
+      <text class="frame-label" x="110" y="75" text-anchor="middle" font-size="10">running</text>
+      <rect class="frame-box block-blue" x="320" y="55" width="220" height="30" />
+      <text class="frame-label" x="430" y="75" text-anchor="middle" font-size="10">resumes running</text>
+
+      <text class="frame-caption" x="15" y="120" text-anchor="start">Task B</text>
+      <text class="frame-caption" x="15" y="135" text-anchor="start">(high priority)</text>
+      <rect class="frame-box block-amber" x="200" y="105" width="120" height="30" />
+      <text class="frame-label" x="260" y="125" text-anchor="middle" font-size="10">preempts A</text>
+
+      <line x1="200" y1="45" x2="200" y2="145" stroke="var(--ink-faint)" stroke-dasharray="3 3" />
+      <line x1="320" y1="45" x2="320" y2="145" stroke="var(--ink-faint)" stroke-dasharray="3 3" />
+      <polygon points="200,45 194,35 206,35" style="fill:var(--accent);" />
+      <polygon points="320,45 314,35 326,35" style="fill:var(--accent);" />
+      <text class="seq-note" x="200" y="30" text-anchor="middle">B becomes ready</text>
+      <text class="seq-note" x="320" y="30" text-anchor="middle">B finishes</text>
+
+      <line x1="20" y1="170" x2="540" y2="170" stroke="var(--ink-faint)" stroke-width="1.5" />
+      <text class="frame-caption" x="540" y="190" text-anchor="end">time →</text>
+    </svg>
+    <figcaption class="diagram__caption">The instant Task B becomes ready, it preempts Task A — Task A resumes exactly where it left off once B finishes, with no data lost, as long as A's state was protected correctly.</figcaption>
+  </figure>
+  <p>
+    Equal-priority tasks are typically time-sliced (round-robin) so none
+    of them starves the others — but between <em>different</em>
+    priorities, it's never a fair split, by design.
+  </p>
+
+  <h2 id="primitives">Semaphores, mutexes, and queues</h2>
+  <dl class="kv">
+    <dt>Semaphore</dt><dd>A counting signal used to notify another task an event happened — the standard way an <a href="/embedded/interrupts/index.html">interrupt</a> hands work off to a task: the ISR gives a semaphore and returns immediately, a task blocks waiting to take it, and the real work happens in task context instead of inside the ISR.</dd>
+    <dt>Mutex</dt><dd>Mutual exclusion — protects a shared resource (a peripheral, a data structure) so only one task touches it at a time. Unlike a semaphore, a mutex has an owner and is specifically for protecting a resource, not general signaling.</dd>
+    <dt>Queue</dt><dd>A FIFO buffer for passing data between tasks (or from an ISR to a task) safely, without either side needing to know exactly when the other will read or write it.</dd>
+  </dl>
+
+  <h2 id="priority-inversion">Priority inversion</h2>
+  <p>
+    A classic RTOS bug class: a high-priority task blocks waiting for a
+    mutex currently held by a low-priority task. If a
+    <em>medium</em>-priority task then preempts the low-priority one
+    (which has every right to, by priority rules), the high-priority task
+    ends up waiting indefinitely — blocked not by the low-priority task
+    directly, but by a medium-priority task that has nothing to do with
+    the resource at all. The standard fix is <strong>priority
+    inheritance</strong>: while holding a mutex a higher-priority task is
+    waiting on, the low-priority task temporarily runs at the higher
+    task's priority, so it can't be preempted by anything in between and
+    finishes (and releases the mutex) as fast as possible.
+  </p>
+
+  <h2 id="stacks">Stacks, and why sizing them matters</h2>
+  <p>
+    Every task has its own stack, sized when the task is created — too
+    small and a deep call chain (or interrupt nesting on top of it)
+    silently corrupts adjacent memory, often manifesting as a bug that
+    looks completely unrelated to the actual stack overflow. Most RTOSes
+    provide stack high-water-mark checking specifically because guessing
+    the right size up front is genuinely hard, and getting it wrong fails
+    silently rather than loudly.
+  </p>
+
+  <h2 id="compare">Bare-metal vs. RTOS vs. Linux</h2>
+  <table>
+    <thead><tr><th></th><th>Bare-metal</th><th>RTOS</th><th>Linux</th></tr></thead>
+    <tbody>
+      <tr><td>Scheduling goal</td><td>Whatever the programmer wrote, in order</td><td>Deterministic — highest priority ready task always runs</td><td>Fair — good average throughput, not deadline guarantees</td></tr>
+      <tr><td>Memory footprint</td><td>Minimal — no kernel at all</td><td>Small — kilobytes, not megabytes</td><td>Large — needs an MMU, typically megabytes</td></tr>
+      <tr><td>Determinism</td><td>Fully deterministic (you control everything)</td><td>Deterministic by design</td><td>Not deterministic — general-purpose, best-effort</td></tr>
+      <tr><td>Typical use</td><td>Very simple, single-purpose devices</td><td>Motor control, industrial, medical, automotive</td><td>Gateways, anything needing a full OS/networking/filesystem stack</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Motor and robotics control loops —</strong> a hard real-time task running a PID loop at a fixed rate, isolated by priority from lower-priority housekeeping work.</li>
+    <li><strong>Medical devices —</strong> RTOSes with certifiable, deterministic behavior (and often formal safety certification) are close to a hard requirement in regulated medical firmware.</li>
+    <li><strong>Automotive ECUs —</strong> many run a certified RTOS (e.g. AUTOSAR-compliant) specifically for the deterministic timing guarantees safety-critical functions need.</li>
+    <li><strong>Communication stacks —</strong> running <a href="/networking/mqtt/index.html">MQTT</a>, <a href="/networking/https/index.html">TLS</a>, or a full network stack as one or more RTOS tasks, isolated from time-critical control tasks by priority.</li>
+    <li><strong>Real RTOS choices —</strong> FreeRTOS (by far the most widely deployed), Zephyr, ThreadX, and various vendor-specific or certified options for safety-critical work.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Marking every task "high priority" defeats the entire purpose — priority only means something in relation to other priorities; if everything is high priority, nothing effectively is.</li>
+      <li>Blocking calls (anything that can wait/sleep) inside an interrupt handler are a hard rule violation on virtually every RTOS — ISRs must stay short and non-blocking, deferring real work to a task exactly as described under Semaphores above.</li>
+      <li>A stack overflow on one task can silently corrupt an adjacent task's memory rather than crashing cleanly — a bug that "makes no sense" in a completely unrelated task is worth checking stack usage for before anything else.</li>
+      <li>Forgetting to protect a resource shared between an ISR and a task (or between two tasks) reproduces exactly the race-condition class covered in <a href="/embedded/interrupts/index.html">Interrupts</a> — an RTOS gives you the tools to prevent it, but doesn't prevent it automatically.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/embedded/interrupts/index.html", "title": "Interrupts" },
+  "related": [
+    { "href": "/embedded/interrupts/index.html", "title": "Interrupts" },
+    { "href": "/embedded/gpio/index.html", "title": "GPIO" },
+    { "href": "/linux/boot/index.html", "title": "Linux boot" },
+    { "href": "/networking/mqtt/index.html", "title": "MQTT" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
