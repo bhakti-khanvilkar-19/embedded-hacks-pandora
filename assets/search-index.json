@@ -204,6 +204,17 @@
     ]
   },
   {
+    "title": "IoT Architecture — Networking",
+    "url": "/networking/iot-architecture/index.html",
+    "domain": "Networking",
+    "category": "Iot Architecture",
+    "description": "The layered architecture behind a real IoT system — device, gateway, cloud platform, application — plus device provisioning, OTA updates, telemetry vs. commands, and how to choose a protocol at each layer.",
+    "tags": [
+      "networking",
+      "iot-architecture"
+    ]
+  },
+  {
     "title": "IP — Networking",
     "url": "/networking/ip/index.html",
     "domain": "Networking",
