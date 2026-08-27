@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IoT Architecture — Networking — Embedded Pandora</title>
+<meta name="description" content="The layered architecture behind a real IoT system — device, gateway, cloud platform, application — plus device provisioning, OTA updates, telemetry vs. commands, and how to choose a protocol at each layer." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>IoT Architecture</h1>
+  <p class="lede">
+    "IoT" isn't one protocol or one product — it's a handful of layers
+    working together: a device, optionally a gateway, a cloud platform,
+    and the applications built on top. Everything else in this notebook
+    — sensors, protocols, security — is a piece that slots into one of
+    these layers.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A layered system: device → (gateway) → cloud platform → application, with telemetry flowing up and commands flowing down.</dd>
+      <dt>Mental model</dt><dd>Not "a protocol" — a supply chain for data, where each layer's job is to move it one step closer to something a human or another system can act on.</dd>
+      <dt>Key numbers</dt><dd>4 layers typically; two data directions (telemetry up, commands down) that need separate thinking.</dd>
+      <dt>Reach for it when</dt><dd>Designing anything beyond a single standalone device — the moment more than one device needs to be seen or managed centrally.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#layers">The layered architecture</a></li>
+      <li><a href="#provisioning">Device provisioning and identity</a></li>
+      <li><a href="#ota">OTA updates</a></li>
+      <li><a href="#telemetry">Telemetry vs. commands</a></li>
+      <li><a href="#shadow">Device shadows / digital twins</a></li>
+      <li><a href="#protocol-choice">Choosing a protocol at each layer</a></li>
+      <li><a href="#security">Security, end to end</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="layers">The layered architecture</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 600 260" role="img" aria-labelledby="iot-arch-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="iot-arch-title">Device, gateway, cloud platform, and application layers, with telemetry flowing up toward the application and commands flowing back down toward the device</title>
+
+      <line x1="30" y1="24" x2="55" y2="24" class="seq-arrow" stroke-width="2.5" />
+      <text class="seq-sub" x="60" y="28">telemetry (device → cloud)</text>
+      <line x1="30" y1="42" x2="55" y2="42" style="stroke:var(--teal); stroke-width:2.5;" />
+      <text class="seq-sub" x="60" y="46">commands (cloud → device)</text>
+
+      <rect class="frame-box block-amber" x="20" y="90" width="100" height="70" rx="6" />
+      <text class="frame-label" x="70" y="118" text-anchor="middle" font-weight="700">Device</text>
+      <text class="frame-caption" x="70" y="138" text-anchor="middle">sensors, actuators, MCU</text>
+
+      <rect class="frame-box block-green frame-box--variable" x="170" y="90" width="100" height="70" rx="6" />
+      <text class="frame-label" x="220" y="118" text-anchor="middle" font-weight="700">Gateway</text>
+      <text class="frame-caption" x="220" y="138" text-anchor="middle">edge compute (optional)</text>
+
+      <rect class="frame-box block-blue" x="320" y="90" width="100" height="70" rx="6" />
+      <text class="frame-label" x="370" y="118" text-anchor="middle" font-weight="700">Cloud Platform</text>
+      <text class="frame-caption" x="370" y="138" text-anchor="middle">registry, broker, rules</text>
+
+      <rect class="frame-box block-violet" x="470" y="90" width="100" height="70" rx="6" />
+      <text class="frame-label" x="520" y="118" text-anchor="middle" font-weight="700">Application</text>
+      <text class="frame-caption" x="520" y="138" text-anchor="middle">dashboards, analytics</text>
+
+      <line x1="120" y1="112" x2="168" y2="112" class="seq-arrow flow-path" stroke-width="2.5" />
+      <polygon class="seq-arrowhead" points="170,112 160,108 160,116" />
+      <line x1="168" y1="138" x2="120" y2="138" class="flow-path flow-path--reverse" style="stroke:var(--teal); stroke-width:2.5; fill:none;" />
+      <polygon points="120,138 130,134 130,142" style="fill:var(--teal);" />
+
+      <line x1="270" y1="112" x2="318" y2="112" class="seq-arrow flow-path" stroke-width="2.5" />
+      <polygon class="seq-arrowhead" points="320,112 310,108 310,116" />
+      <line x1="318" y1="138" x2="270" y2="138" class="flow-path flow-path--reverse" style="stroke:var(--teal); stroke-width:2.5; fill:none;" />
+      <polygon points="270,138 280,134 280,142" style="fill:var(--teal);" />
+
+      <line x1="420" y1="112" x2="468" y2="112" class="seq-arrow flow-path" stroke-width="2.5" />
+      <polygon class="seq-arrowhead" points="470,112 460,108 460,116" />
+      <line x1="468" y1="138" x2="420" y2="138" class="flow-path flow-path--reverse" style="stroke:var(--teal); stroke-width:2.5; fill:none;" />
+      <polygon points="420,138 430,134 430,142" style="fill:var(--teal);" />
+
+      <text class="frame-caption" x="220" y="200" text-anchor="middle">A gateway aggregates several devices, translates protocols, and can run</text>
+      <text class="frame-caption" x="220" y="216" text-anchor="middle">inference locally — see Snap → Ubuntu Core's inference-snap pattern.</text>
+    </svg>
+    <figcaption class="diagram__caption">Not every system needs a gateway layer — plenty of devices connect straight to the cloud platform — but the telemetry-up / commands-down split applies either way.</figcaption>
+  </figure>
+  <p>
+    The device layer is everything covered in
+    <a href="/electronics/index.html">Electronics</a>,
+    <a href="/sensors/index.html">Sensors</a>, and
+    <a href="/embedded/index.html">Embedded</a> — this page picks up
+    where those leave off, once the device is ready to talk to the
+    outside world.
+  </p>
+
+  <h2 id="provisioning">Device provisioning and identity</h2>
+  <p>
+    Before a device can participate in any of this, it needs a unique,
+    cryptographically verifiable identity — otherwise the cloud platform
+    has no way to know which physical device a given message came from.
+  </p>
+  <dl class="kv">
+    <dt>Factory provisioning</dt><dd>A unique certificate/key is generated and installed during manufacturing — the most secure option, since the credential never travels over an untrusted channel after that point.</dd>
+    <dt>Just-in-time provisioning</dt><dd>A device authenticates with a shared "bootstrap" credential on first connect, and the platform issues it a unique certificate at that point — lower manufacturing complexity, but the bootstrap credential itself becomes something worth protecting.</dd>
+  </dl>
+
+  <h2 id="ota">OTA updates</h2>
+  <p>
+    Over-the-air firmware updates are usually the single most
+    operationally important piece of a fleet's software lifecycle — see
+    <a href="/bootloaders/boot-process/index.html">The Complete Boot Process</a>
+    for the bootloader-level mechanics (A/B partitions, bootargs pointing
+    at whichever is current) and
+    <a href="/snap/ubuntu-core/index.html">Snap types &amp; Ubuntu Core</a>
+    for a full OS built around exactly this update model. At the fleet
+    level, the concerns are different: staged rollouts (update 1% of
+    devices before 100%), the ability to halt a bad rollout mid-flight,
+    and bandwidth-conscious delta updates rather than shipping a full
+    firmware image to every device on every change.
+  </p>
+
+  <h2 id="telemetry">Telemetry vs. commands</h2>
+  <p>
+    It's worth treating these as genuinely separate design problems, not
+    one "communication channel":
+  </p>
+  <ul class="point-list">
+    <li><strong>Telemetry (device → cloud)</strong> — usually high volume, loss-tolerant, and time-series in nature (a sensor reading every few seconds). <a href="/networking/mqtt/index.html">MQTT</a> publish or periodic <a href="/networking/coap/index.html">CoAP</a> POSTs fit naturally.</li>
+    <li><strong>Commands (cloud → device)</strong> — usually low volume, and often needs delivery confirmation ("did the device actually receive and act on this?") that telemetry doesn't need at all — a different reliability requirement even over the same protocol.</li>
+  </ul>
+
+  <h2 id="shadow">Device shadows / digital twins</h2>
+  <p>
+    A <strong>device shadow</strong> (AWS IoT's term) or <strong>digital
+    twin</strong> (the more general term) is a cloud-side cached copy of
+    a device's last-known state and desired state. It matters because
+    devices aren't always connected: an application can read or even set
+    the "desired" state of an offline device against its shadow, and the
+    device applies that desired state the next time it reconnects —
+    without the application ever needing to know or care whether the
+    device was online at the moment the request was made.
+  </p>
+
+  <h2 id="protocol-choice">Choosing a protocol at each layer</h2>
+  <table>
+    <thead><tr><th>Protocol</th><th>Best fit here</th></tr></thead>
+    <tbody>
+      <tr><td><a href="/networking/coap/index.html">CoAP</a></td><td>Individually constrained devices talking to a gateway, or directly to a CoAP-aware backend</td></tr>
+      <tr><td><a href="/networking/mqtt/index.html">MQTT</a></td><td>Device-to-cloud telemetry and command fan-out at fleet scale — the most common device-to-cloud choice</td></tr>
+      <tr><td><a href="/networking/amqp/index.html">AMQP</a></td><td>Behind the cloud platform itself, routing ingested device data to the right internal services</td></tr>
+      <tr><td>HTTPS</td><td>Application-layer APIs, dashboards, and anything device-to-cloud that isn't latency- or power-sensitive</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="security">Security, end to end</h2>
+  <p>
+    A real IoT deployment needs security at every layer, not just one:
+    <a href="/networking/https/index.html">TLS/mTLS</a> for the
+    connection itself, unique per-device identity (above) so a
+    compromised device can be individually revoked, and
+    <a href="/bootloaders/fundamentals/index.html#secure-boot">secure/verified
+    boot</a> so the device's own firmware can't be silently replaced by
+    something malicious in the first place. Any one of these alone is a
+    partial defense — a stolen shared credential defeats TLS just as
+    completely as no TLS at all.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>AWS IoT Core / Azure IoT Hub —</strong> managed cloud platforms providing device registry, MQTT ingestion, device shadows, and rules engines out of the box.</li>
+    <li><strong>ThingsBoard / Eclipse IoT —</strong> open-source alternatives for teams that want to self-host the platform layer rather than depend on a specific cloud vendor.</li>
+    <li><strong>balenaCloud —</strong> a fleet management platform built specifically around container-based OTA updates for Linux edge devices — the fleet-scale version of the A/B update concerns above.</li>
+    <li><strong>Home Assistant —</strong> a consumer-scale example of the same architecture in miniature — a local "gateway" aggregating many devices' MQTT traffic, with automations standing in for cloud-side rules.</li>
+    <li><strong>Industrial SCADA/telemetry systems —</strong> the same device/gateway/platform layering, often with CoAP or proprietary protocols at the device layer feeding into an industrial-grade broker.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Building full cloud infrastructure for a 3-device prototype is a common over-investment — the layered architecture is a target to grow into, not a checklist every project needs from day one.</li>
+      <li>Device management (provisioning, OTA, fleet monitoring) is consistently underestimated until fleet size grows past what anyone can update by hand — planning for it early is much cheaper than retrofitting it onto thousands of already-deployed devices.</li>
+      <li>Designing only for "always connected" devices is a design bug waiting to happen — real deployments lose connectivity constantly, and both telemetry buffering and command queuing need an explicit answer for "what happens while offline," not just "it'll reconnect eventually."</li>
+      <li>Hardcoded, shared credentials baked into firmware are still extremely common in early prototypes and occasionally make it to production — per-device identity (above) isn't optional once a fleet exists, only easy to skip when there's just one device to test with.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/networking/https/index.html", "title": "HTTPS & TLS" },
+  "related": [
+    { "href": "/networking/mqtt/index.html", "title": "MQTT" },
+    { "href": "/networking/coap/index.html", "title": "CoAP" },
+    { "href": "/networking/https/index.html", "title": "HTTPS & TLS" },
+    { "href": "/snap/ubuntu-core/index.html", "title": "Snap types & Ubuntu Core" },
+    { "href": "/bootloaders/boot-process/index.html", "title": "The Complete Boot Process" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
