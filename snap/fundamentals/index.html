@@ -23,6 +23,16 @@
     OS's own package versions.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A containerized package format: an app and its dependencies bundled into one read-only, independently-updatable image.</dd>
+      <dt>Mental model</dt><dd>A shipping container — everything the app needs travels together, sealed, so it runs the same regardless of what's on the host.</dd>
+      <dt>Key numbers</dt><dd>3 confinement levels (strict/classic/devmode); channels follow a <code>track/risk</code> naming scheme.</dd>
+      <dt>Reach for it when</dt><dd>You want an application to update independently of the host OS, with automatic rollback if an update breaks.</dd>
+    </dl>
+  </div>
+
   <h2>What's actually inside a snap</h2>
   <p>
     A <code>.snap</code> file is a squashfs image. When installed, it's
@@ -70,6 +80,14 @@ snap refresh mypackage --channel=20/edge   # switch tracks/risk</code></pre>
     kernel, and bootloader snaps themselves, all versioned and
     rollback-capable the same way.
   </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Ubuntu Core edge/IoT devices —</strong> the entire OS ships as snaps, giving fleet-safe atomic updates — see <a href="/snap/ubuntu-core/index.html">Snap types &amp; Ubuntu Core</a>.</li>
+    <li><strong>Digital signage and kiosks —</strong> strict confinement limits what a display application can access, useful for unattended public-facing devices.</li>
+    <li><strong>Desktop application distribution —</strong> many Linux desktop apps (VS Code, Spotify) ship as snaps precisely to avoid dependency conflicts with the host distro's packages.</li>
+    <li><strong>Remote/unattended devices —</strong> automatic rollback on a failed update matters most exactly where nobody can walk up and fix a bricked device by hand.</li>
+  </ul>
 
   <div class="callout callout--note">
     <span class="callout__label">What I learned</span>

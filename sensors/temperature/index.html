@@ -23,6 +23,16 @@
     range, accuracy, and wiring budget the application actually has.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>An umbrella term for four different sensing principles: resistance change (thermistor/RTD), junction voltage (thermocouple), or an on-chip reference (digital silicon).</dd>
+      <dt>Mental model</dt><dd>Cheap and rough (thermistor) → precise but wired carefully (RTD) → extreme range but relative-only (thermocouple) → easiest to use, moderate accuracy (digital).</dd>
+      <dt>Key numbers</dt><dd>Thermistor ~±2–5% nonlinear, RTD (PT100) high accuracy, thermocouple to 1000+°C, digital sensors ~±0.5°C typical.</dd>
+      <dt>Reach for it when</dt><dd>Pick by range and accuracy need first — a digital sensor for "roughly how hot," an RTD when the number has to be trustworthy.</dd>
+    </dl>
+  </div>
+
   <nav class="toc" aria-label="On this page">
     <span class="toc__label">On this page</span>
     <ul>
@@ -32,6 +42,7 @@
       <li><a href="#digital">Digital silicon sensors</a></li>
       <li><a href="#compare">Comparison</a></li>
       <li><a href="#accuracy">Self-heating, response time, and placement</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -152,6 +163,15 @@
     <li><strong>Self-heating</strong> — any sensor that's read by passing current through it (thermistors, RTDs) dissipates a little power as heat itself; too much excitation current measurably warms the sensor above the actual ambient temperature, especially in still air with poor heat dissipation.</li>
     <li><strong>Response time / thermal mass</strong> — a sensor with more physical mass (a large probe body) takes longer to reach the temperature of what it's touching — a fast-changing temperature can be under-read simply because the sensor hasn't caught up yet.</li>
     <li><strong>Thermal coupling and placement</strong> — a sensor that isn't well thermally coupled to the thing it's supposed to measure (an air gap, a long unthermalized lead) will happily report a stable, accurate, and completely wrong number.</li>
+  </ul>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>3D printer hotends —</strong> thermistors are the near-universal choice for extruder and bed temperature feedback, cheap and fast enough for PID control loops.</li>
+    <li><strong>Industrial furnaces and kilns —</strong> Type K thermocouples handle the extreme temperatures thermistors and RTDs can't survive.</li>
+    <li><strong>Laboratory and calibration equipment —</strong> PT100 RTDs are the standard where traceable, high-precision temperature measurement actually matters.</li>
+    <li><strong>Battery management systems —</strong> digital silicon sensors (or thermistors) monitor cell temperature to prevent thermal runaway in lithium battery packs.</li>
+    <li><strong>Weather stations and HVAC —</strong> digital I2C sensors dominate here for their simplicity — no analog front-end, just a register read.</li>
   </ul>
 
   <h2 id="gotchas">Gotchas</h2>

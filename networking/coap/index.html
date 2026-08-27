@@ -25,6 +25,16 @@
     lightweight reliability on top of UDP's unreliable delivery.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A REST-style protocol (GET/POST/PUT/DELETE) over UDP, purpose-built for constrained devices.</dd>
+      <dt>Mental model</dt><dd>HTTP's request/response idea, re-encoded into a tiny binary format and given just enough optional reliability, not TCP's full guarantee.</dd>
+      <dt>Key numbers</dt><dd>4-byte fixed header (vs. HTTP's 100+ bytes of text); CON messages retry until ACKed or give up.</dd>
+      <dt>Reach for it when</dt><dd>A constrained device needs REST-style request/response but can't afford TCP's connection state or handshake cost.</dd>
+    </dl>
+  </div>
+
   <nav class="toc" aria-label="On this page">
     <span class="toc__label">On this page</span>
     <ul>
@@ -37,6 +47,7 @@
       <li><a href="#compare">CoAP vs. raw UDP vs. MQTT vs. HTTP</a></li>
       <li><a href="#choosing">When to choose what</a></li>
       <li><a href="#proscons">Pros and cons</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -339,6 +350,14 @@
       </tr>
     </tbody>
   </table>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Smart lighting and building automation —</strong> CoAP's REST model (GET a sensor, PUT a light state) maps directly onto controlling building devices from a central system.</li>
+    <li><strong>Battery-powered sensor nodes —</strong> Observe (see above) lets a low-power sensor push updates without the server having to poll it constantly.</li>
+    <li><strong>LPWAN deployments (e.g. over 6LoWPAN)</strong> — CoAP is a common application-layer choice on low-power wireless mesh networks where every byte of overhead costs battery life.</li>
+    <li><strong>Firmware/config management on constrained devices —</strong> block-wise transfer makes it practical to push a configuration update or small firmware chunk over a link that can't carry one large UDP payload reliably.</li>
+  </ul>
 
   <h2 id="gotchas">Gotchas</h2>
   <div class="callout callout--warn">

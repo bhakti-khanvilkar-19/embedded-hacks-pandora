@@ -25,6 +25,16 @@
     scheme.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A message-broker protocol that separates routing (exchanges) from storage (queues), enabling flexible fan-out rules.</dd>
+      <dt>Mental model</dt><dd>A sorting office: producers drop mail at an exchange, routing rules decide which mailboxes (queues) get a copy, consumers collect from their own mailbox whenever ready.</dd>
+      <dt>Key numbers</dt><dd>4 exchange types (direct, topic, fanout, headers); durable queues survive broker restarts.</dd>
+      <dt>Reach for it when</dt><dd>You need complex routing or guaranteed persistence beyond what a flat topic hierarchy gives you.</dd>
+    </dl>
+  </div>
+
   <nav class="toc" aria-label="On this page">
     <span class="toc__label">On this page</span>
     <ul>
@@ -34,6 +44,7 @@
       <li><a href="#channels">Connections and channels</a></li>
       <li><a href="#versions">0-9-1 vs. 1.0 — two different protocols, one name</a></li>
       <li><a href="#vs">AMQP vs. MQTT vs. CoAP</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -159,6 +170,14 @@
     that role usually falls to <a href="/networking/coap/index.html">CoAP</a>
     or <a href="/networking/mqtt/index.html">MQTT</a>.
   </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Backend microservice communication —</strong> RabbitMQ (AMQP 0-9-1) is a standard choice for decoupling services in enterprise and cloud backends.</li>
+    <li><strong>Order/payment processing pipelines —</strong> durable queues and publisher confirms make AMQP a common choice wherever a message genuinely cannot be lost.</li>
+    <li><strong>IoT device gateways —</strong> a gateway ingesting MQTT or CoAP traffic from constrained devices commonly republishes it internally over AMQP for backend processing and routing.</li>
+    <li><strong>Azure Service Bus / cloud messaging —</strong> AMQP 1.0 is the wire protocol behind several major cloud messaging services.</li>
+  </ul>
 
   <h2 id="gotchas">Gotchas</h2>
   <div class="callout callout--warn">

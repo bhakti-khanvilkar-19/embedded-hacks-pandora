@@ -98,6 +98,37 @@ Don't create `examples.html` or `notes.html` preemptively — start with just
 `index.html` and split a section out once it's genuinely too big to sit
 inline on the main page.
 
+## How a topic page is written
+
+This is meant to be read for the rest of a career, by people who range
+from "never seen this before" to "already an expert looking something
+up" — so every page follows the same shape, basics before mechanism
+before practice, so a reader can stop the instant they have enough:
+
+1. **Lede** — one or two plain-language sentences. No jargon a beginner
+   wouldn't already know.
+2. **Quick Reference box** (`<div class="quickref">`) — a 30-second
+   summary: what it is, the one-sentence mental model, the key numbers
+   worth memorizing, and when to reach for it. This is the part a senior
+   engineer skims on the way past and a junior engineer re-reads twice.
+3. **Table of contents.**
+4. **Concept sections, simplest first.** Prefer `<dl class="kv">` and
+   `<ul class="point-list">` bullets over dense paragraphs for anything
+   that's fundamentally a list of facts (fields, states, options) — point
+   form beats prose for anything meant to be scanned rather than read
+   start to end. Save prose paragraphs for where an actual explanation or
+   argument is being made, not a list dressed up as sentences.
+5. **Real-world Applications** (`<h2 id="applications">`) — concrete
+   products or systems this actually shows up in, not abstract use-case
+   categories ("used in automotive" is not real-world enough; "the CAN bus
+   connecting a car's ECU to its ABS module" is). This is the "how do I
+   actually use this" section and should never be skipped — theory
+   without a landing point in real hardware isn't finished.
+6. **Gotchas / What I learned** — field notes, not textbook facts.
+
+`_templates/topic-index.template.html` has this structure pre-built —
+copy it rather than reconstructing it by hand.
+
 ## Adding a new topic — step by step
 
 1. **Classify it.** Which domain? Which existing topic, if any, is it

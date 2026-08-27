@@ -24,6 +24,16 @@
     gravity, not gravity itself.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A MEMS sensor that measures proper acceleration (including gravity) by tracking the displacement of a microscopic suspended mass.</dd>
+      <dt>Mental model</dt><dd>A tiny mass on springs between two capacitor plates — inertia makes it lag under acceleration, and that shift changes capacitance in a measurable way.</dd>
+      <dt>Key numbers</dt><dd>3 axes typical, selectable full-scale range (±2g to ±16g), read via I2C or SPI as 16-bit signed values.</dd>
+      <dt>Reach for it when</dt><dd>You need to sense tilt, shock, tap, freefall, or orientation relative to gravity.</dd>
+    </dl>
+  </div>
+
   <nav class="toc" aria-label="On this page">
     <span class="toc__label">On this page</span>
     <ul>
@@ -33,6 +43,7 @@
       <li><a href="#raw">From raw registers to g</a></li>
       <li><a href="#interfacing">Reading it: I2C or SPI</a></li>
       <li><a href="#interrupts">Interrupt-driven detection</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -147,6 +158,15 @@ float ms2_x = g_x * 9.80665f;                 // if you want SI units</code></pr
     <li><strong>Freefall</strong> — magnitude across all three axes drops near zero, since a free-falling sensor (briefly) feels no proper acceleration at all.</li>
     <li><strong>Activity / inactivity</strong> — magnitude staying above or below a threshold for a configurable duration — the basis of most "wake on motion" designs.</li>
     <li><strong>Orientation change</strong> — which axis is currently closest to +1g, used for simple portrait/landscape detection.</li>
+  </ul>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Phone screen rotation —</strong> the classic example: comparing the gravity vector against each axis decides portrait vs. landscape.</li>
+    <li><strong>Fall detection —</strong> wearables and medical alert devices watch for the freefall-then-shock signature described above.</li>
+    <li><strong>Vibration/condition monitoring —</strong> industrial accelerometers mounted on motors and bearings detect abnormal vibration patterns that indicate developing mechanical faults.</li>
+    <li><strong>Pedometers and activity trackers —</strong> step counting is fundamentally peak-detection on the acceleration magnitude signal.</li>
+    <li><strong>Drone and robot stabilization —</strong> combined with a gyroscope (see <a href="/sensors/motion/index.html">Motion &amp; IMU</a>) as the core sensor feeding any flight or balance controller.</li>
   </ul>
 
   <h2 id="gotchas">Gotchas</h2>

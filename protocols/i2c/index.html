@@ -22,6 +22,16 @@
     wires because addressing happens in-band.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A two-wire, multi-drop bus where every device shares SDA/SCL and is picked out by an in-band address, not a dedicated pin.</dd>
+      <dt>Mental model</dt><dd>A party line: everyone hears everything, but only the device whose address was called speaks up.</dd>
+      <dt>Key numbers</dt><dd>2 wires (SDA, SCL), 100 kHz–3.4 MHz depending on mode, 7-bit addresses (0x08–0x77 typical).</dd>
+      <dt>Reach for it when</dt><dd>You're wiring up several low-speed sensors and pin count matters more than raw throughput.</dd>
+    </dl>
+  </div>
+
   <nav class="toc" aria-label="On this page">
     <span class="toc__label">On this page</span>
     <ul>
@@ -32,6 +42,7 @@
       <li><a href="#stretch">Clock stretching and arbitration</a></li>
       <li><a href="#mux">Beyond 127 addresses: muxes and expanders</a></li>
       <li><a href="#smbus">SMBus: I2C's stricter cousin</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -126,6 +137,15 @@
     actually the SMBus subset, because it's specific enough to have
     well-defined helper functions where raw I2C intentionally isn't.
   </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Environmental sensors —</strong> temperature/humidity/pressure sensors (BME280-class parts) and IMUs (MPU6050-class parts) are overwhelmingly I2C, since their data rates are modest and board space is tight.</li>
+    <li><strong>EEPROMs —</strong> small configuration/calibration-data chips (24LCxx family) on countless boards.</li>
+    <li><strong>Display controllers —</strong> small OLED panels (SSD1306) are commonly driven over I2C when SPI's extra pins aren't worth it for a slow-updating display.</li>
+    <li><strong>Power management ICs</strong> — PMICs, fuel gauges, and RTC chips almost always expose I2C as their control interface on phones, wearables, and single-board computers.</li>
+    <li><strong>Raspberry Pi / dev-board sensor HATs —</strong> the standard way third-party sensor boards attach, since the host exposes one shared I2C bus that many add-on boards can hang off simultaneously.</li>
+  </ul>
 
   <h2 id="gotchas">Gotchas</h2>
   <div class="callout callout--warn">

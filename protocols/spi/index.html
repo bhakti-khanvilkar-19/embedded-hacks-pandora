@@ -22,6 +22,16 @@
     like sensors, flash memory, displays, and ADCs.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A synchronous serial bus where the controller drives the clock and every clock tick shifts one bit out and one bit in, simultaneously.</dd>
+      <dt>Mental model</dt><dd>A shift register shared between two chips — data moves in both directions on the same clock edge, and wiring (not addressing) picks the device.</dd>
+      <dt>Key numbers</dt><dd>4 wires (SCLK, MOSI, MISO, one CS per device), up to tens of MHz, 4 clock modes (0–3).</dd>
+      <dt>Reach for it when</dt><dd>You need high throughput to a nearby chip and can spare one GPIO pin per device for chip select.</dd>
+    </dl>
+  </div>
+
   <nav class="toc" aria-label="On this page">
     <span class="toc__label">On this page</span>
     <ul>
@@ -32,6 +42,7 @@
       <li><a href="#vs">SPI vs. I2C vs. UART</a></li>
       <li><a href="#variants">Variants: 3-wire, dual, and quad SPI</a></li>
       <li><a href="#signal">Clock speed and signal integrity</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -168,6 +179,15 @@
     raise it back up while watching for where it actually breaks — that
     tells you whether it's a protocol bug or a signal-integrity one.
   </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>SD/microSD cards —</strong> every SD card supports an SPI fallback mode, which is how most microcontrollers without a dedicated SDIO peripheral read and write them.</li>
+    <li><strong>SPI NOR flash —</strong> the firmware/bootloader storage chip (e.g. W25Qxx family) on most microcontroller boards is read over SPI, often in quad mode for speed.</li>
+    <li><strong>TFT/OLED displays —</strong> small display controllers like the ILI9341 or SSD1306 are driven almost exclusively over SPI for the pixel-data throughput.</li>
+    <li><strong>ADCs and DACs —</strong> precision converter chips (e.g. the MCP3xxx family) commonly expose SPI as their only digital interface.</li>
+    <li><strong>Inter-board links —</strong> short board-to-board connections (a sensor daughterboard, a radio module like the nRF24L01) frequently use SPI simply because it needs no negotiation — power it up and start clocking.</li>
+  </ul>
 
   <h2 id="gotchas">Gotchas</h2>
   <div class="callout callout--warn">

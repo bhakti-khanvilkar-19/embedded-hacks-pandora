@@ -10,6 +10,22 @@
   - Add this page as a row to <domain>/index.html's topic-list, and move it
     out of that page's "Planned" badges if it was listed there.
   - Re-run `node scripts/build-search-index.js` after adding the page.
+
+  Every topic page follows this order — basics before mechanism before
+  practice, so a reader can stop reading the instant they have enough:
+    1. Lede — one or two plain-language sentences, no jargon yet.
+    2. Quick Reference box — a 30-second summary (What / Mental model /
+       Key numbers / When to use it). This is the part a senior engineer
+       skims and a junior engineer re-reads.
+    3. Table of contents.
+    4. Concept sections, ordered simplest first. Prefer <dl class="kv">
+       and .point-list bullets over dense paragraphs wherever the content
+       is a set of facts rather than an argument — point-wise beats prose
+       for anything meant to be scanned, not read start to end.
+    5. Real-world Applications — concrete products/systems this shows up
+       in, not abstract use-case categories. This is the "how do I
+       actually use this" section — never skip it.
+    6. Gotchas / What I learned.
 -->
 <!doctype html>
 <html lang="en">
@@ -29,19 +45,29 @@
 <main class="page">
   <p class="kicker">{{Domain}}</p>
   <h1>{{Topic}}</h1>
-  <p class="lede">{{One or two sentences: what this topic is and why it matters.}}</p>
+  <p class="lede">{{One or two plain-language sentences: what this is and why it matters. No jargon a beginner wouldn't know yet.}}</p>
 
-  <!-- Optional — only add a table of contents once the page has several headings.
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>{{One line, plain language.}}</dd>
+      <dt>Mental model</dt><dd>{{The one-sentence analogy or core idea to hold onto.}}</dd>
+      <dt>Key numbers</dt><dd>{{Speeds, ranges, pin counts — whatever's worth memorizing.}}</dd>
+      <dt>Reach for it when</dt><dd>{{One line: the situation that makes this the right tool.}}</dd>
+    </dl>
+  </div>
+
+  <!-- Add once the page has several headings (almost always). -->
   <nav class="toc" aria-label="On this page">
     <span class="toc__label">On this page</span>
     <ul>
       <li><a href="#section-id">Section title</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
     </ul>
   </nav>
-  -->
 
-  <h2 id="section-id">{{Section heading}}</h2>
-  <p>{{Body copy.}}</p>
+  <h2 id="section-id">{{Section heading — start with the simplest concept}}</h2>
+  <p>{{Body copy — prefer bullets/definitions over paragraphs for anything that's a list of facts.}}</p>
 
   <!-- Definition list for quick key/value facts (pinout, register meanings, etc.) -->
   <!--
@@ -57,6 +83,18 @@
     <tbody><tr><td>Value</td></tr></tbody>
   </table>
   -->
+
+  <!-- Tight bullets for scannable facts — prefer this over prose paragraphs -->
+  <!--
+  <ul class="point-list">
+    <li><strong>Label —</strong> point.</li>
+  </ul>
+  -->
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>{{Real product/system}} —</strong> {{how it's actually used there.}}</li>
+  </ul>
 
   <!-- Use for pitfalls, hard-won lessons, "what I learned" -->
   <div class="callout callout--note">

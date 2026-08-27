@@ -24,6 +24,16 @@
     each is alone, is most of what "IMU" actually means in practice.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A gyroscope measures rotation rate; paired with an accelerometer (an IMU) and blended through a fusion filter, together they give a stable orientation.</dd>
+      <dt>Mental model</dt><dd>Gyro = fast but forgetful (drifts); accelerometer = slow but honest (noisy, but right on average). Fusion trusts each where it's strong.</dd>
+      <dt>Key numbers</dt><dd>6-DOF = accel + gyro; 9-DOF adds a magnetometer for yaw; complementary filter alpha typically ~0.98.</dd>
+      <dt>Reach for it when</dt><dd>You need a stable orientation (roll/pitch, or full heading with 9-DOF) rather than raw, drifting or noisy sensor data.</dd>
+    </dl>
+  </div>
+
   <nav class="toc" aria-label="On this page">
     <span class="toc__label">On this page</span>
     <ul>
@@ -33,6 +43,7 @@
       <li><a href="#dof">6-DOF, 9-DOF, and what a magnetometer adds</a></li>
       <li><a href="#pir">Not the same "motion sensor": PIR detectors</a></li>
       <li><a href="#applications">Applications</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -167,6 +178,15 @@
     <li><strong>Drone and robot attitude control</strong> — a fused roll/pitch/yaw estimate is the core input to any flight or balance controller.</li>
     <li><strong>Gesture recognition</strong> — recognizing a shake, flip, or tilt pattern from raw or lightly filtered IMU data.</li>
     <li><strong>Dead reckoning</strong> — estimating position change by double-integrating acceleration; workable for short distances, but errors compound quickly (double integration means position error grows even faster than the single-integration drift a gyroscope suffers) — not a substitute for <a href="/sensors/gnss/index.html">GNSS</a> over any real distance or time.</li>
+  </ul>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Drone flight controllers —</strong> fused IMU orientation is the core input every autopilot (e.g. Betaflight, ArduPilot) stabilizes against.</li>
+    <li><strong>Camera/gimbal stabilization —</strong> action cameras and handheld gimbals use fast gyro response to counteract shake in real time.</li>
+    <li><strong>Game controllers and VR headsets —</strong> 9-DOF fusion tracks controller and headset orientation for motion-based input.</li>
+    <li><strong>Robot balancing —</strong> self-balancing robots and segways depend on low-latency, drift-corrected tilt to stay upright.</li>
+    <li><strong>Step/gesture-based UI —</strong> shake-to-undo and flip-to-mute gestures on phones are pattern recognition over lightly filtered IMU data.</li>
   </ul>
 
   <h2 id="gotchas">Gotchas</h2>

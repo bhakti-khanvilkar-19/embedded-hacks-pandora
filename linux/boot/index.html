@@ -22,6 +22,16 @@
     userspace process starting.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The sequence from bootloader handoff, through kernel init and (optionally) an initramfs, to PID 1 starting.</dd>
+      <dt>Mental model</dt><dd>A relay race: bootloader hands the baton to the kernel, the kernel hands it to an initramfs (maybe), which hands it to the real init.</dd>
+      <dt>Key numbers</dt><dd>Kernel command line configures early boot behavior; PID 1 exiting always panics the kernel.</dd>
+      <dt>Reach for it when</dt><dd>Debugging why a board won't boot, or building a custom root filesystem/init strategy.</dd>
+    </dl>
+  </div>
+
   <h2>The handoff</h2>
   <p>
     The bootloader (see <a href="/bootloaders/u-boot/index.html">U-Boot</a>)
@@ -78,6 +88,14 @@
     reaping orphaned processes. If PID 1 ever exits, the kernel panics —
     there is no next process to hand control to.
   </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Custom embedded Linux images (Yocto, Buildroot)</strong> — every board bring-up involves getting exactly this handoff sequence working for new hardware.</li>
+    <li><strong>A/B update systems —</strong> the kernel command line and initramfs are commonly used to select which root partition to boot for atomic, rollback-capable updates (see <a href="/snap/ubuntu-core/index.html">Snap types &amp; Ubuntu Core</a>).</li>
+    <li><strong>Recovery/rescue modes —</strong> many devices boot into a minimal initramfs-only environment for factory reset or firmware recovery, without ever mounting the normal root filesystem.</li>
+    <li><strong>Secure boot chains —</strong> verifying the kernel and initramfs signature is part of the same handoff this page describes, continuing the chain of trust from <a href="/bootloaders/fundamentals/index.html">Bootloader fundamentals</a>.</li>
+  </ul>
 
   <div class="callout callout--note">
     <span class="callout__label">What I learned</span>

@@ -23,6 +23,16 @@
     all of that is left to the application, if it needs it at all.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The minimal transport on top of IP: adds only ports and an optional checksum, nothing else.</dd>
+      <dt>Mental model</dt><dd>Dropping a postcard in the mail: fast, cheap, no confirmation it arrived, and no automatic resend if it doesn't.</dd>
+      <dt>Key numbers</dt><dd>8-byte header (vs. TCP's 20+); no connection setup, no retransmission by default.</dd>
+      <dt>Reach for it when</dt><dd>Low overhead matters more than guaranteed delivery, or the application already handles its own reliability (e.g. CoAP).</dd>
+    </dl>
+  </div>
+
   <h2>What the header actually adds over raw IP</h2>
   <dl class="kv">
     <dt>Source port</dt><dd>16 bits — identifies the sending application/socket.</dd>
@@ -98,6 +108,15 @@
     (in-order delivery blocking newer data behind a lost old packet, for
     instance) is actually the wrong fit for the application.
   </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>DNS —</strong> the domain name lookup that runs before nearly every internet connection is a single UDP request/response.</li>
+    <li><strong>CoAP-based IoT devices —</strong> constrained sensors and actuators (see <a href="/networking/coap/index.html">CoAP</a>) use UDP specifically to avoid TCP's connection-state cost.</li>
+    <li><strong>Video calls and streaming —</strong> WebRTC and most real-time video/audio protocols use UDP because a dropped frame is better than a stalled one.</li>
+    <li><strong>Network Time Protocol (NTP) —</strong> time synchronization is a lightweight UDP exchange, precisely because low, predictable overhead matters more than guaranteed delivery.</li>
+    <li><strong>Firmware/device discovery on a LAN —</strong> UDP broadcast is how many IoT devices announce themselves on a local network before any connection is established.</li>
+  </ul>
 
   <div class="callout callout--note">
     <span class="callout__label">What I learned</span>

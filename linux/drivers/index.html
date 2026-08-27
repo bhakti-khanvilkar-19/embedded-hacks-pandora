@@ -22,6 +22,16 @@
     pages in this notebook to actual running code.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>How the kernel matches devices to drivers, and the paths (spidev, i2c-dev, tty, gpiochip) by which userspace reaches them.</dd>
+      <dt>Mental model</dt><dd>A device tree entry is a job posting; a driver's compatible string is the résumé — the bus matches them and calls probe().</dd>
+      <dt>Key numbers</dt><dd>4 generic userspace paths cover most protocols this notebook covers: spidev, i2c-dev, tty, gpiochip.</dd>
+      <dt>Reach for it when</dt><dd>Debugging why a peripheral isn't showing up, or deciding between a quick userspace hack and a real kernel driver.</dd>
+    </dl>
+  </div>
+
   <h2>The device model, in one paragraph</h2>
   <p>
     A <strong>bus</strong> (platform, SPI, I2C, USB, ...) knows how to
@@ -76,6 +86,14 @@ ls /sys/firmware/devicetree/base/
 
 # which driver is bound to a given platform device
 ls /sys/bus/platform/devices/&lt;device&gt;/driver</code></pre>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Custom sensor boards —</strong> a new I2C/SPI sensor on a carrier board typically needs a device tree overlay to bind it to the right driver before any of the <a href="/sensors/index.html">Sensors</a> pages' code examples can talk to it.</li>
+    <li><strong>Industrial gateway devices —</strong> a Linux gateway aggregating <a href="/protocols/can/index.html">CAN</a>, I2C, and SPI peripherals relies entirely on this binding model to expose them all as usable device nodes.</li>
+    <li><strong>Board bring-up —</strong> porting Linux to new hardware is largely device-tree and driver-binding work — getting the device model right before any application code can run.</li>
+    <li><strong>Rapid prototyping —</strong> spidev/i2c-dev exist specifically so a prototype doesn't need a real kernel driver written before it can talk to hardware.</li>
+  </ul>
 
   <div class="callout callout--note">
     <span class="callout__label">What I learned</span>

@@ -23,6 +23,16 @@
     variable latency.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A connection-oriented transport that turns IP's unreliable packets into a reliable, ordered byte stream.</dd>
+      <dt>Mental model</dt><dd>A phone call: you dial first (handshake), talk in order, and both sides know if the line drops.</dd>
+      <dt>Key numbers</dt><dd>3-way handshake before any data flows; minimum 20-byte header; retransmission on unacknowledged segments.</dd>
+      <dt>Reach for it when</dt><dd>You need guaranteed, in-order delivery and can accept connection setup cost and variable latency.</dd>
+    </dl>
+  </div>
+
   <nav class="toc" aria-label="On this page">
     <span class="toc__label">On this page</span>
     <ul>
@@ -30,6 +40,7 @@
       <li><a href="#reliability">How reliability actually works</a></li>
       <li><a href="#window">Flow control and windows</a></li>
       <li><a href="#teardown">Connection teardown</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -78,6 +89,14 @@
     the reason a server under heavy short-lived-connection churn can
     accumulate many sockets in that state.
   </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>HTTP/HTTPS —</strong> essentially all web traffic rides on TCP, which is why a slow connection setup is felt as page-load latency.</li>
+    <li><strong>Firmware-over-the-air (FOTA) updates —</strong> reliable, ordered delivery matters enormously for shipping a firmware image — a corrupted or reordered byte can brick a device.</li>
+    <li><strong>SSH/remote device management —</strong> interactive terminal sessions to embedded Linux boards depend on TCP's ordering guarantees.</li>
+    <li><strong>MQTT/AMQP —</strong> both messaging protocols (see <a href="/networking/mqtt/index.html">MQTT</a>, <a href="/networking/amqp/index.html">AMQP</a>) are built on top of TCP specifically for its reliability.</li>
+  </ul>
 
   <h2 id="gotchas">Gotchas</h2>
   <div class="callout callout--warn">
