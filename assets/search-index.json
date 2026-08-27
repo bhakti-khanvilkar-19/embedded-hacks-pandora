@@ -32,6 +32,17 @@
     ]
   },
   {
+    "title": "Data Converters — Electronics",
+    "url": "/electronics/converters/index.html",
+    "domain": "Electronics",
+    "category": "Converters",
+    "description": "ADC and DAC: sampling, quantization, resolution, reference voltage, SAR vs sigma-delta, and using PWM as a poor man's DAC.",
+    "tags": [
+      "electronics",
+      "converters"
+    ]
+  },
+  {
     "title": "Fundamentals — Electronics",
     "url": "/electronics/fundamentals/index.html",
     "domain": "Electronics",

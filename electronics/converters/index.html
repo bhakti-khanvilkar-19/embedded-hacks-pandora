@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Converters — Electronics — Embedded Pandora</title>
+<meta name="description" content="ADC and DAC: sampling, quantization, resolution, reference voltage, SAR vs sigma-delta, and using PWM as a poor man's DAC." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Electronics</p>
+  <h1>Data Converters — ADC and DAC</h1>
+  <p class="lede">
+    The physical world — temperature, sound, light, position — is
+    continuous. A microcontroller only understands discrete numbers.
+    Every sensor reading and every generated waveform has to cross that
+    boundary somewhere, and that crossing is exactly what an ADC and DAC do.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>ADC turns a continuous voltage into a digital number; DAC does the reverse.</dd>
+      <dt>Mental model</dt><dd>A ruler with only so many tick marks — the ADC rounds the real, continuous world to the nearest tick it has.</dd>
+      <dt>Key numbers</dt><dd>digital = (V<sub>in</sub> / V<sub>ref</sub>) × (2<sup>bits</sup> − 1); 10-bit = 1024 levels, 12-bit = 4096.</dd>
+      <dt>Reach for it when</dt><dd>Any analog sensor input, or generating a smooth analog output/audio/control voltage from digital logic.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#adc">ADC: sampling and quantization</a></li>
+      <li><a href="#adc-params">Resolution, reference voltage, and sample rate</a></li>
+      <li><a href="#nyquist">The Nyquist rule</a></li>
+      <li><a href="#adc-types">SAR, sigma-delta, and flash ADCs</a></li>
+      <li><a href="#dac">DAC</a></li>
+      <li><a href="#pwm-dac">PWM as a poor man's DAC</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="adc">ADC: sampling and quantization</h2>
+  <p>
+    An Analog-to-Digital Converter does two things at every conversion:
+    <strong>samples</strong> the input voltage at one instant, then
+    <strong>quantizes</strong> it — rounds it to the nearest digital step
+    the converter's resolution can represent.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 500 230" role="img" aria-labelledby="adc-sample-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="adc-sample-title">A continuous analog signal sampled at regular intervals, then quantized into a staircase of digital values</title>
+      <polyline points="20,120 60,90 110,60 160,50 210,70 260,110 310,150 360,165 410,140 450,110 480,100"
+                fill="none" stroke="var(--blue)" stroke-width="2.5" />
+
+      <g stroke="var(--ink-faint)" stroke-dasharray="2 3">
+        <line x1="60" y1="90" x2="60" y2="200" />
+        <line x1="110" y1="60" x2="110" y2="200" />
+        <line x1="160" y1="50" x2="160" y2="200" />
+        <line x1="210" y1="70" x2="210" y2="200" />
+        <line x1="260" y1="110" x2="260" y2="200" />
+        <line x1="310" y1="150" x2="310" y2="200" />
+        <line x1="360" y1="165" x2="360" y2="200" />
+        <line x1="410" y1="140" x2="410" y2="200" />
+        <line x1="450" y1="110" x2="450" y2="200" />
+      </g>
+
+      <circle cx="60" cy="90" r="4" style="fill:var(--blue);" />
+      <circle cx="110" cy="60" r="4" style="fill:var(--blue);" />
+      <circle cx="160" cy="50" r="4" style="fill:var(--blue);" />
+      <circle cx="210" cy="70" r="4" style="fill:var(--blue);" />
+      <circle cx="260" cy="110" r="5" class="pulse-dot" style="fill:var(--accent);" />
+      <circle cx="310" cy="150" r="4" style="fill:var(--blue);" />
+      <circle cx="360" cy="165" r="4" style="fill:var(--blue);" />
+      <circle cx="410" cy="140" r="4" style="fill:var(--blue);" />
+      <circle cx="450" cy="110" r="4" style="fill:var(--blue);" />
+
+      <g class="block-green">
+        <rect x="45" y="154" width="30" height="46" />
+        <rect x="95" y="136" width="30" height="64" />
+        <rect x="145" y="130" width="30" height="70" />
+        <rect x="195" y="142" width="30" height="58" />
+        <rect x="245" y="166" width="30" height="34" />
+        <rect x="295" y="191" width="30" height="9" />
+        <rect x="345" y="200" width="30" height="0.5" />
+        <rect x="395" y="185" width="30" height="15" />
+        <rect x="445" y="166" width="10" height="34" />
+      </g>
+
+      <text class="frame-caption" x="20" y="18" text-anchor="start">analog input</text>
+      <text class="frame-caption" x="20" y="220" text-anchor="start">digital output (quantized)</text>
+    </svg>
+    <figcaption class="diagram__caption">
+      Each sample (dot) freezes the input at one instant; the bar below is that sample rounded to the
+      converter's nearest representable step — the gap between "smooth line" and "staircase" is quantization error.
+    </figcaption>
+  </figure>
+
+  <h2 id="adc-params">Resolution, reference voltage, and sample rate</h2>
+  <dl class="kv">
+    <dt>Resolution</dt><dd>How many bits the output has — 10-bit gives 1024 possible values, 12-bit gives 4096. More bits means finer steps, not a wider input range.</dd>
+    <dt>Reference voltage (V<sub>ref</sub>)</dt><dd>The voltage that maps to the maximum digital output. An input at V<sub>ref</sub> reads full-scale; the reference's own accuracy directly limits the whole conversion's accuracy.</dd>
+    <dt>Sample rate</dt><dd>How many conversions happen per second — has to be fast enough to capture how quickly the signal actually changes (see Nyquist, below).</dd>
+  </dl>
+  <pre><code>digital_value = (V_in / V_ref) × (2^bits − 1)</code></pre>
+
+  <h2 id="nyquist">The Nyquist rule</h2>
+  <p>
+    To faithfully represent a signal, you have to sample at <strong>at
+    least twice</strong> the highest frequency component present in it —
+    the Nyquist rate. Sample slower than that and higher frequencies
+    don't just get lost, they get misrepresented as false lower
+    frequencies that weren't actually there — <strong>aliasing</strong>.
+    This is why audio ADCs sample at 44.1 kHz+ (to cover the ~20 kHz of
+    human hearing) and why a fast-changing sensor signal needs a
+    correspondingly fast ADC, not just a high-resolution one.
+  </p>
+
+  <h2 id="adc-types">SAR, sigma-delta, and flash ADCs</h2>
+  <table>
+    <thead><tr><th>Type</th><th>How it works</th><th>Typical fit</th></tr></thead>
+    <tbody>
+      <tr><td>SAR (Successive Approximation)</td><td>Binary search — compares the input against a reference divided in half repeatedly, resolving one bit per comparison.</td><td>The default on-chip ADC in most microcontrollers — good balance of speed, resolution, and cost.</td></tr>
+      <tr><td>Sigma-Delta (ΔΣ)</td><td>Oversamples at a much higher rate and averages, trading speed for very high effective resolution.</td><td>Precision measurement — audio, weighing scales, thermocouple front-ends.</td></tr>
+      <tr><td>Flash</td><td>A bank of comparators evaluates every possible level simultaneously — one clock cycle per conversion.</td><td>Very high-speed digitizing (RF, oscilloscopes) — expensive and power-hungry at high resolution.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    A SAR ADC's binary-search process is worth holding onto as a mental
+    model: to resolve an 8-bit value it makes exactly 8 comparisons, each
+    one deciding a single bit — first "is it in the top or bottom half,"
+    then repeating on whichever half it's in, narrowing down bit by bit
+    until every bit is set.
+  </p>
+
+  <h2 id="dac">DAC</h2>
+  <p>
+    A Digital-to-Analog Converter does the reverse: given a digital
+    number, it produces a proportional analog voltage — reading the
+    resolution formula above backward. DAC outputs typically need a
+    smoothing (reconstruction) filter afterward, since the raw output
+    changes in discrete steps rather than a truly continuous curve.
+  </p>
+
+  <h2 id="pwm-dac">PWM as a poor man's DAC</h2>
+  <p>
+    Many microcontrollers have PWM outputs but no real DAC — and PWM
+    plus a simple low-pass filter approximates one surprisingly well.
+    A PWM signal switches fully on and off at a fixed frequency; its
+    <strong>average</strong> voltage over time is proportional to the
+    duty cycle. Filter out the fast switching and what's left is that
+    average, as a genuinely smooth analog voltage.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 520 180" role="img" aria-labelledby="pwm-dac-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="pwm-dac-title">A PWM square wave passed through a low-pass filter to produce a smooth analog voltage at the average level</title>
+      <path d="M20,140 L20,60 L70,60 L70,140 L100,140 L100,60 L150,60 L150,140 L180,140 L180,60 L230,60 L230,140 L260,140 L260,60 L310,60 L310,140 L340,140"
+            fill="none" stroke="var(--blue)" stroke-width="2.5" class="flow-path" />
+      <line x1="20" y1="90" x2="340" y2="90" stroke="var(--ink-faint)" stroke-dasharray="3 3" />
+      <text class="frame-caption" x="20" y="30" text-anchor="start">PWM, ~62% duty cycle</text>
+      <text class="frame-caption" x="345" y="93">avg</text>
+
+      <line x1="340" y1="100" x2="358" y2="100" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="364,100 352,95 352,105" />
+      <rect class="frame-box block-green" x="368" y="75" width="70" height="50" />
+      <text class="frame-label" x="403" y="97" text-anchor="middle" font-size="10">Low-pass</text>
+      <text class="frame-label" x="403" y="110" text-anchor="middle" font-size="10">filter (RC)</text>
+
+      <line x1="438" y1="100" x2="456" y2="100" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="462,100 450,95 450,105" />
+      <path d="M466,92 C 480,88 495,93 500,90" fill="none" stroke="var(--accent)" stroke-width="2.5" />
+      <text class="frame-caption" x="483" y="130" text-anchor="middle">smooth analog out</text>
+    </svg>
+    <figcaption class="diagram__caption">A higher duty cycle raises the average (and the filtered output); a lower duty cycle lowers it — the filter's job is just to smooth away the switching, not to change the average.</figcaption>
+  </figure>
+  <p>
+    The tradeoff: a heavier filter gives a smoother output but reacts
+    more slowly to changes — the same RC time-constant tradeoff from
+    <a href="/electronics/passive-components/index.html#rc">Passive Components</a>
+    applies directly here.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Analog sensor reading —</strong> a thermistor voltage divider, a potentiometer, a microphone — anything continuous gets read through an ADC channel.</li>
+    <li><strong>Audio playback —</strong> a DAC (often a dedicated audio codec chip) turns a stream of digital samples back into the analog signal that drives a speaker.</li>
+    <li><strong>Motor current sensing —</strong> an ADC reading the voltage across a small shunt resistor is the standard way firmware measures real-time motor current.</li>
+    <li><strong>LED dimming and motor speed control —</strong> PWM (the poor man's DAC above) is the near-universal technique for both, often without needing a filter at all since the load itself (an LED, a motor's inertia) does the averaging.</li>
+    <li><strong>Battery voltage monitoring —</strong> a simple resistor-divider into an ADC channel is how most battery-powered devices track remaining charge.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A noisy or drifting V<sub>ref</sub> corrupts every single reading proportionally — the ADC has no way to know its own reference moved, so "the sensor is drifting" is sometimes actually "the reference is drifting."</li>
+      <li>Switching a multiplexed ADC to a new input channel needs settling time before the first reading is trustworthy — a common bug is reading immediately after switching channels and getting a value contaminated by the previous channel.</li>
+      <li>Sampling below the Nyquist rate doesn't just lose detail — it actively creates false, lower-frequency signal that wasn't there, which is often harder to diagnose than an obviously noisy reading.</li>
+      <li>On many MCUs, ADC-capable pins are shared with digital GPIO functions — configuring a pin for one silently disables the other, a common source of "why doesn't this pin read analog values anymore."</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/electronics/semiconductors/index.html", "title": "Semiconductors" },
+  "related": [
+    { "href": "/electronics/semiconductors/index.html", "title": "Semiconductors" },
+    { "href": "/electronics/passive-components/index.html", "title": "Passive Components" },
+    { "href": "/sensors/temperature/index.html", "title": "Temperature sensors" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
