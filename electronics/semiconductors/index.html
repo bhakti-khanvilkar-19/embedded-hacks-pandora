@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Semiconductors — Electronics — Embedded Pandora</title>
+<meta name="description" content="Conductors vs insulators vs semiconductors, how a diode works, transistors as controlled switches, and MOSFETs — including how to actually wire one to switch a motor from a microcontroller pin." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Electronics</p>
+  <h1>Semiconductors — diodes, transistors, and MOSFETs</h1>
+  <p class="lede">
+    Everything in <a href="/electronics/passive-components/index.html">Passive
+    Components</a> only resists, stores, or releases energy. Semiconductors
+    are where electronics gets interesting — a material that can be
+    switched between conducting and not conducting is what makes diodes,
+    transistors, and ultimately every digital chip possible.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Materials (and devices built from them) whose conductivity can be controlled — a diode conducts one way only, a transistor uses a small signal to control a much larger one.</dd>
+      <dt>Mental model</dt><dd>A diode is a one-way valve. A transistor is a valve controlled by a second, smaller input — current for a BJT, voltage for a MOSFET.</dd>
+      <dt>Key numbers</dt><dd>Silicon diode forward drop ≈ 0.7 V; MOSFET is voltage-controlled (near-zero static gate current), BJT is current-controlled.</dd>
+      <dt>Reach for it when</dt><dd>Anything that needs to switch or amplify — driving a motor/LED/relay from a microcontroller pin almost always means a transistor.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#materials">Conductors, insulators, and semiconductors</a></li>
+      <li><a href="#diode">Diode</a></li>
+      <li><a href="#transistor">Transistor — a controlled valve</a></li>
+      <li><a href="#bjt">BJT: current-controlled</a></li>
+      <li><a href="#mosfet">MOSFET: voltage-controlled</a></li>
+      <li><a href="#mosfet-switch">Wiring a MOSFET as a switch</a></li>
+      <li><a href="#compare">BJT vs. MOSFET</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="materials">Conductors, insulators, and semiconductors</h2>
+  <table>
+    <thead><tr><th>Material class</th><th>Behavior</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td>Conductor</td><td>Electrons move freely — low resistance</td><td>Copper, aluminum</td></tr>
+      <tr><td>Insulator</td><td>Electrons are tightly bound — very high resistance</td><td>Glass, rubber, plastic</td></tr>
+      <tr><td>Semiconductor</td><td>In between — and its conductivity can be deliberately controlled</td><td>Silicon, germanium</td></tr>
+    </tbody>
+  </table>
+  <p>
+    The trick that makes semiconductors useful isn't the raw material — pure
+    silicon is a mediocre insulator — it's <strong>doping</strong>: adding
+    trace impurities that create either a surplus of free electrons
+    (<strong>N-type</strong>) or a surplus of "holes" where an electron is
+    missing (<strong>P-type</strong>). Every diode and transistor below is
+    built from junctions between N-type and P-type silicon.
+  </p>
+
+  <h2 id="diode">Diode</h2>
+  <p>
+    A diode is a single P-N junction: current flows easily one way
+    (<strong>forward biased</strong>) and is blocked the other way
+    (<strong>reverse biased</strong>), up to some breakdown voltage where
+    it fails or (for a Zener diode, deliberately) conducts in reverse at a
+    controlled voltage.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 520 200" role="img" aria-labelledby="diode-bias-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="diode-bias-title">A diode conducts freely when forward biased and blocks current entirely when reverse biased</title>
+
+      <line x1="30" y1="100" x2="235" y2="100" class="seq-arrow flow-path" stroke-width="3" />
+      <path d="M110,80 L110,120 L160,100 Z" class="block-blue" stroke-width="1.5" />
+      <line x1="160" y1="78" x2="160" y2="122" stroke="var(--ink)" stroke-width="4" />
+      <polygon class="seq-arrowhead" points="235,100 223,95 223,105" />
+      <text class="frame-label" x="132" y="50" text-anchor="middle" font-weight="700">Forward biased</text>
+      <text class="frame-caption" x="132" y="150" text-anchor="middle">conducts — about a 0.7 V drop</text>
+
+      <line x1="290" y1="100" x2="395" y2="100" class="seq-arrow" stroke-width="3" />
+      <path d="M370,80 L370,120 L420,100 Z" class="block-blue" stroke-width="1.5" />
+      <line x1="420" y1="78" x2="420" y2="122" stroke="var(--ink)" stroke-width="4" />
+      <line class="seq-x-mark" x1="440" y1="90" x2="454" y2="110" />
+      <line class="seq-x-mark" x1="454" y1="90" x2="440" y2="110" />
+      <text class="frame-label" x="392" y="50" text-anchor="middle" font-weight="700">Reverse biased</text>
+      <text class="frame-caption" x="392" y="150" text-anchor="middle">blocks — until breakdown voltage</text>
+    </svg>
+    <figcaption class="diagram__caption">The bar end is the cathode; current only flows in the direction the triangle points.</figcaption>
+  </figure>
+  <p>
+    An <strong>LED</strong> (light-emitting diode) is a diode engineered to
+    emit light when forward biased — exactly the LED wired up in
+    <a href="/electronics/fundamentals/index.html#circuit">Fundamentals</a>.
+    A regular diode is also what makes the
+    <a href="/electronics/passive-components/index.html#flyback">flyback
+    protection</a> on an inductive load work: wired backward across the
+    load, it blocks current in normal operation and only conducts to
+    absorb the collapsing field's reverse spike.
+  </p>
+
+  <h2 id="transistor">Transistor — a controlled valve</h2>
+  <p>
+    A transistor is a three-terminal device where a small signal on one
+    terminal controls a much larger current between the other two —
+    either as a <strong>switch</strong> (fully on or fully off) or an
+    <strong>amplifier</strong> (a small varying input becomes a larger
+    varying output). Two families dominate: <strong>BJTs</strong>
+    (Bipolar Junction Transistors, controlled by current) and
+    <strong>FETs</strong> (Field-Effect Transistors, controlled by
+    voltage) — MOSFETs are by far the most common FET.
+  </p>
+
+  <h2 id="bjt">BJT: current-controlled</h2>
+  <p>
+    A BJT has three terminals — <strong>Base</strong>, <strong>Collector</strong>,
+    and <strong>Emitter</strong>. A small current flowing into the base
+    allows a much larger current to flow from collector to emitter (NPN)
+    — the ratio between them is the transistor's current gain, often
+    called <strong>β</strong> or h<sub>FE</sub>, commonly in the range of
+    tens to a few hundred. Because it's current-controlled, driving a BJT
+    means supplying real base current, which a microcontroller pin can
+    usually do directly for small transistors, but the base current still
+    has to be sized correctly with a resistor.
+  </p>
+
+  <h2 id="mosfet">MOSFET: voltage-controlled</h2>
+  <p>
+    A MOSFET (Metal-Oxide-Semiconductor Field-Effect Transistor) has
+    three terminals — <strong>Gate</strong>, <strong>Drain</strong>, and
+    <strong>Source</strong>. The gate is electrically insulated from the
+    rest of the device by a thin oxide layer (literally what "metal-oxide"
+    describes) — so a MOSFET is controlled by <strong>voltage</strong>,
+    not current, and draws essentially zero static current into its gate.
+    Enough gate-to-source voltage (above a threshold, V<sub>GS(th)</sub>)
+    opens a conductive channel between drain and source; below it, the
+    channel is closed.
+  </p>
+  <dl class="kv">
+    <dt>N-channel</dt><dd>Turns on with a positive gate voltage — by far the more common type for switching a load to ground (low-side switching).</dd>
+    <dt>R<sub>DS(on)</sub></dt><dd>The channel's resistance once fully on — directly sets how much power the MOSFET itself dissipates as heat at a given current (P = I² × R<sub>DS(on)</sub>).</dd>
+    <dt>Logic-level MOSFET</dt><dd>Specifically rated to fully turn on from 3.3 V or 5 V logic — a "standard" MOSFET may need 10 V+ on the gate to reach its rated R<sub>DS(on)</sub>, which a microcontroller pin can't supply on its own.</dd>
+  </dl>
+
+  <h2 id="mosfet-switch">Wiring a MOSFET as a switch</h2>
+  <p>
+    This is the single most common way an embedded engineer touches a
+    MOSFET: using it to let a low-power microcontroller pin switch a
+    higher-current or higher-voltage load it could never drive directly.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 480 300" role="img" aria-labelledby="mosfet-switch-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="mosfet-switch-title">An MCU GPIO pin driving a MOSFET's gate through a resistor, low-side switching a motor to ground, with a flyback diode across the motor</title>
+
+      <text class="frame-caption" x="310" y="18" text-anchor="middle">+12 V motor supply</text>
+      <line x1="310" y1="24" x2="310" y2="40" stroke="var(--ink-faint)" stroke-width="2" />
+      <rect class="frame-box block-amber" x="270" y="40" width="80" height="50" rx="4" />
+      <text class="frame-label" x="310" y="70" text-anchor="middle">Motor</text>
+
+      <path d="M400,24 L400,90" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" stroke-dasharray="3 3" />
+      <path d="M390,50 L390,70 L410,60 Z" class="block-violet" stroke-width="1" />
+      <line x1="410" y1="48" x2="410" y2="72" stroke="var(--ink)" stroke-width="3" />
+      <text class="frame-caption" x="400" y="98" text-anchor="middle">flyback</text>
+      <text class="frame-caption" x="400" y="110" text-anchor="middle">diode</text>
+
+      <line x1="310" y1="90" x2="310" y2="120" class="seq-arrow flow-path" stroke-width="3" />
+
+      <rect class="frame-box block-violet" x="270" y="120" width="80" height="60" rx="4" />
+      <text class="frame-label" x="310" y="145" text-anchor="middle">MOSFET</text>
+      <text class="frame-caption" x="285" y="128" text-anchor="middle">D</text>
+      <text class="frame-caption" x="285" y="172" text-anchor="middle">S</text>
+      <text class="frame-caption" x="345" y="152" text-anchor="middle">G</text>
+
+      <line x1="310" y1="180" x2="310" y2="230" class="seq-arrow flow-path" stroke-width="3" />
+      <polygon class="seq-arrowhead" points="310,236 304,224 316,224" />
+      <line x1="285" y1="236" x2="335" y2="236" stroke="var(--ink-faint)" stroke-width="2" />
+      <line x1="292" y1="244" x2="328" y2="244" stroke="var(--ink-faint)" stroke-width="2" />
+      <line x1="299" y1="252" x2="321" y2="252" stroke="var(--ink-faint)" stroke-width="2" />
+      <text class="frame-caption" x="310" y="270" text-anchor="middle">GND</text>
+
+      <rect class="frame-box block-blue" x="40" y="130" width="90" height="50" rx="4" />
+      <text class="frame-label" x="85" y="152" text-anchor="middle">MCU</text>
+      <text class="frame-caption" x="85" y="168" text-anchor="middle">GPIO pin</text>
+
+      <line x1="130" y1="150" x2="185" y2="150" class="seq-arrow" stroke-width="2" />
+      <rect class="frame-box block-green" x="185" y="138" width="55" height="24" />
+      <text class="frame-caption" x="212" y="154" text-anchor="middle" font-size="9">R gate</text>
+      <line x1="240" y1="150" x2="270" y2="150" class="seq-arrow" stroke-width="2" />
+    </svg>
+    <figcaption class="diagram__caption">
+      "Low-side" switching — the load sits between the supply and the MOSFET's drain, and the MOSFET's source goes
+      straight to ground. A gate resistor (~100 Ω–1 kΩ) limits inrush current into the gate's capacitance; the
+      flyback diode gives the motor's collapsing field somewhere safe to go when the MOSFET switches off.
+    </figcaption>
+  </figure>
+  <p>
+    With the GPIO pin high, gate voltage exceeds V<sub>GS(th)</sub>, the
+    channel opens, and current flows from the +12 V rail through the
+    motor, through the MOSFET, to ground. Drive the pin low and the
+    channel closes — the motor stops.
+  </p>
+
+  <h2 id="compare">BJT vs. MOSFET</h2>
+  <table>
+    <thead><tr><th></th><th>BJT</th><th>MOSFET</th></tr></thead>
+    <tbody>
+      <tr><td>Controlled by</td><td>Base current</td><td>Gate voltage</td></tr>
+      <tr><td>Static control-input current</td><td>Real, must be sized with a resistor</td><td>~Zero once at steady state</td></tr>
+      <tr><td>Switching speed</td><td>Moderate</td><td>Generally faster — good for PWM</td></tr>
+      <tr><td>Typical embedded use</td><td>Simple low-current switching, some analog/audio</td><td>Motor/LED/relay driving, switching power supplies</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Motor and relay drivers —</strong> the low-side MOSFET switch above is close to the default circuit for letting a microcontroller control anything drawing more current than a GPIO pin can supply.</li>
+    <li><strong>PWM LED dimming —</strong> a MOSFET switching fast enough (paired with PWM) controls LED brightness by varying on-time rather than current directly.</li>
+    <li><strong>Switching power supplies (buck/boost converters)</strong> — the MOSFET is the actual switch rapidly connecting and disconnecting the inductor described in <a href="/electronics/passive-components/index.html">Passive Components</a>.</li>
+    <li><strong>Rectifier bridges —</strong> four diodes arranged in a bridge convert AC to pulsating DC, the first stage of nearly every mains power supply.</li>
+    <li><strong>Reverse-polarity and ESD protection —</strong> a diode placed across a power input can protect a whole board from a battery connected backward.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A MOSFET gate left floating (e.g. a GPIO pin in high-impedance mode during MCU reset/boot) can drift to an unpredictable voltage and partially turn the MOSFET on — a pull-down resistor from gate to source is standard practice specifically to guarantee "off" by default.</li>
+      <li>Driving a "standard" (non-logic-level) MOSFET directly from 3.3 V logic can leave it only partially on — high R<sub>DS(on)</sub> at partial drive means real, sometimes surprising, heat.</li>
+      <li>A MOSFET's gate oxide layer is thin enough to be genuinely ESD-sensitive — anti-static handling isn't just a formality for these parts.</li>
+      <li>Skipping the flyback diode on an inductive load (see <a href="/electronics/passive-components/index.html#flyback">Passive Components</a>) is one of the most common ways to destroy a switching MOSFET or BJT.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/electronics/passive-components/index.html", "title": "Passive Components" },
+  "related": [
+    { "href": "/electronics/passive-components/index.html", "title": "Passive Components" },
+    { "href": "/electronics/fundamentals/index.html", "title": "Fundamentals" },
+    { "href": "/embedded/gpio/index.html", "title": "GPIO" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

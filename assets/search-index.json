@@ -64,6 +64,17 @@
     ]
   },
   {
+    "title": "Semiconductors — Electronics",
+    "url": "/electronics/semiconductors/index.html",
+    "domain": "Electronics",
+    "category": "Semiconductors",
+    "description": "Conductors vs insulators vs semiconductors, how a diode works, transistors as controlled switches, and MOSFETs — including how to actually wire one to switch a motor from a microcontroller pin.",
+    "tags": [
+      "electronics",
+      "semiconductors"
+    ]
+  },
+  {
     "title": "GPIO — Embedded",
     "url": "/embedded/gpio/index.html",
     "domain": "Embedded",
