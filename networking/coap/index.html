@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CoAP — Networking — Embedded Pandora</title>
+<meta name="description" content="Constrained Application Protocol: a REST-style protocol over UDP for constrained IoT devices — message model, reliability without TCP, and when to choose it over raw UDP, MQTT, or HTTP." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>CoAP — Constrained Application Protocol</h1>
+  <p class="lede">
+    An application-layer protocol (RFC 7252) built on top of
+    <a href="/networking/udp/index.html">UDP</a>, designed for small,
+    battery-powered, memory-constrained devices talking over lossy
+    networks. It borrows HTTP's REST model — resources, URIs, GET/POST/PUT/DELETE —
+    but re-encodes everything into a compact binary format and adds its own
+    lightweight reliability on top of UDP's unreliable delivery.
+  </p>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#why">Why not just use HTTP?</a></li>
+      <li><a href="#header">Message format</a></li>
+      <li><a href="#reliability">Reliability on top of UDP</a></li>
+      <li><a href="#rest">REST semantics: methods and response codes</a></li>
+      <li><a href="#extras">Observe and block-wise transfer</a></li>
+      <li><a href="#compare">CoAP vs. raw UDP vs. MQTT vs. HTTP</a></li>
+      <li><a href="#choosing">When to choose what</a></li>
+      <li><a href="#proscons">Pros and cons</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="why">Why not just use HTTP?</h2>
+  <p>
+    HTTP over <a href="/networking/tcp/index.html">TCP</a> works fine on
+    constrained devices in principle, but three things make it a poor fit
+    for the smallest nodes: TCP's connection setup and header overhead per
+    request, HTTP's verbose text-based headers, and TCP's requirement to
+    hold open connection state per peer — expensive in RAM on a device that
+    might have only a few KB to spare. CoAP keeps the REST *model* everyone
+    already knows, but drops the transport and encoding that made it heavy.
+  </p>
+
+  <h2 id="header">Message format</h2>
+  <p>
+    Every CoAP message starts with a fixed 4-byte binary header — contrast
+    with an HTTP request line plus headers, which is easily 100+ bytes of
+    text:
+  </p>
+  <table>
+    <thead><tr><th>Field</th><th>Size</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>Ver</td><td>2 bits</td><td>Protocol version.</td></tr>
+      <tr><td>Type</td><td>2 bits</td><td>CON, NON, ACK, or RST (see below).</td></tr>
+      <tr><td>TKL</td><td>4 bits</td><td>Length of the token that follows (used to match responses to requests).</td></tr>
+      <tr><td>Code</td><td>8 bits</td><td>Method (e.g. GET) on a request, status (e.g. 2.05 Content) on a response.</td></tr>
+      <tr><td>Message ID</td><td>16 bits</td><td>Detects duplicates and pairs ACKs with the message they acknowledge.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    After the header: an optional token, a set of TLV-encoded options
+    (the CoAP equivalent of HTTP headers — URI-Path, Content-Format,
+    Observe, etc.), and an optional payload.
+  </p>
+
+  <h2 id="reliability">Reliability on top of UDP</h2>
+  <p>
+    Raw UDP (see <a href="/networking/udp/index.html">UDP</a>) gives you no
+    delivery guarantee at all. CoAP adds a thin, optional reliability layer
+    using its <strong>message type</strong> field, without pulling in
+    anything like TCP's connection state:
+  </p>
+  <dl class="kv">
+    <dt>CON</dt><dd>Confirmable — the sender retransmits (with exponential backoff) until an ACK arrives or retries are exhausted.</dd>
+    <dt>NON</dt><dd>Non-confirmable — fire-and-forget, no retransmission; used for data where a missed update doesn't matter (e.g. periodic sensor readings).</dd>
+    <dt>ACK</dt><dd>Acknowledges a CON message, and — since CoAP is request/response — usually piggybacks the actual response in the same packet.</dd>
+    <dt>RST</dt><dd>Sent when a message can't be processed (e.g. the receiver has no state for it) — tells the sender to stop.</dd>
+  </dl>
+  <p>
+    This is deliberately much simpler than TCP's sliding windows and
+    congestion control — CoAP only needs "did the other end get this
+    request/response," not a general-purpose reliable byte stream.
+  </p>
+
+  <h2 id="rest">REST semantics: methods and response codes</h2>
+  <p>
+    CoAP requests target a resource identified by a URI path, using the
+    same method vocabulary as HTTP: <code>GET</code>, <code>POST</code>,
+    <code>PUT</code>, <code>DELETE</code>. Response codes reuse HTTP's
+    class structure but pack the class and detail into a single byte,
+    written as <code>class.detail</code>:
+  </p>
+  <table>
+    <thead><tr><th>CoAP code</th><th>Meaning</th><th>HTTP equivalent</th></tr></thead>
+    <tbody>
+      <tr><td>2.05 Content</td><td>Success, response has a body</td><td>200 OK</td></tr>
+      <tr><td>2.01 Created</td><td>Resource created</td><td>201 Created</td></tr>
+      <tr><td>4.04 Not Found</td><td>No such resource</td><td>404 Not Found</td></tr>
+      <tr><td>4.05 Method Not Allowed</td><td>Method doesn't apply to this resource</td><td>405 Method Not Allowed</td></tr>
+      <tr><td>5.00 Internal Server Error</td><td>Server-side failure</td><td>500 Internal Server Error</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="extras">Observe and block-wise transfer</h2>
+  <p>
+    Two extensions matter enough in practice to know by name:
+  </p>
+  <ul>
+    <li>
+      <strong>Observe (RFC 7641)</strong> — a client GETs a resource with an
+      Observe option set, and the server keeps sending updated
+      representations whenever the resource changes, without the client
+      re-requesting. It turns plain request/response into a lightweight
+      publish/subscribe pattern, without needing a broker.
+    </li>
+    <li>
+      <strong>Block-wise transfer (RFC 7959)</strong> — splits a payload
+      too large for one datagram into a sequence of numbered blocks, since
+      constrained nodes and paths often can't reliably move large single
+      UDP payloads.
+    </li>
+  </ul>
+
+  <h2 id="compare">CoAP vs. raw UDP vs. MQTT vs. HTTP</h2>
+  <table>
+    <thead><tr><th></th><th>Raw UDP</th><th>CoAP</th><th>MQTT</th><th>HTTP</th></tr></thead>
+    <tbody>
+      <tr><td>Transport</td><td>UDP</td><td>UDP (usually)</td><td>TCP</td><td>TCP</td></tr>
+      <tr><td>Model</td><td>You define everything</td><td>REST (request/response)</td><td>Publish/subscribe via broker</td><td>REST (request/response)</td></tr>
+      <tr><td>Reliability</td><td>None built-in</td><td>Optional, per-message (CON/ACK)</td><td>Broker-mediated QoS levels</td><td>TCP's (always reliable)</td></tr>
+      <tr><td>Header overhead</td><td>8 bytes</td><td>4-byte fixed header + compact options</td><td>2-byte fixed header + variable</td><td>~100s of bytes, text</td></tr>
+      <tr><td>Connection state</td><td>None</td><td>None required</td><td>Persistent TCP connection per client</td><td>Per-connection (or per-request)</td></tr>
+      <tr><td>Multicast support</td><td>Yes (UDP)</td><td>Yes — a defined use case</td><td>No (TCP is point-to-point)</td><td>No</td></tr>
+      <tr><td>Typical use</td><td>Custom minimal protocols, telemetry</td><td>Constrained-device REST APIs, device control</td><td>Many-to-many sensor/event fan-out</td><td>General web APIs, non-constrained clients</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="choosing">When to choose what</h2>
+  <div class="callout callout--note">
+    <span class="callout__label">Decision guide</span>
+    <ul>
+      <li><strong>Choose raw UDP</strong> when you control both ends completely, need the absolute minimum overhead, and don't need REST semantics, standardized discovery, or interoperability with anything else — you're willing to hand-roll framing and (if needed) reliability yourself.</li>
+      <li><strong>Choose CoAP</strong> when you want REST-style request/response (GET a sensor value, PUT an actuator state) on a constrained device, want optional reliability without TCP's cost, need multicast discovery on a local network, or want interoperability with other CoAP-speaking devices/tools.</li>
+      <li><strong>Choose MQTT</strong> when the shape of the problem is really publish/subscribe with many producers and consumers, and a central broker plus TCP's connection overhead is acceptable (i.e. the device isn't as constrained, or already needs a persistent connection anyway).</li>
+      <li><strong>Choose HTTP</strong> when the client is a normal web browser or service, constraints don't apply, and you want to use the existing web ecosystem (auth, caching, tooling) as-is.</li>
+    </ul>
+  </div>
+
+  <h2 id="proscons">Pros and cons</h2>
+  <table>
+    <thead><tr><th></th><th>Pros</th><th>Cons</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Raw UDP</td>
+        <td>Minimal possible overhead; total control; simplest mental model for a fixed, closed system.</td>
+        <td>No standard semantics — you invent framing, addressing, and reliability yourself, and re-invent bugs others already fixed; zero interoperability.</td>
+      </tr>
+      <tr>
+        <td>CoAP</td>
+        <td>Small, fast, low-power; REST semantics developers already know; optional reliability; native multicast/discovery; DTLS (CoAPs) or OSCORE for security.</td>
+        <td>Still UDP underneath, so NAT traversal and firewall friendliness are worse than TCP-based options; smaller ecosystem/tooling than HTTP; security is an added layer, not built in by default.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>CON retransmission has its own timeout/backoff — don't also build a duplicate reliability layer above it, or timeouts compound.</li>
+      <li>The Message ID (for dedup/ACK matching) and the Token (for matching a response to its request) are separate mechanisms with separate purposes — conflating them is a common source of confusing bugs when writing a CoAP client from scratch.</li>
+      <li>Plain CoAP is unencrypted, same as plain HTTP — production deployments need DTLS (CoAPs, like UDP's answer to TLS) or OSCORE, not "add it later."</li>
+      <li>Many corporate/carrier firewalls block or heavily rate-limit UDP more aggressively than TCP:443 — a real deployment constraint <a href="/networking/udp/index.html">UDP</a>-based protocols share, CoAP included.</li>
+    </ul>
+  </div>
+
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      CoAP's real trick isn't "REST over UDP" by itself — plenty of things
+      run over UDP. It's putting just enough of TCP's useful behavior
+      (optional reliability, dedup, request/response correlation) back on
+      top of UDP <em>as an application-layer concern</em>, so a constrained
+      device only pays for the guarantees it actually needs on a
+      per-message basis, instead of a connection-wide all-or-nothing
+      guarantee like TCP gives you.
+    </p>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/networking/udp/index.html", "title": "UDP" },
+  "related": [
+    { "href": "/networking/udp/index.html", "title": "UDP" },
+    { "href": "/networking/tcp/index.html", "title": "TCP" },
+    { "href": "/networking/ip/index.html", "title": "IP" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

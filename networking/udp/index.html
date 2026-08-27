@@ -48,6 +48,7 @@
       <tr><td>DNS queries</td><td>Single small request/response — TCP's handshake overhead isn't worth it for the common case.</td></tr>
       <tr><td>Real-time media (VoIP, video)</td><td>A late retransmitted packet is worse than a dropped one — the application handles loss itself.</td></tr>
       <tr><td>Simple LAN telemetry / broadcast-discovery</td><td>Low overhead, and UDP supports broadcast/multicast, which TCP structurally cannot (it's point-to-point).</td></tr>
+      <tr><td>Constrained IoT devices</td><td><a href="/networking/coap/index.html">CoAP</a> builds a REST-style protocol on UDP specifically to avoid TCP's per-connection RAM and handshake cost on small devices.</td></tr>
     </tbody>
   </table>
 
@@ -78,9 +79,11 @@
 <script type="application/json" id="page-meta">
 {
   "prev": { "href": "/networking/tcp/index.html", "title": "TCP" },
+  "next": { "href": "/networking/coap/index.html", "title": "CoAP" },
   "related": [
     { "href": "/networking/ip/index.html", "title": "IP" },
-    { "href": "/networking/tcp/index.html", "title": "TCP" }
+    { "href": "/networking/tcp/index.html", "title": "TCP" },
+    { "href": "/networking/coap/index.html", "title": "CoAP" }
   ]
 }
 </script>

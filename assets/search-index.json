@@ -96,6 +96,17 @@
     ]
   },
   {
+    "title": "CoAP — Networking",
+    "url": "/networking/coap/index.html",
+    "domain": "Networking",
+    "category": "Coap",
+    "description": "Constrained Application Protocol: a REST-style protocol over UDP for constrained IoT devices — message model, reliability without TCP, and when to choose it over raw UDP, MQTT, or HTTP.",
+    "tags": [
+      "networking",
+      "coap"
+    ]
+  },
+  {
     "title": "Networking",
     "url": "/networking/index.html",
     "domain": "Networking",
