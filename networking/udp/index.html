@@ -32,6 +32,43 @@
   </dl>
   <p>That's the entire header — 8 bytes, versus TCP's minimum 20.</p>
 
+  <figure class="diagram">
+    <svg viewBox="0 0 640 150" role="img" aria-labelledby="udp-send-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="udp-send-title">sendto() produces one datagram on the wire; recvfrom() returns it whole, with nothing traveling back to confirm delivery</title>
+
+      <rect class="seq-actor-chip" x="10" y="40" width="110" height="40" rx="8" />
+      <text class="seq-actor-text" x="65" y="65" text-anchor="middle">Sender app</text>
+
+      <rect class="frame-box" x="180" y="30" width="90" height="60" />
+      <text class="frame-label" x="225" y="56" text-anchor="middle">UDP header</text>
+      <text class="frame-caption" x="225" y="76" text-anchor="middle">8 bytes</text>
+
+      <rect class="frame-box" x="270" y="30" width="190" height="60" />
+      <text class="frame-label" x="365" y="56" text-anchor="middle">Payload</text>
+      <text class="frame-caption" x="365" y="76" text-anchor="middle">whatever the app sent</text>
+
+      <rect class="seq-actor-chip" x="520" y="40" width="110" height="40" rx="8" />
+      <text class="seq-actor-text" x="575" y="65" text-anchor="middle">Receiver app</text>
+
+      <line class="seq-arrow" x1="120" y1="60" x2="172" y2="60" />
+      <polygon class="seq-arrowhead" points="180,60 168,55 168,65" />
+      <text class="seq-sub" x="146" y="46" text-anchor="middle">sendto()</text>
+
+      <line class="seq-arrow" x1="460" y1="60" x2="512" y2="60" />
+      <polygon class="seq-arrowhead" points="520,60 508,55 508,65" />
+      <text class="seq-sub" x="490" y="46" text-anchor="middle">recvfrom()</text>
+
+      <line class="seq-arrow-lost" x1="520" y1="120" x2="130" y2="120" opacity="0.6" />
+      <line class="seq-x-mark" x1="318" y1="112" x2="332" y2="128" opacity="0.6" />
+      <line class="seq-x-mark" x1="332" y1="112" x2="318" y2="128" opacity="0.6" />
+      <text class="seq-note" x="325" y="142" text-anchor="middle">nothing travels back — no ACK, no "it arrived" signal at all</text>
+    </svg>
+    <figcaption class="diagram__caption">
+      One call out, one call in, and — unlike <a href="/networking/coap/index.html">CoAP</a>'s CON/ACK — no
+      return path of any kind. If that matters, the application has to add it.
+    </figcaption>
+  </figure>
+
   <h2>Message boundaries are preserved</h2>
   <p>
     Unlike TCP's byte stream, one <code>sendto()</code> call produces exactly
