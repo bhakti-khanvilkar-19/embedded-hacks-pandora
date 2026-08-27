@@ -31,6 +31,7 @@
       <li><a href="#why">Why not just use HTTP?</a></li>
       <li><a href="#header">Message format</a></li>
       <li><a href="#reliability">Reliability on top of UDP</a></li>
+      <li><a href="#exchanges">Message exchanges, frame by frame</a></li>
       <li><a href="#rest">REST semantics: methods and response codes</a></li>
       <li><a href="#extras">Observe and block-wise transfer</a></li>
       <li><a href="#compare">CoAP vs. raw UDP vs. MQTT vs. HTTP</a></li>
@@ -55,8 +56,56 @@
   <p>
     Every CoAP message starts with a fixed 4-byte binary header — contrast
     with an HTTP request line plus headers, which is easily 100+ bytes of
-    text:
+    text. Laid out byte by byte, a full message looks like this:
   </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 700 112" role="img" aria-labelledby="coap-frame-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="coap-frame-title">CoAP message layout: 4-byte fixed header followed by a variable-length token, options, and payload</title>
+
+      <line class="seq-bracket" x1="20" y1="18" x2="328" y2="18" />
+      <line class="seq-bracket" x1="20" y1="14" x2="20" y2="18" />
+      <line class="seq-bracket" x1="328" y1="14" x2="328" y2="18" />
+      <text class="frame-caption" x="174" y="11" text-anchor="middle">fixed 4-byte header</text>
+
+      <line class="seq-bracket" x1="344" y1="18" x2="678" y2="18" />
+      <line class="seq-bracket" x1="344" y1="14" x2="344" y2="18" />
+      <line class="seq-bracket" x1="678" y1="14" x2="678" y2="18" />
+      <text class="frame-caption" x="511" y="11" text-anchor="middle">variable length</text>
+
+      <rect class="frame-box" x="20" y="26" width="90" height="44" />
+      <text class="frame-label" x="65" y="52" text-anchor="middle">Ver·T·TKL</text>
+      <text class="frame-caption" x="65" y="84" text-anchor="middle">1 byte</text>
+
+      <rect class="frame-box" x="114" y="26" width="80" height="44" />
+      <text class="frame-label" x="154" y="52" text-anchor="middle">Code</text>
+      <text class="frame-caption" x="154" y="84" text-anchor="middle">1 byte</text>
+
+      <rect class="frame-box" x="198" y="26" width="130" height="44" />
+      <text class="frame-label" x="263" y="52" text-anchor="middle">Message ID</text>
+      <text class="frame-caption" x="263" y="84" text-anchor="middle">2 bytes</text>
+
+      <rect class="frame-box frame-box--variable" x="344" y="26" width="90" height="44" />
+      <text class="frame-label" x="389" y="52" text-anchor="middle">Token</text>
+      <text class="frame-caption" x="389" y="84" text-anchor="middle">0–8 bytes</text>
+
+      <rect class="frame-box frame-box--variable" x="442" y="26" width="110" height="44" />
+      <text class="frame-label" x="497" y="52" text-anchor="middle">Options</text>
+      <text class="frame-caption" x="497" y="84" text-anchor="middle">TLV, variable</text>
+
+      <line class="frame-divider" x1="560" y1="20" x2="560" y2="76" />
+      <text class="frame-caption" x="560" y="11" text-anchor="middle">0xFF</text>
+
+      <rect class="frame-box frame-box--variable" x="568" y="26" width="110" height="44" />
+      <text class="frame-label" x="623" y="52" text-anchor="middle">Payload</text>
+      <text class="frame-caption" x="623" y="84" text-anchor="middle">optional</text>
+    </svg>
+    <figcaption class="diagram__caption">
+      Solid boxes are always exactly that size; dashed boxes are variable-length. The
+      <code>0xFF</code> marker byte is what tells a parser "options end here, payload starts."
+    </figcaption>
+  </figure>
+
   <table>
     <thead><tr><th>Field</th><th>Size</th><th>Purpose</th></tr></thead>
     <tbody>
@@ -91,6 +140,89 @@
     congestion control — CoAP only needs "did the other end get this
     request/response," not a general-purpose reliable byte stream.
   </p>
+
+  <h2 id="exchanges">Message exchanges, frame by frame</h2>
+  <p>
+    The tables above describe fields; these diagrams show what actually
+    goes out on the wire and what comes back, for the three exchanges
+    that come up constantly. <span class="seq-tag-con" style="font-family:var(--font-mono); font-size:0.85em;">CON</span>,
+    <span class="seq-tag-ack" style="font-family:var(--font-mono); font-size:0.85em;">ACK</span>, and
+    <span class="seq-tag-non" style="font-family:var(--font-mono); font-size:0.85em;">NON</span> below
+    are colored consistently with the message-type field they represent.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 620 150" role="img" aria-labelledby="coap-conack-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="coap-conack-title">A confirmable request with its response piggybacked on the acknowledgement</title>
+      <rect class="seq-actor-chip" x="40" y="4" width="60" height="20" rx="10" />
+      <text class="seq-actor-text" x="70" y="18" text-anchor="middle">Client</text>
+      <rect class="seq-actor-chip" x="520" y="4" width="60" height="20" rx="10" />
+      <text class="seq-actor-text" x="550" y="18" text-anchor="middle">Server</text>
+      <line class="seq-lifeline" x1="70" y1="34" x2="70" y2="138" />
+      <line class="seq-lifeline" x1="550" y1="34" x2="550" y2="138" />
+
+      <line class="seq-arrow" x1="70" y1="62" x2="542" y2="62" />
+      <polygon class="seq-arrowhead" points="550,62 538,57 538,67" />
+      <text class="seq-label" x="310" y="50" text-anchor="middle"><tspan class="seq-tag-con">CON</tspan> GET /temperature</text>
+      <text class="seq-sub" x="310" y="78" text-anchor="middle">MID=0x21 · Token=0x9c</text>
+
+      <line class="seq-arrow" x1="550" y1="112" x2="78" y2="112" />
+      <polygon class="seq-arrowhead" points="70,112 82,107 82,117" />
+      <text class="seq-label" x="310" y="100" text-anchor="middle"><tspan class="seq-tag-ack">ACK</tspan> 2.05 Content "23.5°C"</text>
+      <text class="seq-sub" x="310" y="128" text-anchor="middle">MID=0x21 (response piggybacked on the ACK)</text>
+    </svg>
+    <figcaption class="diagram__caption">Confirmable request → the response rides back on the same ACK packet. One round trip, one guarantee of delivery.</figcaption>
+  </figure>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 620 108" role="img" aria-labelledby="coap-non-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="coap-non-title">A non-confirmable message sent without expecting any reply</title>
+      <rect class="seq-actor-chip" x="40" y="4" width="60" height="20" rx="10" />
+      <text class="seq-actor-text" x="70" y="18" text-anchor="middle">Client</text>
+      <rect class="seq-actor-chip" x="520" y="4" width="60" height="20" rx="10" />
+      <text class="seq-actor-text" x="550" y="18" text-anchor="middle">Server</text>
+      <line class="seq-lifeline" x1="70" y1="34" x2="70" y2="96" />
+      <line class="seq-lifeline" x1="550" y1="34" x2="550" y2="96" />
+
+      <line class="seq-arrow" x1="70" y1="60" x2="542" y2="60" />
+      <polygon class="seq-arrowhead" points="550,60 538,55 538,65" />
+      <text class="seq-label" x="310" y="48" text-anchor="middle"><tspan class="seq-tag-non">NON</tspan> PUT /led "on"</text>
+      <text class="seq-sub" x="310" y="76" text-anchor="middle">MID=0x45</text>
+      <text class="seq-note" x="310" y="94" text-anchor="middle">fire-and-forget — no ACK is expected or sent</text>
+    </svg>
+    <figcaption class="diagram__caption">Used when a missed message just isn't worth a retry — e.g. one of many periodic sensor readings.</figcaption>
+  </figure>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 620 220" role="img" aria-labelledby="coap-retry-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="coap-retry-title">A confirmable message lost in transit, retransmitted after a timeout, then acknowledged</title>
+      <rect class="seq-actor-chip" x="40" y="4" width="60" height="20" rx="10" />
+      <text class="seq-actor-text" x="70" y="18" text-anchor="middle">Client</text>
+      <rect class="seq-actor-chip" x="520" y="4" width="60" height="20" rx="10" />
+      <text class="seq-actor-text" x="550" y="18" text-anchor="middle">Server</text>
+      <line class="seq-lifeline" x1="70" y1="34" x2="70" y2="208" />
+      <line class="seq-lifeline" x1="550" y1="34" x2="550" y2="208" />
+
+      <line class="seq-arrow-lost" x1="70" y1="58" x2="430" y2="58" />
+      <line class="seq-x-mark" x1="440" y1="50" x2="454" y2="66" />
+      <line class="seq-x-mark" x1="454" y1="50" x2="440" y2="66" />
+      <text class="seq-label" x="255" y="46" text-anchor="middle"><tspan class="seq-tag-con">CON</tspan> GET /door</text>
+      <text class="seq-sub" x="255" y="76" text-anchor="middle">MID=0x30 — lost in transit</text>
+
+      <text class="seq-note" x="310" y="102" text-anchor="middle">ACK_TIMEOUT elapses with no ACK → client retransmits</text>
+
+      <line class="seq-arrow" x1="70" y1="128" x2="542" y2="128" />
+      <polygon class="seq-arrowhead" points="550,128 538,123 538,133" />
+      <text class="seq-label" x="310" y="116" text-anchor="middle"><tspan class="seq-tag-con">CON</tspan> GET /door (retransmit)</text>
+      <text class="seq-sub" x="310" y="144" text-anchor="middle">MID=0x30 — same Message ID, so the server can dedupe</text>
+
+      <line class="seq-arrow" x1="550" y1="182" x2="78" y2="182" />
+      <polygon class="seq-arrowhead" points="70,182 82,177 82,187" />
+      <text class="seq-label" x="310" y="170" text-anchor="middle"><tspan class="seq-tag-ack">ACK</tspan> 2.05 Content "unlocked"</text>
+      <text class="seq-sub" x="310" y="198" text-anchor="middle">MID=0x30</text>
+    </svg>
+    <figcaption class="diagram__caption">This is the entire reliability model: retry with backoff on a fixed Message ID, until an ACK arrives or retries run out.</figcaption>
+  </figure>
 
   <h2 id="rest">REST semantics: methods and response codes</h2>
   <p>
@@ -130,6 +262,41 @@
       UDP payloads.
     </li>
   </ul>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 620 240" role="img" aria-labelledby="coap-observe-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="coap-observe-title">Observe: one registration, then multiple pushed notifications without the client re-requesting</title>
+      <rect class="seq-actor-chip" x="40" y="4" width="60" height="20" rx="10" />
+      <text class="seq-actor-text" x="70" y="18" text-anchor="middle">Client</text>
+      <rect class="seq-actor-chip" x="520" y="4" width="60" height="20" rx="10" />
+      <text class="seq-actor-text" x="550" y="18" text-anchor="middle">Server</text>
+      <line class="seq-lifeline" x1="70" y1="34" x2="70" y2="228" />
+      <line class="seq-lifeline" x1="550" y1="34" x2="550" y2="228" />
+
+      <line class="seq-arrow" x1="70" y1="58" x2="542" y2="58" />
+      <polygon class="seq-arrowhead" points="550,58 538,53 538,63" />
+      <text class="seq-label" x="310" y="46" text-anchor="middle"><tspan class="seq-tag-con">CON</tspan> GET /temperature, Observe=0</text>
+      <text class="seq-sub" x="310" y="74" text-anchor="middle">MID=0x50 — "register me for updates"</text>
+
+      <line class="seq-arrow" x1="550" y1="102" x2="78" y2="102" />
+      <polygon class="seq-arrowhead" points="70,102 82,97 82,107" />
+      <text class="seq-label" x="310" y="90" text-anchor="middle"><tspan class="seq-tag-ack">ACK</tspan> 2.05 Content 23.5°C, Observe=1</text>
+      <text class="seq-sub" x="310" y="118" text-anchor="middle">MID=0x50 — first value, piggybacked as usual</text>
+
+      <text class="seq-note" x="310" y="140" text-anchor="middle">… time passes, the resource's value changes …</text>
+
+      <line class="seq-arrow" x1="550" y1="164" x2="78" y2="164" />
+      <polygon class="seq-arrowhead" points="70,164 82,159 82,169" />
+      <text class="seq-label" x="310" y="152" text-anchor="middle"><tspan class="seq-tag-con">CON</tspan> 2.05 Content 24.1°C, Observe=2</text>
+      <text class="seq-sub" x="310" y="180" text-anchor="middle">MID=0x51 — server-initiated push, no new request needed</text>
+
+      <line class="seq-arrow" x1="70" y1="204" x2="542" y2="204" />
+      <polygon class="seq-arrowhead" points="550,204 538,199 538,209" />
+      <text class="seq-label" x="310" y="196" text-anchor="middle" font-size="10"><tspan class="seq-tag-ack">ACK</tspan> — MID=0x51</text>
+      <text class="seq-note" x="310" y="224" text-anchor="middle">…repeats on every future change until the client cancels…</text>
+    </svg>
+    <figcaption class="diagram__caption">One <code>GET</code> with <code>Observe=0</code> turns into an ongoing subscription — the server pushes, the client just acknowledges.</figcaption>
+  </figure>
 
   <h2 id="compare">CoAP vs. raw UDP vs. MQTT vs. HTTP</h2>
   <table>
