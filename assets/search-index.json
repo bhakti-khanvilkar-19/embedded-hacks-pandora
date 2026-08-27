@@ -1,5 +1,16 @@
 [
   {
+    "title": "The Complete Boot Process — Bootloaders",
+    "url": "/bootloaders/boot-process/index.html",
+    "domain": "Bootloaders",
+    "category": "Boot Process",
+    "description": "The entire boot sequence end to end, from power-on to a running system — with a full walkthrough of U-Boot environment variables, how to configure them, and how to debug a board that won't boot.",
+    "tags": [
+      "bootloaders",
+      "boot-process"
+    ]
+  },
+  {
     "title": "Fundamentals — Bootloaders",
     "url": "/bootloaders/fundamentals/index.html",
     "domain": "Bootloaders",

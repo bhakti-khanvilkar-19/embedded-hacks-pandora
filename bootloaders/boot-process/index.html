@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Complete Boot Process — Bootloaders — Embedded Pandora</title>
+<meta name="description" content="The entire boot sequence end to end, from power-on to a running system — with a full walkthrough of U-Boot environment variables, how to configure them, and how to debug a board that won't boot." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Bootloaders</p>
+  <h1>The Complete Boot Process</h1>
+  <p class="lede">
+    <a href="/bootloaders/fundamentals/index.html">Fundamentals</a> explains
+    <em>why</em> boot happens in stages, and <a href="/bootloaders/u-boot/index.html">U-Boot</a>
+    covers that one stage in detail. This page is the whole trip end to
+    end — every stage in order, on one diagram — plus a practical,
+    hands-on guide to environment variables: where they live, how to
+    change them, and how to debug it when a board won't boot.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The full sequence from power-on to a running system: Boot ROM → SPL → U-Boot → Linux kernel → init → userspace.</dd>
+      <dt>Mental model</dt><dd>Each stage's only job is to load and verify a slightly bigger, more capable stage, then get out of the way.</dd>
+      <dt>Key numbers</dt><dd>7 stages, typically; the environment lives in its own flash partition, separate from the U-Boot binary itself.</dd>
+      <dt>Reach for it when</dt><dd>A board won't boot, or you need to change what/how it boots (a new kernel command line, a different root device, a recovery mode).</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#timeline">The full sequence, end to end</a></li>
+      <li><a href="#envvars">Environment variables, in depth</a></li>
+      <li><a href="#configuring">Configuring the environment — a walkthrough</a></li>
+      <li><a href="#boot-scripts">Boot scripts and extlinux.conf</a></li>
+      <li><a href="#debugging">Debugging a board that won't boot</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="timeline">The full sequence, end to end</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 600" role="img" aria-labelledby="boot-timeline-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="boot-timeline-title">Seven boot stages in order: power-on, Boot ROM, SPL, U-Boot, Linux kernel, init, and the running system, each handing control to the next</title>
+
+      <rect class="frame-box block-amber" x="90" y="10" width="380" height="46" rx="6" />
+      <text class="frame-label" x="280" y="38" text-anchor="middle" font-weight="700">Power-on / Reset</text>
+      <text class="frame-caption" x="280" y="70" text-anchor="middle">CPU starts executing at a fixed address</text>
+      <line x1="280" y1="76" x2="280" y2="94" class="seq-arrow flow-path" stroke-width="3" />
+      <polygon class="seq-arrowhead" points="280,100 274,88 286,88" />
+
+      <rect class="frame-box block-blue" x="90" y="100" width="380" height="46" rx="6" />
+      <text class="frame-label" x="280" y="128" text-anchor="middle" font-weight="700">Boot ROM</text>
+      <text class="frame-caption" x="280" y="160" text-anchor="middle">Mask ROM, fixed at manufacture — reads boot-mode pins, loads the next stage</text>
+      <line x1="280" y1="166" x2="280" y2="184" class="seq-arrow flow-path" stroke-width="3" />
+      <polygon class="seq-arrowhead" points="280,190 274,178 286,178" />
+
+      <rect class="frame-box block-green" x="90" y="190" width="380" height="46" rx="6" />
+      <text class="frame-label" x="280" y="218" text-anchor="middle" font-weight="700">SPL — Secondary Program Loader</text>
+      <text class="frame-caption" x="280" y="250" text-anchor="middle">Initializes DRAM, loads the full bootloader into RAM</text>
+      <line x1="280" y1="256" x2="280" y2="274" class="seq-arrow flow-path" stroke-width="3" />
+      <polygon class="seq-arrowhead" points="280,280 274,268 286,268" />
+
+      <rect class="frame-box block-violet" x="90" y="280" width="380" height="46" rx="6" />
+      <text class="frame-label" x="280" y="308" text-anchor="middle" font-weight="700">U-Boot (full bootloader)</text>
+      <text class="frame-caption" x="280" y="340" text-anchor="middle">Loads the environment, evaluates bootcmd, loads kernel + device tree</text>
+      <line x1="280" y1="346" x2="280" y2="364" class="seq-arrow flow-path" stroke-width="3" />
+      <polygon class="seq-arrowhead" points="280,370 274,358 286,358" />
+
+      <rect class="frame-box block-teal" x="90" y="370" width="380" height="46" rx="6" />
+      <text class="frame-label" x="280" y="398" text-anchor="middle" font-weight="700">Linux kernel</text>
+      <text class="frame-caption" x="280" y="430" text-anchor="middle">Decompresses, initializes drivers, mounts root (or an initramfs first)</text>
+      <line x1="280" y1="436" x2="280" y2="454" class="seq-arrow flow-path" stroke-width="3" />
+      <polygon class="seq-arrowhead" points="280,460 274,448 286,448" />
+
+      <rect class="frame-box block-amber" x="90" y="460" width="380" height="46" rx="6" />
+      <text class="frame-label" x="280" y="488" text-anchor="middle" font-weight="700">Init / PID 1</text>
+      <text class="frame-caption" x="280" y="520" text-anchor="middle">systemd or BusyBox init — starts services, reaches a multi-user target</text>
+      <line x1="280" y1="526" x2="280" y2="544" class="seq-arrow flow-path" stroke-width="3" />
+      <polygon class="seq-arrowhead" points="280,550 274,538 286,538" />
+
+      <rect class="frame-box block-blue" x="90" y="550" width="380" height="46" rx="6" />
+      <text class="frame-label" x="280" y="578" text-anchor="middle" font-weight="700">Running system</text>
+    </svg>
+    <figcaption class="diagram__caption">Every stage's only responsibility is loading and handing off to the next one — see <a href="/bootloaders/fundamentals/index.html">Fundamentals</a> for why it's split this way instead of one program.</figcaption>
+  </figure>
+
+  <h2 id="envvars">Environment variables, in depth</h2>
+  <p>
+    U-Boot's environment is a set of persistent key-value variables that
+    control boot behavior — stored in its <strong>own flash region</strong>,
+    separate from the U-Boot binary itself, so updating U-Boot doesn't
+    wipe the board's configuration and vice versa.
+  </p>
+  <dl class="kv">
+    <dt>Where it lives</dt><dd>A build-time U-Boot configuration choice (<code>CONFIG_ENV_IS_IN_MMC</code>, <code>_SPI_FLASH</code>, <code>_NAND</code>, ...) — the environment's physical storage location is fixed when U-Boot itself is compiled for a given board.</dd>
+    <dt>Default vs. saved</dt><dd>U-Boot ships with compiled-in default values; <code>setenv</code> changes only live in RAM until <code>saveenv</code> writes them to flash — the single most common "why didn't my change stick" gotcha.</dd>
+    <dt>bootcmd</dt><dd>The command sequence run automatically when the boot countdown isn't interrupted — usually a chain of "try this boot source, then that one, then fall back to network/recovery."</dd>
+    <dt>bootargs</dt><dd>The Linux kernel command line, passed at the kernel handoff — <code>console=</code>, <code>root=</code>, and anything else the kernel reads at <code>/proc/cmdline</code>.</dd>
+  </dl>
+
+  <h2 id="configuring">Configuring the environment — a walkthrough</h2>
+  <ol>
+    <li>Interrupt autoboot at the "Hit any key to stop autoboot" prompt to reach the interactive shell.</li>
+    <li>Inspect the current state: <code>printenv</code> lists every variable currently set.</li>
+    <li>Make a change, e.g. add a debug flag to the kernel command line: <code>setenv bootargs "${bootargs} loglevel=8"</code> — note the <code>${bootargs}</code> reference, which extends the existing value instead of replacing it outright.</li>
+    <li>Test it without committing: <code>boot</code> runs <code>bootcmd</code> immediately with the in-RAM changes, without touching flash.</li>
+    <li>Once it's confirmed working, persist it: <code>saveenv</code> writes the environment to flash so it survives a power cycle.</li>
+    <li>To undo a bad change, <code>env default -a</code> resets everything back to the compiled-in defaults (still requires <code>saveenv</code> to persist).</li>
+  </ol>
+
+  <h2 id="boot-scripts">Boot scripts and extlinux.conf</h2>
+  <p>
+    Hand-editing environment variables doesn't scale well across a fleet
+    of boards, so two higher-level mechanisms are common in real
+    build systems (Yocto, Buildroot):
+  </p>
+  <dl class="kv">
+    <dt>boot.scr</dt><dd>A compiled U-Boot script (source written as plain <code>boot.cmd</code>, compiled with <code>mkimage</code>) that U-Boot automatically looks for and runs from the boot device — a way to ship boot logic as a file alongside the kernel rather than baking it into the environment.</dd>
+    <dt>extlinux.conf</dt><dd>A simpler, GRUB-menu-like configuration format that many mainline U-Boot builds support natively via "distro boot" — lets a boot partition declare one or more boot entries (kernel, DTB, initrd, cmdline) without any U-Boot-specific scripting at all.</dd>
+  </dl>
+  <p>
+    Both exist for the same reason: keep boot configuration as a
+    versioned file that travels with the OS image, rather than as
+    board-specific state living only in flash.
+  </p>
+
+  <h2 id="debugging">Debugging a board that won't boot</h2>
+  <p>
+    Where in the sequence a board gets stuck narrows the problem
+    dramatically — work through it in order:
+  </p>
+  <ul class="point-list">
+    <li><strong>No output at all, ever —</strong> almost certainly Boot ROM or SPL — check boot-mode strap pins, power sequencing, and that the boot device actually has valid data at the expected offset.</li>
+    <li><strong>A U-Boot banner appears, then it hangs or resets —</strong> SPL succeeded (DRAM is working); the problem is in U-Boot proper — check the boot device U-Boot is trying to load from, and its own environment/configuration.</li>
+    <li><strong>U-Boot reaches a prompt and boots fine interactively, but autoboot fails —</strong> almost always <code>bootcmd</code> itself — trace through what it's actually trying to do, one command at a time, from the U-Boot shell.</li>
+    <li><strong>U-Boot successfully says it's jumping to the kernel, then nothing —</strong> check <code>console=</code> in <code>bootargs</code> first (a wrong UART/baud setting looks identical to "the kernel crashed silently") before assuming the kernel itself is broken — see <a href="/linux/boot/index.html">Linux → Boot</a>.</li>
+    <li><strong>Kernel boots, but userspace never comes up —</strong> the handoff worked; the problem has moved into <a href="/linux/boot/index.html">Linux boot</a> territory — initramfs, root filesystem, or init itself.</li>
+  </ul>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Field-recoverable IoT devices —</strong> a well-designed <code>bootcmd</code> fallback chain (try A, then B, then network recovery) is what lets a remote device survive a corrupted primary boot source.</li>
+    <li><strong>A/B update systems —</strong> switching which root partition <code>bootargs</code> points at is the actual mechanism behind most atomic, rollback-capable update schemes (see <a href="/snap/ubuntu-core/index.html">Snap types &amp; Ubuntu Core</a>).</li>
+    <li><strong>Manufacturing/production imaging —</strong> a boot.scr or extlinux.conf shipped as part of the OS image keeps every unit's boot behavior identical without per-board manual environment configuration.</li>
+    <li><strong>Field debugging —</strong> the "where did it get stuck" decision tree above is close to the actual first-response checklist for a "customer's device won't turn on" support ticket.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Forgetting <code>saveenv</code> is the single most common environment-configuration mistake — the change works perfectly until the next power cycle, then silently reverts.</li>
+      <li>A <code>bootcmd</code> that works when typed manually can still fail on autoboot if it depends on something (a USB device enumerating, a network link coming up) that isn't ready yet at boot time — timing matters differently in an interactive shell than during autoboot.</li>
+      <li>An extlinux.conf or boot.scr sitting on the boot partition takes priority over hand-set environment variables on many distro-boot configurations — a change to <code>bootargs</code> that "doesn't take effect" is often actually being overridden by one of these files, not silently ignored.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/bootloaders/u-boot/index.html", "title": "U-Boot" },
+  "related": [
+    { "href": "/bootloaders/fundamentals/index.html", "title": "Bootloader fundamentals" },
+    { "href": "/bootloaders/u-boot/index.html", "title": "U-Boot" },
+    { "href": "/linux/boot/index.html", "title": "Linux boot" },
+    { "href": "/snap/ubuntu-core/index.html", "title": "Snap types & Ubuntu Core" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
