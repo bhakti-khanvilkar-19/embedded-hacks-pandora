@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HTTPS &amp; TLS — Networking — Embedded Pandora</title>
+<meta name="description" content="What TLS actually protects, the handshake sequence, how certificates establish trust, why TLS mixes asymmetric and symmetric crypto, and TLS on constrained embedded devices." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>HTTPS &amp; TLS</h1>
+  <p class="lede">
+    HTTPS is just HTTP run over <a href="/networking/tcp/index.html">TCP</a>
+    with one thing added: TLS, a layer that turns a plaintext connection
+    anyone on the path could read or tamper with into one that's private,
+    tamper-evident, and provably talking to the right server.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A layer beneath HTTP (and other protocols) providing encryption, integrity, and server authentication over TCP.</dd>
+      <dt>Mental model</dt><dd>A sealed, tamper-evident envelope with a wax seal you can verify — not just an opaque envelope.</dd>
+      <dt>Key numbers</dt><dd>Port 443 by default; TLS 1.3 needs 1 round trip to establish a session, TLS 1.2 needs 2.</dd>
+      <dt>Reach for it when</dt><dd>Any time data crosses a network you don't fully control — which, for an internet-connected device, is always.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#why">Why plain HTTP isn't safe</a></li>
+      <li><a href="#goals">What TLS actually guarantees</a></li>
+      <li><a href="#handshake">The handshake</a></li>
+      <li><a href="#hybrid">Why TLS mixes two kinds of cryptography</a></li>
+      <li><a href="#certificates">Certificates and the chain of trust</a></li>
+      <li><a href="#mtls">Mutual TLS</a></li>
+      <li><a href="#embedded">TLS on constrained devices</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="why">Why plain HTTP isn't safe</h2>
+  <p>
+    A plain HTTP request travels across every network link between client
+    and server exactly as typed — readable and editable by anything in
+    between: a shared Wi-Fi network, an ISP, a compromised router. There's
+    no cryptography involved at all, so there's nothing stopping any of
+    them from reading credentials in transit or quietly rewriting the
+    response.
+  </p>
+
+  <h2 id="goals">What TLS actually guarantees</h2>
+  <dl class="kv">
+    <dt>Confidentiality</dt><dd>Encryption — anyone intercepting the traffic sees ciphertext, not the actual content.</dd>
+    <dt>Integrity</dt><dd>Any tampering with the data in transit is detectable — the connection fails rather than silently delivering altered data.</dd>
+    <dt>Authentication</dt><dd>The client can cryptographically verify the server is who it claims to be, via its certificate — not just "someone answered on that IP address."</dd>
+  </dl>
+
+  <h2 id="handshake">The handshake</h2>
+  <p>
+    Before any application data flows, client and server negotiate a
+    shared secret and verify identity:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 620 260" role="img" aria-labelledby="tls-handshake-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="tls-handshake-title">TLS 1.3 handshake: ClientHello, then ServerHello with certificate and key share, then Finished, after which application data flows encrypted</title>
+      <rect class="seq-actor-chip" x="40" y="4" width="70" height="24" rx="12" />
+      <text class="seq-actor-text" x="75" y="20" text-anchor="middle">Client</text>
+      <rect class="seq-actor-chip" x="510" y="4" width="70" height="24" rx="12" />
+      <text class="seq-actor-text" x="545" y="20" text-anchor="middle">Server</text>
+      <line x1="75" y1="36" x2="75" y2="248" class="seq-lifeline" />
+      <line x1="545" y1="36" x2="545" y2="248" class="seq-lifeline" />
+
+      <line x1="75" y1="64" x2="538" y2="64" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="545,64 533,59 533,69" />
+      <text class="seq-label" x="310" y="52" text-anchor="middle"><tspan class="seq-tag-con">ClientHello</tspan></text>
+      <text class="seq-sub" x="310" y="80" text-anchor="middle">supported cipher suites, a key share for key exchange</text>
+
+      <line x1="545" y1="116" x2="82" y2="116" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="75,116 87,111 87,121" />
+      <text class="seq-label" x="310" y="104" text-anchor="middle"><tspan class="seq-tag-ack">ServerHello + Certificate + key share + Finished</tspan></text>
+      <text class="seq-sub" x="310" y="132" text-anchor="middle">both sides can now compute the same shared secret</text>
+
+      <line x1="75" y1="164" x2="538" y2="164" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="545,164 533,159 533,169" />
+      <text class="seq-label" x="310" y="152" text-anchor="middle">Finished</text>
+      <text class="seq-sub" x="310" y="180" text-anchor="middle">client confirms it derived the same keys</text>
+
+      <rect x="40" y="200" width="540" height="40" class="block-green" rx="6" />
+      <text class="frame-label" x="310" y="224" text-anchor="middle">🔒 Encrypted application data — both directions, from here on</text>
+    </svg>
+    <figcaption class="diagram__caption">TLS 1.3 (shown here) does this in one round trip; TLS 1.2 needs an extra round trip and separates several of these steps.</figcaption>
+  </figure>
+
+  <h2 id="hybrid">Why TLS mixes two kinds of cryptography</h2>
+  <p>
+    TLS uses <strong>asymmetric</strong> cryptography (like RSA or
+    elliptic-curve Diffie-Hellman) only during the handshake, to safely
+    agree on a secret over an untrusted channel without ever transmitting
+    that secret directly. Once both sides share that secret, they switch
+    to <strong>symmetric</strong> cryptography (like AES or ChaCha20) for
+    the actual data — because symmetric encryption is dramatically faster.
+    This hybrid approach gets the security property only asymmetric crypto
+    provides (secure agreement without a pre-shared secret) and the
+    performance only symmetric crypto provides, without picking one over
+    the other.
+  </p>
+
+  <h2 id="certificates">Certificates and the chain of trust</h2>
+  <p>
+    A certificate binds a public key to an identity (a domain name),
+    signed by a Certificate Authority (CA) that vouches for that binding.
+    Trust is established through a <strong>chain</strong>:
+  </p>
+  <ol>
+    <li>The server presents its own ("leaf") certificate.</li>
+    <li>That certificate is signed by an intermediate CA's certificate.</li>
+    <li>The intermediate is signed by a root CA — one of a small set pre-installed and trusted by the client's OS/browser.</li>
+  </ol>
+  <p>
+    If every signature in that chain checks out, and the certificate's
+    name matches the server being connected to, and it hasn't expired,
+    the client trusts the connection. Break any one link — wrong
+    hostname, expired certificate, a self-signed certificate with no
+    trusted signer — and the client should refuse to proceed.
+  </p>
+
+  <h2 id="mtls">Mutual TLS</h2>
+  <p>
+    Standard TLS only authenticates the <em>server</em> to the client.
+    <strong>Mutual TLS (mTLS)</strong> adds a client certificate too, so
+    the server can cryptographically verify which client is connecting —
+    common wherever both ends need to trust each other's identity, most
+    notably device-to-cloud connections in IoT fleets, where a unique
+    per-device certificate is often how the backend distinguishes one
+    device from another at the transport layer, not just at the
+    application layer.
+  </p>
+
+  <h2 id="embedded">TLS on constrained devices</h2>
+  <p>
+    Full TLS libraries (OpenSSL) are too large for many microcontrollers;
+    embedded-focused libraries like <strong>mbedTLS</strong> and
+    <strong>wolfSSL</strong> trade some flexibility for a much smaller
+    memory and code footprint, deliberately built to run the same
+    handshake and record-layer logic within a few tens of KB of RAM.
+    <a href="/networking/coap/index.html">CoAP</a> has its own matching
+    lightweight variant, <strong>DTLS</strong> (Datagram TLS) — TLS's
+    guarantees adapted to run over unreliable, unordered
+    <a href="/networking/udp/index.html">UDP</a> instead of TCP.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every HTTPS website —</strong> the padlock icon in a browser is exactly the handshake and certificate chain above having succeeded.</li>
+    <li><strong>IoT device-to-cloud connections —</strong> AWS IoT Core, Azure IoT Hub, and similar platforms use mTLS with a unique per-device certificate as the standard way to authenticate a fleet of devices.</li>
+    <li><strong>Secure OTA firmware updates —</strong> TLS protects a firmware image in transit; the device separately verifies the image's own signature (a chain of trust distinct from, but often paired with, the connection's TLS certificate).</li>
+    <li><strong>MQTT over TLS —</strong> production <a href="/networking/mqtt/index.html">MQTT</a> deployments almost always run on port 8883 (MQTT over TLS) rather than plaintext 1883.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Certificate expiration is a genuinely common cause of fleet-wide IoT outages — a certificate that quietly expires can take an entire device fleet offline simultaneously, with no code change involved at all.</li>
+      <li>TLS certificate validation depends on the device's own clock being roughly correct — a device with a dead RTC or no time sync can reject perfectly valid certificates as "not yet valid" or "expired," a confusing failure mode that has nothing to do with the certificate itself.</li>
+      <li>A "connection reset" during the handshake on a constrained device is very often simply running out of RAM mid-handshake, not a network or certificate problem — TLS's memory footprint is a real design constraint, not just a performance one, on small MCUs.</li>
+      <li>Self-signed certificates and disabled certificate validation are common shortcuts during development that quietly defeat the entire point of TLS if they ever ship to production.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/networking/amqp/index.html", "title": "AMQP" },
+  "related": [
+    { "href": "/networking/tcp/index.html", "title": "TCP" },
+    { "href": "/networking/mqtt/index.html", "title": "MQTT" },
+    { "href": "/networking/coap/index.html", "title": "CoAP" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

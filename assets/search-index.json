@@ -183,6 +183,17 @@
     ]
   },
   {
+    "title": "HTTPS &amp; TLS — Networking",
+    "url": "/networking/https/index.html",
+    "domain": "Networking",
+    "category": "Https",
+    "description": "What TLS actually protects, the handshake sequence, how certificates establish trust, why TLS mixes asymmetric and symmetric crypto, and TLS on constrained embedded devices.",
+    "tags": [
+      "networking",
+      "https"
+    ]
+  },
+  {
     "title": "Networking",
     "url": "/networking/index.html",
     "domain": "Networking",
