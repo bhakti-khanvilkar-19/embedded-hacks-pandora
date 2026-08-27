@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Snap types &amp; Ubuntu Core — Snap — Embedded Pandora</title>
+<meta name="description" content="The five real snap types (app, base, gadget, kernel, snapd), the informal 'system snap' vs 'application snap' split, inference snaps, and how it all boots Ubuntu Core." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Snap</p>
+  <h1>Snap types &amp; Ubuntu Core</h1>
+  <p class="lede">
+    Not every snap is the same kind of thing. A handful of special-purpose
+    snap types are what make Ubuntu Core possible at all — a Linux
+    distribution built entirely out of snaps, with no <code>apt</code>,
+    where even the kernel and bootloader configuration update and roll
+    back exactly like an application does.
+  </p>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#formal">The five formal snap types</a></li>
+      <li><a href="#colloquial">"System snap" vs. "application snap"</a></li>
+      <li><a href="#gadget">Gadget snap, in depth</a></li>
+      <li><a href="#kernel">Kernel snap, in depth</a></li>
+      <li><a href="#base">Base and snapd snaps</a></li>
+      <li><a href="#boot">How they combine to boot Ubuntu Core</a></li>
+      <li><a href="#inference">Inference snaps</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="formal">The five formal snap types</h2>
+  <p>
+    The <code>type:</code> field in <a href="/snap/packaging/index.html">snapcraft.yaml</a>
+    accepts exactly five values. If you omit it, you get <code>app</code>.
+  </p>
+  <table>
+    <thead><tr><th><code>type:</code></th><th>Contains</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td>app</td><td>An application and its bundled dependencies.</td><td>What you install to run your own software — the overwhelming majority of snaps in the store.</td></tr>
+      <tr><td>base</td><td>A minimal root filesystem (core libraries, no kernel) — e.g. <code>core22</code>, <code>core24</code>.</td><td>The runtime foundation every strictly-confined <code>app</code>-type snap mounts alongside itself.</td></tr>
+      <tr><td>gadget</td><td>Bootloader configuration, partition layout (<code>gadget.yaml</code>), device tree overlays.</td><td>Device-specific: describes the hardware target and how the device boots.</td></tr>
+      <tr><td>kernel</td><td>The Linux kernel image, modules, and initrd.</td><td>What the bootloader actually boots into.</td></tr>
+      <tr><td>snapd</td><td>The <code>snapd</code> daemon itself.</td><td>Distributed as a snap so the snap manager can be updated and rolled back the same way as everything else.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="colloquial">"System snap" vs. "application snap"</h2>
+  <p>
+    These two terms aren't values of <code>type:</code> — they're
+    everyday shorthand for grouping the five formal types by role:
+  </p>
+  <table>
+    <thead><tr><th></th><th>System snaps</th><th>Application snaps</th></tr></thead>
+    <tbody>
+      <tr><td>Formal types</td><td><code>base</code>, <code>gadget</code>, <code>kernel</code>, <code>snapd</code></td><td><code>app</code></td></tr>
+      <tr><td>Who installs them</td><td>Chosen once, at image build time, by whoever assembles the Ubuntu Core image for a device model.</td><td>Anyone, any time — installed and removed like a normal package.</td></tr>
+      <tr><td>What they do</td><td>Collectively <em>are</em> the operating system — boot chain, kernel, and base userspace.</td><td>Run on top of the OS the system snaps provide.</td></tr>
+      <tr><td>Typical count on a device</td><td>Exactly one of each (one gadget, one kernel, one base, one snapd).</td><td>As many as the device needs.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    In other words: on an Ubuntu Core device, the four system snaps
+    <em>are</em> the OS image, and everything else on the device is an
+    application snap running on top of them.
+  </p>
+
+  <h2 id="gadget">Gadget snap, in depth</h2>
+  <p>
+    The gadget snap is the one piece of an Ubuntu Core image that's
+    genuinely specific to a board. It carries its own manifest,
+    <code>meta/gadget.yaml</code>, describing:
+  </p>
+  <ul>
+    <li><strong>volumes</strong> — the on-disk partition layout: bootloader region, a <code>system-boot</code> partition (boot assets), a <code>system-data</code> partition (writable state), sizes and offsets.</li>
+    <li><strong>bootloader stanza</strong> — which bootloader the board uses (<code>u-boot</code>, <code>grub</code>, <code>piboot</code>, ...) and its config, tying straight back to <a href="/bootloaders/u-boot/index.html">U-Boot</a>.</li>
+    <li><strong>structure roles</strong> — marks which partition is <code>system-boot</code>, which is <code>system-data</code>, etc., so snapd knows where to write updates.</li>
+    <li><strong>device tree</strong> — board-specific <code>.dtb</code>/overlays, the same device tree concept covered in <a href="/linux/boot/index.html">Linux → Boot</a>.</li>
+  </ul>
+  <p>
+    Building a new board target usually means writing a new gadget snap,
+    not touching the kernel or base snaps at all — the split is
+    deliberate, so board-specific bring-up work stays isolated from the
+    rest of the OS.
+  </p>
+
+  <h2 id="kernel">Kernel snap, in depth</h2>
+  <p>
+    Packages the kernel image, loadable modules, and initrd that the
+    bootloader (configured by the gadget snap) actually boots. On secure
+    devices it's signed, and forms one link in the same chain of trust
+    described in <a href="/bootloaders/fundamentals/index.html">Bootloader fundamentals</a> —
+    the gadget's bootloader stanza verifies the kernel snap's signature
+    before jumping to it. Updating the kernel snap is an atomic,
+    rollback-capable operation exactly like updating an application snap.
+  </p>
+
+  <h2 id="base">Base and snapd snaps</h2>
+  <p>
+    The <strong>base</strong> snap (e.g. <code>core22</code>) supplies the
+    minimal userspace — C library and friends — that runs on top of the
+    kernel and underneath every application snap; on an Ubuntu Core
+    device it effectively <em>is</em> the root filesystem. The
+    <strong>snapd</strong> snap ships the snap daemon itself, so the
+    component responsible for updating everything else can also be
+    updated and rolled back the same way.
+  </p>
+
+  <h2 id="boot">How they combine to boot Ubuntu Core</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 480 340" role="img" aria-labelledby="ubuntu-core-boot-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="ubuntu-core-boot-title">Boot stack: gadget's bootloader config, then kernel snap, then base snap, then snapd, then application snaps on top</title>
+
+      <rect class="frame-box" x="40" y="16" width="400" height="52" />
+      <text class="frame-label" x="240" y="38" text-anchor="middle">Bootloader (configured by the gadget snap)</text>
+      <text class="frame-caption" x="240" y="56" text-anchor="middle">u-boot / grub — partition layout, device tree</text>
+
+      <line class="seq-arrow" x1="240" y1="68" x2="240" y2="90" />
+      <polygon class="seq-arrowhead" points="240,96 234,84 246,84" />
+
+      <rect class="frame-box" x="40" y="98" width="400" height="52" />
+      <text class="frame-label" x="240" y="120" text-anchor="middle">Kernel snap</text>
+      <text class="frame-caption" x="240" y="138" text-anchor="middle">Linux kernel, modules, initrd — signed for secure boot</text>
+
+      <line class="seq-arrow" x1="240" y1="150" x2="240" y2="172" />
+      <polygon class="seq-arrowhead" points="240,178 234,166 246,166" />
+
+      <rect class="frame-box" x="40" y="180" width="400" height="52" />
+      <text class="frame-label" x="240" y="202" text-anchor="middle">Base snap (e.g. core22)</text>
+      <text class="frame-caption" x="240" y="220" text-anchor="middle">Minimal root filesystem every app runs against</text>
+
+      <line class="seq-arrow" x1="240" y1="232" x2="240" y2="254" />
+      <polygon class="seq-arrowhead" points="240,260 234,248 246,248" />
+
+      <rect class="frame-box" x="40" y="262" width="400" height="36" />
+      <text class="frame-label" x="240" y="285" text-anchor="middle">snapd — manages everything above and below it</text>
+
+      <line class="seq-arrow" x1="240" y1="298" x2="240" y2="308" />
+      <polygon class="seq-arrowhead" points="240,314 234,302 246,302" />
+
+      <rect class="frame-box frame-box--variable" x="40" y="316" width="400" height="20" />
+      <text class="frame-caption" x="240" y="330" text-anchor="middle">Application snaps — as many as the device needs</text>
+    </svg>
+    <figcaption class="diagram__caption">
+      Everything except the bottom row is a snap — including the kernel and the boot
+      configuration. Every layer updates atomically and can roll back independently.
+    </figcaption>
+  </figure>
+  <p>
+    Two properties fall out of this directly: <strong>atomic, transactional
+    updates</strong> (each snap is a whole immutable image — an update
+    either fully applies or fully doesn't) and <strong>automatic
+    rollback</strong> (if a freshly-updated kernel or base snap fails a
+    health check on boot, the bootloader falls back to the previous
+    working revision without operator intervention — critical for devices
+    nobody can walk up to and re-flash).
+  </p>
+
+  <h2 id="inference">Inference snaps</h2>
+  <p>
+    "Inference snap" isn't a formal <code>type:</code> — it's a common
+    real-world pattern for how edge-AI workloads get packaged: an
+    ordinary <code>type: app</code> snap purpose-built to run a machine
+    learning inference engine (and often a model) on the device, as
+    opposed to an app snap that's, say, a web server or a CLI tool.
+    They show up constantly on NPU-equipped boards (e.g. an i.MX8MP)
+    running Ubuntu Core.
+  </p>
+  <p>What tends to make an inference snap look different from a typical app snap:</p>
+  <ul>
+    <li><strong>Runtime and model split across two snaps</strong>, connected by the
+      <code>content</code> interface (see <a href="/snap/packaging/index.html#interfaces">Packaging → Plugs and slots</a>) —
+      the inference engine binary ships in one snap, the trained model
+      ships in another, and they're updated independently. A model
+      retrain doesn't require rebuilding or re-certifying the engine, and
+      vice versa.
+    </li>
+    <li><strong>Hardware-specific interfaces</strong> — access to a GPU or NPU device
+      node, camera, or other accelerator, each requiring its own
+      interface connection under strict confinement rather than broad
+      system access.
+    </li>
+    <li><strong>Fleet-safe update story</strong> — the same atomic
+      update/rollback model described above is exactly what makes it
+      reasonable to push a new inference engine build to a fleet of
+      remote, physically inaccessible devices: a bad update rolls itself
+      back instead of bricking hardware nobody can drive to.
+    </li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A device model only ever has one gadget and one kernel snap active — "which board is this" and "which kernel build" are both single decisions, not something an app snap can override.</li>
+      <li>Changing the gadget snap's partition layout on an already-deployed fleet is not a normal update — it typically requires re-imaging, since existing partitions can't be silently resized. Get the <code>gadget.yaml</code> volume layout right before mass deployment.</li>
+      <li>An inference snap that hardcodes a model path inside its own snap directory defeats the point of splitting engine and model via the <code>content</code> interface — check that the model is actually read from the shared content path, not bundled and forgotten.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/snap/packaging/index.html", "title": "Packaging" },
+  "related": [
+    { "href": "/snap/fundamentals/index.html", "title": "Snap fundamentals" },
+    { "href": "/snap/packaging/index.html", "title": "Packaging" },
+    { "href": "/bootloaders/u-boot/index.html", "title": "U-Boot" },
+    { "href": "/bootloaders/fundamentals/index.html", "title": "Bootloader fundamentals" },
+    { "href": "/linux/boot/index.html", "title": "Linux boot" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

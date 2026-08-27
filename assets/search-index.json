@@ -266,5 +266,27 @@
     "tags": [
       "snap"
     ]
+  },
+  {
+    "title": "Packaging — Snap",
+    "url": "/snap/packaging/index.html",
+    "domain": "Snap",
+    "category": "Packaging",
+    "description": "snapcraft.yaml field by field: name, version, grade, confinement, apps, command, hooks, parts, plugs/slots, and how they assemble into a .snap.",
+    "tags": [
+      "snap",
+      "packaging"
+    ]
+  },
+  {
+    "title": "Snap types &amp; Ubuntu Core — Snap",
+    "url": "/snap/ubuntu-core/index.html",
+    "domain": "Snap",
+    "category": "Ubuntu Core",
+    "description": "The five real snap types (app, base, gadget, kernel, snapd), the informal 'system snap' vs 'application snap' split, inference snaps, and how it all boots Ubuntu Core.",
+    "tags": [
+      "snap",
+      "ubuntu-core"
+    ]
   }
 ]
