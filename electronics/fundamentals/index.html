@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fundamentals — Electronics — Embedded Pandora</title>
+<meta name="description" content="Voltage, current, resistance, Ohm's law, power, and how series/parallel circuits actually behave — the foundation everything else in electronics is built on." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Electronics</p>
+  <h1>Fundamentals — voltage, current, resistance, and how circuits work</h1>
+  <p class="lede">
+    Three quantities and one equation explain most of what happens in a
+    circuit. Everything else in this notebook — every sensor, every
+    protocol, every peripheral — is these three things arranged in
+    different shapes.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Voltage (push), current (flow), and resistance (opposition to flow) — related by Ohm's Law, V = I × R.</dd>
+      <dt>Mental model</dt><dd>Water in a pipe: voltage is pressure, current is flow rate, resistance is how narrow the pipe is.</dd>
+      <dt>Key numbers</dt><dd>V = I × R (Ohm's Law); P = V × I (power); series: current stays the same, voltage splits; parallel: voltage stays the same, current splits.</dd>
+      <dt>Reach for it when</dt><dd>Before reading any component datasheet or sensor page — this is the vocabulary everything else assumes.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#charge">Electric charge and current direction</a></li>
+      <li><a href="#voltage">Voltage</a></li>
+      <li><a href="#current">Current</a></li>
+      <li><a href="#resistance">Resistance and Ohm's Law</a></li>
+      <li><a href="#water">The water analogy</a></li>
+      <li><a href="#power">Power</a></li>
+      <li><a href="#circuit">A complete circuit</a></li>
+      <li><a href="#series-parallel">Series vs. parallel circuits</a></li>
+      <li><a href="#ac-dc">AC vs. DC</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="charge">Electric charge and current direction</h2>
+  <p>
+    Everything here starts with electric charge — a property of electrons
+    (negative) and protons (positive). Current is charge in motion. There's
+    one famous historical wrinkle worth knowing by name: <strong>conventional
+    current</strong> is defined as flowing from + to − through a circuit,
+    but the electrons actually doing the moving flow the opposite way,
+    − to +. This convention was fixed before anyone knew what an electron
+    was, and it stuck — every schematic, every formula, every datasheet
+    you'll ever read uses conventional current (+ to −), so that's what
+    this page uses too.
+  </p>
+
+  <h2 id="voltage">Voltage</h2>
+  <p>
+    Voltage is the difference in electrical potential between two points —
+    it's what pushes charge through a circuit, and it's always measured
+    <em>between</em> two points, never at just one.
+  </p>
+  <dl class="kv">
+    <dt>Symbol</dt><dd>V (sometimes E)</dd>
+    <dt>Unit</dt><dd>Volt (V)</dd>
+    <dt>Measured</dt><dd>Across a component, in parallel with it</dd>
+  </dl>
+
+  <h2 id="current">Current</h2>
+  <p>
+    Current is the rate at which charge flows past a point — how much
+    charge per second.
+  </p>
+  <dl class="kv">
+    <dt>Symbol</dt><dd>I</dd>
+    <dt>Unit</dt><dd>Ampere / "amp" (A)</dd>
+    <dt>Measured</dt><dd>Through a component, in series with it (the circuit has to be broken to insert a meter)</dd>
+  </dl>
+
+  <h2 id="resistance">Resistance and Ohm's Law</h2>
+  <p>
+    Resistance is a material's opposition to current flow. The
+    relationship between all three quantities is <strong>Ohm's Law</strong>,
+    the single most-used equation in electronics:
+  </p>
+  <pre><code>V = I × R
+I = V / R
+R = V / I</code></pre>
+  <figure class="diagram">
+    <svg viewBox="0 0 300 240" role="img" aria-labelledby="ohm-triangle-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="ohm-triangle-title">Ohm's Law triangle: cover the quantity you want to find, and the other two show how to calculate it</title>
+      <path d="M150,20 L102,100 L198,100 Z" class="block-blue" stroke-width="1.5" />
+      <path d="M102,100 L150,100 L150,220 L30,220 Z" class="block-green" stroke-width="1.5" />
+      <path d="M198,100 L270,220 L150,220 L150,100 Z" class="block-violet" stroke-width="1.5" />
+      <path d="M150,20 L270,220 L30,220 Z" fill="none" stroke="var(--ink)" stroke-width="2" />
+      <text x="150" y="75" text-anchor="middle" font-family="var(--font-serif)" font-weight="700" font-size="30" fill="var(--ink)">V</text>
+      <text x="88" y="180" text-anchor="middle" font-family="var(--font-serif)" font-weight="700" font-size="30" fill="var(--ink)">I</text>
+      <text x="212" y="180" text-anchor="middle" font-family="var(--font-serif)" font-weight="700" font-size="30" fill="var(--ink)">R</text>
+    </svg>
+    <figcaption class="diagram__caption">
+      Cover V to see "I × R" left uncovered — that's how to find V. Cover I to see "V over R" — that's I = V/R. A classic
+      mnemonic, still the fastest way to not mix up the rearrangement mid-calculation.
+    </figcaption>
+  </figure>
+
+  <h2 id="water">The water analogy</h2>
+  <p>
+    The most common — and genuinely useful — way to build intuition for
+    all three at once:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 500 220" role="img" aria-labelledby="water-analogy-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="water-analogy-title">A water tank under pressure pushing flow through a narrow pipe — pressure is voltage, pipe narrowness is resistance, flow rate is current</title>
+      <rect class="frame-box block-blue" x="25" y="30" width="85" height="150" rx="4" />
+      <text class="frame-label" x="67" y="20" text-anchor="middle" font-weight="700">Voltage</text>
+      <text class="frame-caption" x="67" y="200" text-anchor="middle">electrical pressure</text>
+
+      <rect class="frame-box block-green" x="110" y="75" width="300" height="30" />
+      <text class="frame-label" x="260" y="60" text-anchor="middle" font-weight="700">Resistance</text>
+      <text class="frame-caption" x="260" y="122" text-anchor="middle">pipe narrowness restricts flow</text>
+
+      <line x1="122" y1="90" x2="400" y2="90" class="seq-arrow flow-path" stroke-width="3" />
+      <polygon class="seq-arrowhead" points="410,90 398,85 398,95" />
+      <text class="frame-label" x="260" y="148" text-anchor="middle" font-weight="700">Current</text>
+      <text class="frame-caption" x="260" y="166" text-anchor="middle">rate of flow through the pipe</text>
+
+      <path d="M410,80 L440,80 L440,100 L410,100" fill="none" stroke="var(--ink-faint)" stroke-width="2" />
+      <text class="frame-caption" x="460" y="94" text-anchor="middle">out</text>
+    </svg>
+    <figcaption class="diagram__caption">
+      Higher voltage (more pressure) or lower resistance (a wider pipe) both push more current — exactly what Ohm's Law says algebraically.
+    </figcaption>
+  </figure>
+
+  <h2 id="power">Power</h2>
+  <p>
+    Power is the rate energy is used or dissipated — usually as heat in a
+    resistive component. It matters for battery life, heat dissipation,
+    and component ratings (a resistor rated for less power than it
+    actually dissipates will overheat and fail).
+  </p>
+  <pre><code>P = V × I
+P = I² × R
+P = V² / R</code></pre>
+
+  <h2 id="circuit">A complete circuit</h2>
+  <p>
+    Current only flows in a closed loop — a complete path from a power
+    source's positive terminal, through components, back to its negative
+    terminal. Break the loop anywhere and current stops everywhere, not
+    just past the break.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 420 220" role="img" aria-labelledby="led-circuit-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="led-circuit-title">A battery driving current clockwise through a resistor and an LED in a closed loop</title>
+      <rect x="60" y="60" width="300" height="100" fill="none" class="seq-arrow flow-path" stroke-width="3" />
+      <polygon class="seq-arrowhead" points="130,60 120,55 120,65" />
+      <polygon class="seq-arrowhead" points="200,160 190,155 190,165" />
+
+      <rect class="frame-box block-amber" x="25" y="85" width="70" height="50" rx="4" />
+      <text class="frame-label" x="60" y="106" text-anchor="middle">Battery</text>
+      <text class="frame-caption" x="46" y="120" text-anchor="middle">+</text>
+      <text class="frame-caption" x="74" y="120" text-anchor="middle">−</text>
+
+      <rect class="frame-box block-green" x="150" y="35" width="120" height="50" rx="4" />
+      <text class="frame-label" x="210" y="65" text-anchor="middle">Resistor</text>
+
+      <rect class="frame-box block-violet" x="325" y="85" width="70" height="50" rx="4" />
+      <text class="frame-label" x="360" y="106" text-anchor="middle">LED</text>
+    </svg>
+    <figcaption class="diagram__caption">
+      Conventional current flows out of the battery's + terminal, through the resistor, through the LED, and back into
+      the battery's − terminal — the resistor limits current so the LED doesn't burn out.
+    </figcaption>
+  </figure>
+
+  <h2 id="series-parallel">Series vs. parallel circuits</h2>
+  <table>
+    <thead><tr><th></th><th>Series</th><th>Parallel</th></tr></thead>
+    <tbody>
+      <tr><td>Current</td><td>Same through every component (one path)</td><td>Splits across branches, adds back up</td></tr>
+      <tr><td>Voltage</td><td>Splits across components, adds up to the source voltage</td><td>Same across every branch</td></tr>
+      <tr><td>Total resistance</td><td>R<sub>total</sub> = R1 + R2 + ...</td><td>1/R<sub>total</sub> = 1/R1 + 1/R2 + ...</td></tr>
+      <tr><td>If one component fails open</td><td>Whole circuit stops</td><td>Other branches keep working</td></tr>
+    </tbody>
+  </table>
+  <p>
+    The resistor-and-LED loop above is a series circuit — there's only one
+    path, so the same current flows through both the resistor and the LED.
+  </p>
+
+  <h2 id="ac-dc">AC vs. DC</h2>
+  <div class="callout callout--note">
+    <span class="callout__label">Worth knowing</span>
+    <p>
+      Everything above describes <strong>DC</strong> (Direct Current) —
+      voltage and current that stay a constant polarity, exactly what a
+      battery or a microcontroller's power rail provides.
+      <strong>AC</strong> (Alternating Current) — like household mains
+      power — periodically reverses direction, described by a frequency
+      (Hz) in addition to a voltage. Almost everything else in this
+      notebook, from sensors to microcontrollers, operates on DC; AC
+      matters mainly at the power-supply boundary where mains power gets
+      converted down to a stable DC rail.
+    </p>
+  </div>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Current-limiting resistors —</strong> the LED circuit above is the single most common first circuit anyone builds, and the resistor's job — protecting the LED from too much current — shows up constantly wherever a component needs protecting.</li>
+    <li><strong>Voltage dividers —</strong> two resistors in series (see <a href="/electronics/fundamentals/index.html#series-parallel">series circuits</a> above) are the standard way to scale down a voltage for a microcontroller's ADC input.</li>
+    <li><strong>Battery life estimation —</strong> P = V × I directly gives the current draw a battery has to supply, and from there, roughly how long a battery of known capacity will last.</li>
+    <li><strong>PCB trace sizing —</strong> P = I² × R is exactly why high-current traces need to be wider — too narrow, and I²R heating can damage the board.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A voltmeter is placed in <strong>parallel</strong> (across a component); an ammeter is placed in <strong>series</strong> (breaking the circuit to insert it) — wiring an ammeter in parallel is a classic beginner mistake that can short the circuit.</li>
+      <li>"Ground" isn't automatically 0 V in an absolute sense — it's just the reference point a circuit's other voltages are measured against. Two circuits with different ground references can have a dangerous voltage between their "grounds."</li>
+      <li>Resistance isn't always constant — some components (a lightbulb filament, a diode) have resistance that changes with current or temperature, so Ohm's Law only applies to genuinely "ohmic" components across the range being used.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/electronics/index.html", "title": "Electronics" },
+    { "href": "/embedded/gpio/index.html", "title": "GPIO" },
+    { "href": "/sensors/temperature/index.html", "title": "Temperature sensors" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

@@ -32,6 +32,27 @@
     ]
   },
   {
+    "title": "Fundamentals — Electronics",
+    "url": "/electronics/fundamentals/index.html",
+    "domain": "Electronics",
+    "category": "Fundamentals",
+    "description": "Voltage, current, resistance, Ohm's law, power, and how series/parallel circuits actually behave — the foundation everything else in electronics is built on.",
+    "tags": [
+      "electronics",
+      "fundamentals"
+    ]
+  },
+  {
+    "title": "Electronics",
+    "url": "/electronics/index.html",
+    "domain": "Electronics",
+    "category": "Overview",
+    "description": "The circuit-level fundamentals everything else in this notebook is built on: voltage, current, resistance, passive components, semiconductors, and data converters.",
+    "tags": [
+      "electronics"
+    ]
+  },
+  {
     "title": "GPIO — Embedded",
     "url": "/embedded/gpio/index.html",
     "domain": "Embedded",

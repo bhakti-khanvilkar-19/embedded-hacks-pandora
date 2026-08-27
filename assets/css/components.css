@@ -599,6 +599,59 @@
   color: var(--ink);
 }
 
+/* ---------- colorful block diagrams ---------- */
+/* Color variants for multi-stage/multi-block diagrams (boot stages,
+   architecture layers, protocol stacks) — combine with .frame-box, e.g.
+   class="frame-box block-blue". Defined after .frame-box in this file so
+   the color wins the fill/stroke tie-break; each hue stays legible in
+   both themes since it's built from the theme's own color tokens. */
+
+.block-amber   { fill: var(--accent-soft); stroke: var(--accent); }
+.block-teal    { fill: color-mix(in srgb, var(--teal) 22%, var(--bg-inset)); stroke: var(--teal); }
+.block-blue    { fill: color-mix(in srgb, var(--blue) 22%, var(--bg-inset)); stroke: var(--blue); }
+.block-green   { fill: color-mix(in srgb, var(--green) 22%, var(--bg-inset)); stroke: var(--green); }
+.block-violet  { fill: color-mix(in srgb, var(--violet) 22%, var(--bg-inset)); stroke: var(--violet); }
+
+/* ---------- animated diagrams ---------- */
+/* Motion is opt-in per element (not every diagram needs it) and always
+   respects prefers-reduced-motion. Use .flow-path on a dashed line to
+   suggest current/data/signal movement; .pulse-dot on a circle for a
+   "something is happening here" heartbeat. */
+
+.flow-path {
+  stroke-dasharray: 6 5;
+  animation: flow-dash 1.1s linear infinite;
+}
+
+.flow-path--slow {
+  animation-duration: 2.4s;
+}
+
+.flow-path--reverse {
+  animation-direction: reverse;
+}
+
+@keyframes flow-dash {
+  to { stroke-dashoffset: -22; }
+}
+
+.pulse-dot {
+  animation: pulse-grow 1.6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes pulse-grow {
+  0%, 100% { opacity: 0.55; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-path, .pulse-dot {
+    animation: none;
+  }
+}
+
 @media (max-width: 640px) {
   .site-header__nav { display: none; }
   .site-header__search input { width: 8rem; }
