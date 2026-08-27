@@ -528,9 +528,81 @@
 .frame-caption { font-family: var(--font-sans); font-size: 9.5px; fill: var(--ink-faint); }
 .frame-divider { stroke: var(--accent); stroke-width: 1.2; stroke-dasharray: 2 2; }
 
+/* ---------- quick reference ---------- */
+/* A scan-in-30-seconds summary placed right after the lede, before the
+   table of contents. Every topic page should have one — see GUIDE.md. */
+
+.quickref {
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  padding: 1.1rem 1.3rem 1.2rem;
+  margin: 1.6rem 0;
+}
+
+.quickref__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: block;
+  margin-bottom: 0.7em;
+}
+
+.quickref dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5em 1em;
+  margin: 0;
+  font-size: 0.94rem;
+}
+
+.quickref dt {
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.quickref dd {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+/* ---------- point list ---------- */
+/* Tight, scannable bullets for "here's what you actually need to know" —
+   denser than a normal <ul>, used for real-world-application lists and
+   quick facts inside a section. */
+
+.point-list {
+  list-style: none;
+  padding: 0;
+  margin: 1em 0;
+  display: grid;
+  gap: 0.55em;
+}
+
+.point-list li {
+  padding-left: 1.4em;
+  position: relative;
+}
+
+.point-list li::before {
+  content: "▸";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+}
+
+.point-list strong {
+  color: var(--ink);
+}
+
 @media (max-width: 640px) {
   .site-header__nav { display: none; }
   .site-header__search input { width: 8rem; }
   .pager { flex-direction: column; }
   .pager__link--next { text-align: left; }
+  .quickref dl { grid-template-columns: 1fr; gap: 0.15em 0; }
 }

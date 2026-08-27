@@ -26,6 +26,16 @@
     (or how many) is listening.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A publish/subscribe messaging protocol over TCP, routed through a central broker.</dd>
+      <dt>Mental model</dt><dd>A radio station: publishers broadcast on a channel (topic), subscribers tune in — neither side needs to know who else is listening.</dd>
+      <dt>Key numbers</dt><dd>3 QoS levels (0/1/2), topic wildcards <code>+</code> and <code>#</code>, persistent TCP connection per client.</dd>
+      <dt>Reach for it when</dt><dd>You have many-to-many fan-out (fleet telemetry, dashboards) and a broker is acceptable infrastructure.</dd>
+    </dl>
+  </div>
+
   <nav class="toc" aria-label="On this page">
     <span class="toc__label">On this page</span>
     <ul>
@@ -36,6 +46,7 @@
       <li><a href="#lwt">Last Will and Testament</a></li>
       <li><a href="#packets">The packet types, briefly</a></li>
       <li><a href="#vs">MQTT vs. CoAP vs. AMQP</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -154,6 +165,15 @@
       <tr><td>Typical fit</td><td>Fleet telemetry, many-to-many fan-out, constrained-but-not-tiny devices</td><td>Individually constrained devices, request/response device control</td><td>Enterprise messaging with complex routing and delivery guarantees</td></tr>
     </tbody>
   </table>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>IoT device fleets —</strong> AWS IoT Core and Azure IoT Hub both use MQTT as their primary device-to-cloud protocol.</li>
+    <li><strong>Home automation —</strong> Home Assistant and countless smart-home setups use an MQTT broker (often Mosquitto) as the message bus between devices and automations.</li>
+    <li><strong>Industrial telemetry (Sparkplug B)</strong> — a standardized MQTT payload format used across factory-floor sensor and PLC data collection.</li>
+    <li><strong>Facebook Messenger (historically)</strong> — MQTT was famously chosen for its chat delivery precisely because of its low overhead over unreliable mobile networks.</li>
+    <li><strong>Vehicle telematics —</strong> connected-car platforms use MQTT to stream diagnostics and location data from vehicles to a backend.</li>
+  </ul>
 
   <h2 id="gotchas">Gotchas</h2>
   <div class="callout callout--warn">

@@ -22,6 +22,16 @@
     being one program.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The staged sequence (ROM code → SPL → full bootloader → OS) that brings a chip from power-on to running Linux.</dd>
+      <dt>Mental model</dt><dd>Each stage is just barely enough to load the next, bigger stage — like lighting a match to light a candle to light a room.</dd>
+      <dt>Key numbers</dt><dd>ROM code is fixed at manufacture and cannot be overwritten; boot-mode pins/eFuses select the first boot source.</dd>
+      <dt>Reach for it when</dt><dd>Bringing up new hardware, debugging a board that won't boot at all, or setting up secure/verified boot.</dd>
+    </dl>
+  </div>
+
   <h2>Why boot in stages?</h2>
   <p>
     At power-on, RAM is typically not yet initialized (DDR training takes
@@ -62,6 +72,14 @@
     next before handing off control. Skipping or misconfiguring any link in
     that chain breaks the guarantee for every stage after it.
   </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Secure/locked-down IoT devices —</strong> a hardware root of trust and signature verification at every stage is what stops a stolen or compromised device from running unauthorized firmware.</li>
+    <li><strong>Field-recoverable devices —</strong> a USB/UART recovery boot mode built into ROM code is what lets a device be reflashed even after a completely bad firmware update.</li>
+    <li><strong>Multi-boot-source designs —</strong> industrial devices that boot from SD card during development and eMMC in production rely on boot-mode strap pins to switch sources without code changes.</li>
+    <li><strong>Product certification —</strong> many regulatory/security certifications for connected devices specifically require a documented, verified chain of trust starting at the ROM stage.</li>
+  </ul>
 
   <div class="callout callout--note">
     <span class="callout__label">What I learned</span>

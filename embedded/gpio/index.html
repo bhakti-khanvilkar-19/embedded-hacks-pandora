@@ -23,6 +23,16 @@
     ultimately rests on GPIO.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A pin firmware can configure as input or output and read/drive directly — the lowest-level building block of any digital hardware interface.</dd>
+      <dt>Mental model</dt><dd>A switch you control from code — push-pull can flip it fully both ways, open-drain can only pull it down and rely on a resistor to pull it back up.</dd>
+      <dt>Key numbers</dt><dd>A few tens of mA max source/sink current per pin; 3.3 V and 5 V are the common logic levels.</dd>
+      <dt>Reach for it when</dt><dd>Anything that isn't a dedicated peripheral — LEDs, buttons, chip-select lines, bit-banged protocols.</dd>
+    </dl>
+  </div>
+
   <h2>Pin modes</h2>
   <table>
     <thead><tr><th>Mode</th><th>Behavior</th></tr></thead>
@@ -63,6 +73,15 @@
   <pre><code># command-line, via libgpiod tools
 gpioget gpiochip0 17          # read line 17
 gpioset gpiochip0 17=1        # drive line 17 high</code></pre>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Status LEDs and buttons —</strong> the simplest and most common GPIO use, and usually the first line of code written on new hardware.</li>
+    <li><strong>Chip select lines —</strong> every device on an <a href="/protocols/spi/index.html">SPI</a> bus needs its own GPIO-driven CS pin.</li>
+    <li><strong>Bit-banged protocols —</strong> when no dedicated peripheral exists, GPIO toggled directly in software can emulate simple protocols (slowly, and with careful timing).</li>
+    <li><strong>Interrupt sources —</strong> a button press or a sensor's data-ready line wakes the CPU via a GPIO configured for edge-triggered interrupts — see <a href="/embedded/interrupts/index.html">Interrupts</a>.</li>
+    <li><strong>Reset and enable lines —</strong> power-controlling or resetting a peripheral chip is almost always a plain GPIO output.</li>
+  </ul>
 
   <div class="callout callout--note">
     <span class="callout__label">What I learned</span>

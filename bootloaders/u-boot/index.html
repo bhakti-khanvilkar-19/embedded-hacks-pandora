@@ -24,6 +24,16 @@
     running.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The most common open-source full bootloader for embedded Linux — loads the kernel/DTB and hands off control.</dd>
+      <dt>Mental model</dt><dd>An interactive shell that runs briefly before Linux does, just long enough to fetch and boot the kernel.</dd>
+      <dt>Key numbers</dt><dd>Environment variables persist in flash until <code>saveenv</code>; <code>bootcmd</code> runs automatically unless interrupted.</dd>
+      <dt>Reach for it when</dt><dd>You're bringing up new hardware, debugging a boot failure, or need to override boot behavior interactively.</dd>
+    </dl>
+  </div>
+
   <h2>Dropping into the U-Boot shell</h2>
   <p>
     Most boards print a countdown ("Hit any key to stop autoboot") on the
@@ -74,6 +84,14 @@ bootz ${kernel_addr_r} - ${fdt_addr_r}</code></pre>
     "distro_bootcmd" used by many mainline U-Boot configs) generalize this
     into scanning each available device for a standard boot script file.
   </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>SBC dev boards —</strong> Raspberry Pi (via its own bootloader lineage), BeagleBone, and most ARM SBCs either use U-Boot directly or something conceptually identical.</li>
+    <li><strong>A/B failsafe updates —</strong> <code>bootcmd</code> fallback logic is commonly used to try a newly-updated partition and revert to the previous known-good one if it fails to boot.</li>
+    <li><strong>Network/PXE boot for provisioning —</strong> U-Boot's network boot support is widely used in factory/lab environments to image many boards without individually flashing storage.</li>
+    <li><strong>Yocto/Buildroot-based products —</strong> both major embedded Linux build systems generate and configure U-Boot as a standard part of the image.</li>
+  </ul>
 
   <div class="callout callout--note">
     <span class="callout__label">What I learned</span>

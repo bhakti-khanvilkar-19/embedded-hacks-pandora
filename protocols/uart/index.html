@@ -22,6 +22,16 @@
     shared clock line to synchronize with.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A point-to-point serial link with no shared clock — both ends pre-agree on a baud rate and frame each byte with start/stop bits.</dd>
+      <dt>Mental model</dt><dd>Two people who've agreed in advance how fast to talk, so neither needs a metronome to stay in sync.</dd>
+      <dt>Key numbers</dt><dd>2 signal wires (TX, RX) + GND, common bauds 9600–115200, typically 8N1 framing.</dd>
+      <dt>Reach for it when</dt><dd>You need a simple, universally-supported console/debug link or a basic point-to-point connection between two devices.</dd>
+    </dl>
+  </div>
+
   <nav class="toc" aria-label="On this page">
     <span class="toc__label">On this page</span>
     <ul>
@@ -32,6 +42,7 @@
       <li><a href="#levels">Voltage levels: UART vs. RS-232 vs. RS-485</a></li>
       <li><a href="#fifo">FIFO buffering and overrun</a></li>
       <li><a href="#break">Break condition and 9-bit multidrop mode</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -124,6 +135,15 @@
     feature set. This is the mechanism under protocols like Modbus RTU's
     addressed multidrop mode.
   </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Serial console / debug port —</strong> nearly every dev board exposes a UART console for boot logs and a login shell — the very first thing you connect to on new hardware.</li>
+    <li><strong>GNSS modules —</strong> almost all GPS/GNSS receivers stream NMEA sentences over a plain UART — see <a href="/sensors/gnss/index.html">GNSS</a>.</li>
+    <li><strong>Bluetooth/Wi-Fi modules —</strong> many "serial-to-wireless" modules (HC-05, ESP-01 in AT-command mode) are controlled entirely through a UART, hiding the actual radio protocol behind simple text commands.</li>
+    <li><strong>Industrial RS-485 links —</strong> Modbus RTU and similar factory-floor protocols run UART framing over a differential RS-485 physical layer for long, noisy cable runs.</li>
+    <li><strong>Bootloader/firmware update ports —</strong> many MCU vendors' in-system programming/recovery modes talk over UART because it needs no special hardware beyond a $2 USB-serial adapter.</li>
+  </ul>
 
   <h2 id="gotchas">Gotchas</h2>
   <div class="callout callout--warn">

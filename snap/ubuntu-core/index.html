@@ -24,6 +24,16 @@
     back exactly like an application does.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The 5 snap types (app, base, gadget, kernel, snapd) that together assemble into a bootable, atomically-updatable OS.</dd>
+      <dt>Mental model</dt><dd>4 system snaps ARE the OS; everything else is an application snap running on top of them.</dd>
+      <dt>Key numbers</dt><dd>Exactly one gadget, one kernel, one base, one snapd per device — but any number of application snaps.</dd>
+      <dt>Reach for it when</dt><dd>Building an Ubuntu Core image, porting to new hardware (a new gadget snap), or packaging an edge-AI inference snap.</dd>
+    </dl>
+  </div>
+
   <nav class="toc" aria-label="On this page">
     <span class="toc__label">On this page</span>
     <ul>
@@ -34,6 +44,7 @@
       <li><a href="#base">Base and snapd snaps</a></li>
       <li><a href="#boot">How they combine to boot Ubuntu Core</a></li>
       <li><a href="#inference">Inference snaps</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -195,6 +206,14 @@
       remote, physically inaccessible devices: a bad update rolls itself
       back instead of bricking hardware nobody can drive to.
     </li>
+  </ul>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Industrial gateways and PLCs —</strong> Ubuntu Core's atomic updates and rollback are a strong fit for devices deployed in factories, where a bad update failing safely matters enormously.</li>
+    <li><strong>Edge-AI camera/vision systems —</strong> the inference-snap pattern (engine and model split via the <code>content</code> interface) is exactly how many NPU-equipped edge devices structure their ML pipeline.</li>
+    <li><strong>Digital signage and retail kiosks —</strong> a locked-down, remotely-updatable OS with strict confinement suits unattended public-facing hardware.</li>
+    <li><strong>Telecom/network appliances —</strong> Ubuntu Core devices are used as small-footprint routers and network functions where every layer needs to be independently, safely updatable.</li>
   </ul>
 
   <h2 id="gotchas">Gotchas</h2>

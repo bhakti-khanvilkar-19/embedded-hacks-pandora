@@ -23,6 +23,16 @@
     for it.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Hardware forcing the CPU to pause the main code and jump to a handler in response to an event, instead of software polling for it.</dd>
+      <dt>Mental model</dt><dd>A tap on the shoulder that interrupts whatever you're doing — the CPU finishes its current instruction, handles the tap, then resumes exactly where it left off.</dd>
+      <dt>Key numbers</dt><dd>Latency = time to first ISR instruction; jitter = variation in that latency, usually the number that matters more for control loops.</dd>
+      <dt>Reach for it when</dt><dd>An event happens unpredictably or rarely and polling for it would waste CPU cycles — a button press, a byte arriving, a timer tick.</dd>
+    </dl>
+  </div>
+
   <h2>The basic flow</h2>
   <ol>
     <li>A peripheral (or the core itself) asserts an interrupt request.</li>
@@ -87,6 +97,15 @@ uint32_t safe_read_tick_count(void) {
     <a href="/embedded/gpio/index.html">GPIO</a> edge interrupt) instead of
     polling a status register in a busy loop.
   </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>UART receive —</strong> a byte-received interrupt lets firmware react immediately without a busy-wait loop burning CPU time between bytes.</li>
+    <li><strong>Sensor data-ready pins —</strong> an <a href="/sensors/accelerometer/index.html">accelerometer</a> or ADC toggling a GPIO when a new sample is ready is far more efficient than polling a status register.</li>
+    <li><strong>Real-time control loops —</strong> a timer interrupt firing at a fixed rate (e.g. a motor PWM update or a PID loop tick) is the backbone of most closed-loop control firmware.</li>
+    <li><strong>Wake-from-sleep —</strong> a button press or RTC alarm interrupt is typically what brings a low-power MCU out of sleep mode.</li>
+    <li><strong>Safety-critical faults —</strong> overcurrent or overtemperature comparators trigger an interrupt so firmware can shut something down within microseconds, not on the next polling pass.</li>
+  </ul>
 
   <section class="related" id="related"></section>
   <nav class="pager" id="pager" aria-label="Topic navigation"></nav>

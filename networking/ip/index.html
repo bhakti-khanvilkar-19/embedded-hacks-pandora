@@ -23,6 +23,16 @@
     checksum — those guarantees are <a href="/networking/tcp/index.html">TCP</a>'s job, not IP's.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The layer that addresses hosts and routes packets between networks, with no delivery guarantee of its own.</dd>
+      <dt>Mental model</dt><dd>The postal system: it addresses and routes the envelope, but doesn't promise it arrives, arrives in order, or arrives at all.</dd>
+      <dt>Key numbers</dt><dd>32-bit addresses (IPv4) or 128-bit (IPv6); common subnet sizes /24 (254 hosts), /16 (65,534 hosts).</dd>
+      <dt>Reach for it when</dt><dd>You don't choose it directly — every IP-based protocol (TCP, UDP, and everything built on them) sits on top of this layer.</dd>
+    </dl>
+  </div>
+
   <h2>Addressing</h2>
   <p>
     An IPv4 address is 32 bits, usually written as four dotted decimal
@@ -72,6 +82,14 @@
     fragmentation). The addressing model changes, but IP's core job —
     best-effort packet delivery — stays the same.
   </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every networked embedded device —</strong> a Wi-Fi/Ethernet-connected MCU gets an IP address before it can speak TCP, UDP, or anything built on them.</li>
+    <li><strong>Home and office routers —</strong> NAT translates private RFC 1918 addresses to a single public address, the reason most home devices share one internet-facing IP.</li>
+    <li><strong>IoT device provisioning —</strong> DHCP (built on UDP, but assigning IP configuration) is how a new device on a network gets an address without manual configuration.</li>
+    <li><strong>VPNs and tunneling —</strong> encapsulating one IP packet inside another is the basic trick behind most VPN implementations.</li>
+  </ul>
 
   <div class="callout callout--note">
     <span class="callout__label">What I learned</span>

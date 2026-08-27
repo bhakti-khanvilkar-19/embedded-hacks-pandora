@@ -24,6 +24,16 @@
     are known to within centimeters.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A receive-only radio system that computes position and time by measuring how long signals took to arrive from multiple satellites.</dd>
+      <dt>Mental model</dt><dd>Distance-from-known-points math (trilateration) — each satellite tells you "I'm exactly here, and this is when I sent this," and your position falls out of the timing.</dd>
+      <dt>Key numbers</dt><dd>Minimum 4 satellites for a 3D fix, NMEA output typically at 9600 baud over UART, position accuracy commonly 2–5 m unaided.</dd>
+      <dt>Reach for it when</dt><dd>You need absolute position or a precise, drift-free time reference and have a clear-ish sky view.</dd>
+    </dl>
+  </div>
+
   <nav class="toc" aria-label="On this page">
     <span class="toc__label">On this page</span>
     <ul>
@@ -37,6 +47,7 @@
       <li><a href="#quality">Fix quality and HDOP</a></li>
       <li><a href="#ttff">Time to first fix</a></li>
       <li><a href="#accuracy">Sources of error</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -229,6 +240,15 @@
     <li><strong>Multipath</strong> — a signal bouncing off a building or the ground before reaching the antenna arrives later than the direct path, biasing the pseudorange — the classic "GPS is unreliable downtown" effect.</li>
     <li><strong>Satellite geometry (DOP)</strong> — covered above as HDOP; satellites spread widely across the sky give a much better solution than a tight cluster.</li>
     <li><strong>Augmentation (SBAS/WAAS/EGNOS, DGPS)</strong> — ground or satellite-based correction services that broadcast known error corrections, improving accuracy well beyond a standalone fix when available.</li>
+  </ul>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Fleet and asset tracking —</strong> vehicle trackers report position over cellular using exactly the fix data this page describes.</li>
+    <li><strong>Wearables and sports watches —</strong> route and pace tracking is a direct application of parsed NMEA position and timestamp data.</li>
+    <li><strong>Precision timing (GNSS-disciplined oscillators) —</strong> telecom base stations and lab equipment use GNSS purely as a nanosecond-accurate clock source, with no interest in position at all.</li>
+    <li><strong>Drones —</strong> waypoint navigation and return-to-home rely on a continuous, low-latency position and heading fix.</li>
+    <li><strong>Agricultural equipment —</strong> RTK-corrected GNSS (a high-accuracy augmentation) guides autonomous tractors to centimeter-level row precision.</li>
   </ul>
 
   <h2 id="gotchas">Gotchas</h2>

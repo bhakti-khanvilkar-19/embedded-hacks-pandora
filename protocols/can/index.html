@@ -25,6 +25,16 @@
     anyone's message.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A differential, multi-master bus where every node hears every frame, and priority is resolved electrically instead of by software.</dd>
+      <dt>Mental model</dt><dd>A meeting where everyone can speak at once, but the moment two people talk over each other, the one with something more urgent to say is the only one still heard.</dd>
+      <dt>Key numbers</dt><dd>2 wires (CAN_H, CAN_L), up to 1 Mbit/s classical (much higher for CAN FD's data phase), 11 or 29-bit identifiers, 120 Ω termination at each bus end.</dd>
+      <dt>Reach for it when</dt><dd>Multiple nodes need to share one bus reliably in an electrically noisy environment, with guaranteed message priority.</dd>
+    </dl>
+  </div>
+
   <nav class="toc" aria-label="On this page">
     <span class="toc__label">On this page</span>
     <ul>
@@ -36,6 +46,7 @@
       <li><a href="#errors">Error handling and bus-off</a></li>
       <li><a href="#canfd">CAN FD</a></li>
       <li><a href="#vs">CAN vs. SPI vs. I2C vs. UART</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -254,6 +265,15 @@
       <tr><td>Typical use</td><td>Automotive/industrial networks of many nodes</td><td>Fast on-board peripherals (flash, displays)</td><td>Low-speed on-board sensors</td><td>Simple point-to-point links, console access</td></tr>
     </tbody>
   </table>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Automotive ECUs —</strong> engine control, ABS, airbag, and body-control modules all share one or more CAN buses inside virtually every modern car.</li>
+    <li><strong>Industrial automation —</strong> CANopen (a higher-level protocol built on CAN) coordinates motor controllers, I/O modules, and PLCs on factory-floor equipment.</li>
+    <li><strong>Elevators and building systems —</strong> CAN's noise immunity and multi-node design fit long, electrically messy cable runs between floors.</li>
+    <li><strong>Agricultural and construction equipment —</strong> ISOBUS (also CAN-based) standardizes communication between tractors and attached implements from different manufacturers.</li>
+    <li><strong>Drones and robotics —</strong> CAN is increasingly used for motor controller and sensor networks where reliability matters more than raw bandwidth.</li>
+  </ul>
 
   <h2 id="gotchas">Gotchas</h2>
   <div class="callout callout--warn">

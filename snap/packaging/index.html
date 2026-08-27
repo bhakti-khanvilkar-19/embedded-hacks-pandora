@@ -24,6 +24,16 @@
     This page goes through that file field by field.
   </p>
 
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The single YAML recipe (<code>snapcraft.yaml</code>) that defines every snap's metadata, apps, hooks, and build steps.</dd>
+      <dt>Mental model</dt><dd>Part manifest, part build script — identity fields say what it is, <code>parts:</code> says how to build it, <code>apps:</code> says what runs.</dd>
+      <dt>Key numbers</dt><dd>4-step build lifecycle per part: pull → build → stage → prime.</dd>
+      <dt>Reach for it when</dt><dd>You're packaging any application as a snap, from a single binary to a multi-part build.</dd>
+    </dl>
+  </div>
+
   <nav class="toc" aria-label="On this page">
     <span class="toc__label">On this page</span>
     <ul>
@@ -36,6 +46,7 @@
       <li><a href="#interfaces">Plugs and slots</a></li>
       <li><a href="#other">Other fields worth knowing</a></li>
       <li><a href="#example">A full annotated example</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -195,6 +206,14 @@ plugs:
     <code>/dev/i2c-1</code> that a strictly-confined snap wouldn't have by
     default.
   </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Publishing a CLI tool or daemon —</strong> the identity + apps + parts pattern shown above is exactly what most snapcraft.yaml files in the store look like.</li>
+    <li><strong>IoT sensor bridges —</strong> the i2c-plug example above reflects a real, common pattern for packaging edge devices that need hardware access under strict confinement.</li>
+    <li><strong>CI/CD pipelines —</strong> the <code>adopt-info</code> + <code>craftctl set version</code> pattern is standard for automatically versioning snaps from git tags in build pipelines.</li>
+    <li><strong>Multi-language builds —</strong> the <code>parts:</code> system's per-part plugins let one snap combine, say, a Go backend and a Python tool in a single package.</li>
+  </ul>
 
   <h2 id="gotchas">Gotchas</h2>
   <div class="callout callout--warn">
