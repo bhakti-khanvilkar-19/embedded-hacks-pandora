@@ -291,6 +291,71 @@
     ]
   },
   {
+    "title": "Accelerometer — Sensors",
+    "url": "/sensors/accelerometer/index.html",
+    "domain": "Sensors",
+    "category": "Accelerometer",
+    "description": "How MEMS accelerometers actually sense acceleration, axes and full-scale range, converting raw registers to g, and interrupt-driven tap/freefall detection.",
+    "tags": [
+      "sensors",
+      "accelerometer"
+    ]
+  },
+  {
+    "title": "GNSS examples — Sensors",
+    "url": "/sensors/gnss/examples.html",
+    "domain": "Sensors",
+    "category": "Gnss",
+    "description": "Parsing a $GPGGA NMEA sentence in C to extract latitude, longitude, and timestamp, with checksum validation.",
+    "tags": [
+      "sensors",
+      "gnss"
+    ]
+  },
+  {
+    "title": "GNSS — Sensors",
+    "url": "/sensors/gnss/index.html",
+    "domain": "Sensors",
+    "category": "Gnss",
+    "description": "How GPS/GNSS actually computes position and time: trilateration, pseudoranges, why four satellites, GPS time vs UTC, and parsing NMEA sentences for lat/long/timestamp.",
+    "tags": [
+      "sensors",
+      "gnss"
+    ]
+  },
+  {
+    "title": "Sensors",
+    "url": "/sensors/index.html",
+    "domain": "Sensors",
+    "category": "Overview",
+    "description": "How sensors actually work: GNSS positioning, accelerometers, gyroscopes and IMU sensor fusion, and temperature sensing.",
+    "tags": [
+      "sensors"
+    ]
+  },
+  {
+    "title": "Motion & IMU — Sensors",
+    "url": "/sensors/motion/index.html",
+    "domain": "Sensors",
+    "category": "Motion",
+    "description": "Gyroscopes, integration drift, complementary and Kalman sensor fusion, 6/9-DOF IMUs, and how MEMS motion sensing differs from PIR motion detectors.",
+    "tags": [
+      "sensors",
+      "motion"
+    ]
+  },
+  {
+    "title": "Temperature — Sensors",
+    "url": "/sensors/temperature/index.html",
+    "domain": "Sensors",
+    "category": "Temperature",
+    "description": "Thermistors, thermocouples, RTDs, and digital silicon sensors — four genuinely different physical principles for measuring temperature, and when to use each.",
+    "tags": [
+      "sensors",
+      "temperature"
+    ]
+  },
+  {
     "title": "Fundamentals — Snap",
     "url": "/snap/fundamentals/index.html",
     "domain": "Snap",

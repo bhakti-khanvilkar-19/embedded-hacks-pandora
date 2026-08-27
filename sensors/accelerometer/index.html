@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Accelerometer — Sensors — Embedded Pandora</title>
+<meta name="description" content="How MEMS accelerometers actually sense acceleration, axes and full-scale range, converting raw registers to g, and interrupt-driven tap/freefall detection." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Sensors</p>
+  <h1>Accelerometer — MEMS sensing, axes, and g-force</h1>
+  <p class="lede">
+    An accelerometer measures <strong>proper acceleration</strong> — not
+    velocity, and not quite what intuition suggests either. A sensor
+    sitting motionless on a desk reads about 1g straight up, not zero,
+    because it's measuring the force the desk applies to hold it against
+    gravity, not gravity itself.
+  </p>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#proper">Proper acceleration, not velocity</a></li>
+      <li><a href="#mems">How MEMS sensing actually works</a></li>
+      <li><a href="#axes">Axes, sensitivity, and full-scale range</a></li>
+      <li><a href="#raw">From raw registers to g</a></li>
+      <li><a href="#interfacing">Reading it: I2C or SPI</a></li>
+      <li><a href="#interrupts">Interrupt-driven detection</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="proper">Proper acceleration, not velocity</h2>
+  <p>
+    "Proper acceleration" is what an accelerometer physically measures:
+    the acceleration relative to free-fall, felt as a mechanical force on
+    the sensing element. A sensor in true free-fall (no air resistance)
+    reads <strong>zero</strong> on every axis, even though it's clearly
+    accelerating downward from an outside observer's point of view — and
+    a sensor sitting still on a table reads <strong>+1g</strong>, because
+    the table is actively pushing back against gravity. This distinction
+    — measuring the force felt, not the "actual" acceleration in an
+    inertial frame — is the single most common source of confusion for
+    anyone using one for the first time.
+  </p>
+
+  <h2 id="mems">How MEMS sensing actually works</h2>
+  <p>
+    Inside the chip is a microscopic <strong>proof mass</strong> suspended
+    by flexible silicon beams (springs) between fixed capacitor plates.
+    When the sensor accelerates, the mass's inertia makes it lag relative
+    to the frame around it — the mass shifts slightly, changing the gap
+    (and therefore the capacitance) between it and the fixed plates on
+    each side. An on-chip ASIC measures that tiny capacitance change and
+    converts it into a digital value.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 500 230" role="img" aria-labelledby="accel-mems-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="accel-mems-title">A MEMS proof mass centered at rest, then displaced toward one plate under acceleration, changing the capacitor gaps unevenly</title>
+
+      <rect x="20" y="40" width="180" height="140" fill="none" class="seq-lifeline" />
+      <rect class="frame-box" x="30" y="60" width="8" height="100" />
+      <rect class="frame-box" x="172" y="60" width="8" height="100" />
+      <rect x="91" y="75" width="28" height="70" style="fill:var(--accent-soft);stroke:var(--accent);" />
+      <path d="M105,40 L100,50 L110,60 L105,75" class="seq-arrow" />
+      <path d="M105,145 L100,155 L110,165 L105,180" class="seq-arrow" />
+      <text class="frame-caption" x="110" y="196" text-anchor="middle">equal gaps both sides</text>
+      <text class="frame-label" x="110" y="215" text-anchor="middle">At rest</text>
+
+      <line x1="300" y1="15" x2="428" y2="15" class="seq-arrow" />
+      <polygon class="seq-arrowhead" points="436,15 424,10 424,20" />
+      <text class="seq-note" x="365" y="8" text-anchor="middle">acceleration</text>
+
+      <rect x="280" y="40" width="180" height="140" fill="none" class="seq-lifeline" />
+      <rect class="frame-box" x="290" y="60" width="8" height="100" />
+      <rect class="frame-box" x="432" y="60" width="8" height="100" />
+      <rect x="331" y="75" width="28" height="70" style="fill:var(--accent-soft);stroke:var(--accent);" />
+      <path d="M365,40 L358,50 L352,60 L345,75" class="seq-arrow" />
+      <path d="M345,145 L352,155 L358,165 L365,180" class="seq-arrow" />
+      <text class="frame-caption" x="316" y="112" text-anchor="middle">narrow</text>
+      <text class="frame-caption" x="396" y="112" text-anchor="middle">wide</text>
+      <text class="frame-label" x="365" y="215" text-anchor="middle">Under acceleration</text>
+    </svg>
+    <figcaption class="diagram__caption">
+      The mass lags behind the frame under acceleration — the gap (and capacitance) shrinks on
+      one side and grows on the other, and that asymmetry is what the ASIC actually measures.
+    </figcaption>
+  </figure>
+
+  <h2 id="axes">Axes, sensitivity, and full-scale range</h2>
+  <p>
+    Most accelerometers report three axes (X, Y, Z) simultaneously, each
+    with its own independent proof-mass/plate structure (or a shared mass
+    sensed along multiple directions, depending on the design). Two
+    configuration values matter for interpreting the output:
+  </p>
+  <dl class="kv">
+    <dt>Full-scale range</dt><dd>The maximum acceleration the sensor can represent — commonly selectable, e.g. ±2g, ±4g, ±8g, ±16g. A wider range tolerates bigger shocks but loses resolution for small movements.</dd>
+    <dt>Sensitivity</dt><dd>How many raw LSBs correspond to 1g at the selected range — given directly in the datasheet (e.g. "16384 LSB/g at ±2g" for a 16-bit output).</dd>
+  </dl>
+
+  <h2 id="raw">From raw registers to g</h2>
+  <p>
+    The raw value read from the sensor's data registers is a signed
+    integer (two's complement) that needs converting using the
+    sensitivity for whatever full-scale range is currently configured:
+  </p>
+  <pre><code>int16_t raw_x = (int16_t)((high_byte &lt;&lt; 8) | low_byte);
+float g_x = raw_x / sensitivity_lsb_per_g;   // e.g. / 16384.0f at ±2g
+float ms2_x = g_x * 9.80665f;                 // if you want SI units</code></pre>
+  <p>
+    Getting the byte order and the signed-vs-unsigned cast wrong here is
+    an extremely common first bug — a value that should read near zero
+    while sitting flat instead reads a huge number, or flips sign at
+    exactly the wrong moment.
+  </p>
+
+  <h2 id="interfacing">Reading it: I2C or SPI</h2>
+  <p>
+    Most accelerometers support both <a href="/protocols/i2c/index.html">I2C</a>
+    and <a href="/protocols/spi/index.html">SPI</a>, selectable via a
+    dedicated pin — I2C for fewer wires, SPI when higher output data
+    rates are needed. Either way, reading a sample is the same shape:
+    write the address of the first data register, then read six
+    consecutive bytes (X low/high, Y low/high, Z low/high) in one
+    transaction so all three axes represent the same instant, rather than
+    three separate reads that could straddle a value changing mid-read.
+  </p>
+
+  <h2 id="interrupts">Interrupt-driven detection</h2>
+  <p>
+    Constantly polling for events wastes power and CPU time, so most
+    accelerometers can generate a hardware interrupt on a dedicated pin
+    (serviced the way <a href="/embedded/gpio/index.html">GPIO</a> and
+    <a href="/embedded/interrupts/index.html">interrupts</a> describe)
+    for conditions detected entirely on-chip:
+  </p>
+  <ul>
+    <li><strong>Tap / double-tap</strong> — a brief high-frequency spike on an axis, filtered from the slower gravity component.</li>
+    <li><strong>Freefall</strong> — magnitude across all three axes drops near zero, since a free-falling sensor (briefly) feels no proper acceleration at all.</li>
+    <li><strong>Activity / inactivity</strong> — magnitude staying above or below a threshold for a configurable duration — the basis of most "wake on motion" designs.</li>
+    <li><strong>Orientation change</strong> — which axis is currently closest to +1g, used for simple portrait/landscape detection.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Raw accelerometer data is noisy — a naive "angle from gravity" calculation jitters visibly even when the sensor is still; some smoothing (or, for orientation tracking, fusing with a gyroscope — see <a href="/sensors/motion/index.html">Motion &amp; IMU</a>) is usually needed.</li>
+      <li>The magnitude of the gravity vector alone can't determine yaw (rotation around the vertical axis) — gravity points the same way regardless of which way the sensor is facing horizontally. A magnetometer or gyroscope is required for that.</li>
+      <li>Mounting orientation on the PCB matters — a "level" reading assumes you know which physical axis the datasheet calls Z, and that assumption is a common source of "why is gravity showing up on the wrong axis" bugs.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/sensors/gnss/index.html", "title": "GNSS" },
+  "next": { "href": "/sensors/motion/index.html", "title": "Motion & IMU" },
+  "related": [
+    { "href": "/sensors/motion/index.html", "title": "Motion & IMU" },
+    { "href": "/protocols/i2c/index.html", "title": "I2C" },
+    { "href": "/protocols/spi/index.html", "title": "SPI" },
+    { "href": "/embedded/interrupts/index.html", "title": "Interrupts" },
+    { "href": "/embedded/gpio/index.html", "title": "GPIO" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

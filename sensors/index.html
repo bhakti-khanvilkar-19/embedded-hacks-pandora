@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sensors — Embedded Pandora</title>
+<meta name="description" content="How sensors actually work: GNSS positioning, accelerometers, gyroscopes and IMU sensor fusion, and temperature sensing." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Domain</p>
+  <h1>Sensors</h1>
+  <p class="lede">
+    The physical side of embedded systems: what a sensor is actually
+    measuring, the physics or math behind how it measures it, and how
+    that turns into a number your firmware can use. Kept separate from
+    <a href="/embedded/index.html">Embedded</a> (which is about the
+    microcontroller itself) and <a href="/protocols/index.html">Protocols</a>
+    (which is about the wire these sensors happen to talk over) — this
+    domain is specifically about the sensing element and the real-world
+    quantity on the other end of it.
+  </p>
+
+  <h2>Topics</h2>
+  <ul class="topic-list">
+    <li><a href="/sensors/gnss/index.html"><span>GNSS — satellite positioning, timestamps, and NMEA</span><span class="status">written</span></a></li>
+    <li><a href="/sensors/accelerometer/index.html"><span>Accelerometer — MEMS sensing, axes, and g-force</span><span class="status">written</span></a></li>
+    <li><a href="/sensors/motion/index.html"><span>Motion &amp; IMU — gyroscopes, drift, and sensor fusion</span><span class="status">written</span></a></li>
+    <li><a href="/sensors/temperature/index.html"><span>Temperature — thermistors, thermocouples, RTDs, and digital sensors</span><span class="status">written</span></a></li>
+  </ul>
+
+  <h2>Planned</h2>
+  <p>
+    <span class="badge">pressure</span>
+    <span class="badge">humidity</span>
+    <span class="badge">magnetometer</span>
+    <span class="badge">proximity-and-light</span>
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">Scope note</span>
+    <p>
+      How a sensor's readings actually reach your code — I2C register
+      reads, SPI transfers, UART sentences — is covered from the wire
+      side in <a href="/protocols/index.html">Protocols</a> and cross-linked
+      from each sensor page. This domain focuses on what's happening on
+      the sensing side of that wire.
+    </p>
+  </div>
+</main>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Motion & IMU — Sensors — Embedded Pandora</title>
+<meta name="description" content="Gyroscopes, integration drift, complementary and Kalman sensor fusion, 6/9-DOF IMUs, and how MEMS motion sensing differs from PIR motion detectors." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Sensors</p>
+  <h1>Motion &amp; IMU — gyroscopes, drift, and sensor fusion</h1>
+  <p class="lede">
+    An <a href="/sensors/accelerometer/index.html">accelerometer</a> alone
+    can't tell you which way something is facing when it's rotating around
+    the vertical axis, and can't stay stable while genuinely moving. A
+    gyroscope fills exactly that gap — and combining the two, imperfect as
+    each is alone, is most of what "IMU" actually means in practice.
+  </p>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#gyro">How a MEMS gyroscope senses rotation</a></li>
+      <li><a href="#drift">Integration drift</a></li>
+      <li><a href="#fusion">Sensor fusion: complementary and Kalman filters</a></li>
+      <li><a href="#dof">6-DOF, 9-DOF, and what a magnetometer adds</a></li>
+      <li><a href="#pir">Not the same "motion sensor": PIR detectors</a></li>
+      <li><a href="#applications">Applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="gyro">How a MEMS gyroscope senses rotation</h2>
+  <p>
+    A MEMS gyroscope keeps a small mass continuously vibrating in one
+    direction. When the whole chip rotates, the <strong>Coriolis
+    effect</strong> deflects that vibrating mass sideways, perpendicular
+    to both the drive direction and the rotation axis — and the size of
+    that sideways deflection is proportional to how fast the chip is
+    rotating. The deflection is picked up capacitively, essentially the
+    same sensing principle as the
+    <a href="/sensors/accelerometer/index.html#mems">accelerometer's proof
+    mass</a>, just measuring a Coriolis-induced motion instead of an
+    inertial one. The output is <strong>angular velocity</strong> — degrees
+    (or radians) per second around each axis — not an angle.
+  </p>
+
+  <h2 id="drift">Integration drift</h2>
+  <p>
+    Since a gyroscope reports a <em>rate</em>, getting an actual
+    orientation angle out of it means integrating that rate over time:
+  </p>
+  <pre><code>angle += gyro_rate * dt;   // called every sample, dt in seconds</code></pre>
+  <p>
+    Any small, constant bias error in the gyroscope's reading — and every
+    real gyroscope has one — gets integrated right along with the real
+    signal. A bias of even a fraction of a degree per second, integrated
+    continuously, adds up to a noticeably wrong orientation estimate
+    within seconds to minutes, even while the sensor is sitting
+    completely still. This is <strong>drift</strong>, and it's not a
+    defect to be fixed in firmware so much as a fundamental property of
+    integrating a noisy rate signal — it has to be corrected against some
+    other, absolute reference instead.
+  </p>
+
+  <h2 id="fusion">Sensor fusion: complementary and Kalman filters</h2>
+  <p>
+    The accelerometer provides exactly the absolute reference the
+    gyroscope lacks: gravity always points the same physical direction,
+    so the accelerometer's reading gives an absolute tilt estimate — but
+    it's noisy sample to sample, and briefly wrong whenever the sensor
+    experiences any acceleration besides gravity (a bump, a turn). The
+    two failure modes are complementary: gyroscope good short-term, bad
+    long-term; accelerometer good long-term (on average), bad
+    short-term. Sensor fusion blends them.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 200" role="img" aria-labelledby="fusion-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="fusion-title">Accelerometer and gyroscope readings both feed a fusion filter that outputs a stable orientation estimate</title>
+      <rect class="frame-box" x="20" y="30" width="150" height="50" rx="6" />
+      <text class="frame-label" x="95" y="52" text-anchor="middle" font-size="11">Accelerometer</text>
+      <text class="frame-caption" x="95" y="70" text-anchor="middle">absolute, noisy</text>
+
+      <rect class="frame-box" x="20" y="120" width="150" height="50" rx="6" />
+      <text class="frame-label" x="95" y="142" text-anchor="middle" font-size="11">Gyroscope</text>
+      <text class="frame-caption" x="95" y="160" text-anchor="middle">smooth, drifts over time</text>
+
+      <rect class="frame-box" x="230" y="75" width="130" height="60" rx="6" style="fill:var(--accent-soft);stroke:var(--accent);" />
+      <text class="frame-label" x="295" y="100" text-anchor="middle" font-size="11">Fusion filter</text>
+      <text class="frame-caption" x="295" y="118" text-anchor="middle">complementary / Kalman</text>
+
+      <line class="seq-arrow" x1="170" y1="55" x2="224" y2="90" />
+      <polygon class="seq-arrowhead" points="230,94 218,90 222,80" />
+      <line class="seq-arrow" x1="170" y1="145" x2="224" y2="115" />
+      <polygon class="seq-arrowhead" points="230,111 218,111 222,121" />
+
+      <rect class="frame-box" x="400" y="75" width="140" height="60" rx="6" />
+      <text class="frame-label" x="470" y="100" text-anchor="middle" font-size="11">Orientation</text>
+      <text class="frame-caption" x="470" y="118" text-anchor="middle">stable roll / pitch</text>
+
+      <line class="seq-arrow" x1="360" y1="105" x2="394" y2="105" />
+      <polygon class="seq-arrowhead" points="400,105 388,100 388,110" />
+    </svg>
+    <figcaption class="diagram__caption">Neither sensor alone gives a clean answer; the filter continuously trusts the gyro for fast changes and leans on the accelerometer to correct long-term drift.</figcaption>
+  </figure>
+  <p>
+    A <strong>complementary filter</strong> is the simplest version —
+    cheap enough to run on almost anything:
+  </p>
+  <pre><code>angle = alpha * (angle + gyro_rate * dt) + (1 - alpha) * accel_angle;
+// alpha close to 1 (e.g. 0.98) — mostly trust the gyro moment to moment,
+// slowly pull the estimate back toward the accelerometer's answer</code></pre>
+  <p>
+    A <strong>Kalman filter</strong> does the same job more rigorously —
+    modeling the uncertainty of each sensor statistically and computing an
+    optimal blend rather than a fixed weighting — at the cost of real
+    implementation complexity. In practice, most flight controllers and
+    motion-tracking firmware use a purpose-built variant tuned for this
+    exact problem (Madgwick and Mahony filters are two well-known
+    examples) rather than a textbook Kalman filter from scratch.
+  </p>
+
+  <h2 id="dof">6-DOF, 9-DOF, and what a magnetometer adds</h2>
+  <p>
+    An <strong>IMU</strong> (Inertial Measurement Unit) packages an
+    accelerometer and gyroscope together — 3 axes each, commonly called
+    <strong>6-DOF</strong> (six degrees of freedom). That combination can
+    stabilize roll and pitch (tilt relative to gravity) but still can't
+    pin down <strong>yaw</strong> — rotation around the vertical axis —
+    because gravity looks identical no matter which compass direction the
+    sensor faces. Adding a magnetometer (sensing Earth's magnetic field,
+    which does have a consistent horizontal direction) gives a
+    <strong>9-DOF</strong> system capable of a full, drift-corrected
+    heading, at the cost of new problems: magnetometers are easily
+    disturbed by nearby motors, magnets, and ferrous metal, so their
+    correction has to be trusted far less aggressively than the
+    accelerometer's.
+  </p>
+
+  <h2 id="pir">Not the same "motion sensor": PIR detectors</h2>
+  <div class="callout callout--note">
+    <span class="callout__label">Worth knowing</span>
+    <p>
+      "Motion sensor" in casual speech often means something completely
+      different from anything above: a <strong>PIR</strong> (Passive
+      Infrared) sensor, common in security lighting and alarm systems. A
+      PIR sensor doesn't measure its own motion at all — it detects
+      <em>changes</em> in infrared radiation within its field of view,
+      which is what a moving warm body (a person, an animal) produces as
+      it crosses between the sensor's segmented lenses. It's a completely
+      different physical principle from a MEMS accelerometer or
+      gyroscope, measuring something in the environment rather than
+      anything happening to the sensor itself.
+    </p>
+  </div>
+
+  <h2 id="applications">Applications</h2>
+  <ul>
+    <li><strong>Image/gimbal stabilization</strong> — fast gyro response counteracts shake faster than a control loop reacting to position alone could.</li>
+    <li><strong>Drone and robot attitude control</strong> — a fused roll/pitch/yaw estimate is the core input to any flight or balance controller.</li>
+    <li><strong>Gesture recognition</strong> — recognizing a shake, flip, or tilt pattern from raw or lightly filtered IMU data.</li>
+    <li><strong>Dead reckoning</strong> — estimating position change by double-integrating acceleration; workable for short distances, but errors compound quickly (double integration means position error grows even faster than the single-integration drift a gyroscope suffers) — not a substitute for <a href="/sensors/gnss/index.html">GNSS</a> over any real distance or time.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Gyroscope bias drifts with temperature — a calibration done once at room temperature can be visibly wrong on a device that heats up in operation; some designs re-calibrate the zero-rate offset at startup while known to be stationary.</li>
+      <li>A complementary filter's <code>alpha</code> is a real tuning tradeoff, not a fixed constant to copy from an example — too close to 1 and drift correction is too slow to matter; too far and accelerometer noise leaks straight into the output.</li>
+      <li>Sensor fusion corrects orientation drift, not position drift — it does nothing to make dead-reckoned position estimates trustworthy over any meaningful distance.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/sensors/accelerometer/index.html", "title": "Accelerometer" },
+  "next": { "href": "/sensors/temperature/index.html", "title": "Temperature" },
+  "related": [
+    { "href": "/sensors/accelerometer/index.html", "title": "Accelerometer" },
+    { "href": "/sensors/gnss/index.html", "title": "GNSS" },
+    { "href": "/protocols/i2c/index.html", "title": "I2C" },
+    { "href": "/embedded/interrupts/index.html", "title": "Interrupts" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GNSS — Sensors — Embedded Pandora</title>
+<meta name="description" content="How GPS/GNSS actually computes position and time: trilateration, pseudoranges, why four satellites, GPS time vs UTC, and parsing NMEA sentences for lat/long/timestamp." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Sensors</p>
+  <h1>GNSS — satellite positioning, timestamps, and NMEA</h1>
+  <p class="lede">
+    A GNSS receiver never talks back to a satellite — it's purely a
+    listener. Everything it computes, including position and an
+    extremely precise timestamp, comes from timing exactly how long
+    one-way radio signals took to arrive from satellites whose orbits
+    are known to within centimeters.
+  </p>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#constellations">Constellations, briefly</a></li>
+      <li><a href="#pseudorange">Pseudorange: turning a timestamp into a distance</a></li>
+      <li><a href="#trilateration">Trilateration: turning distances into a position</a></li>
+      <li><a href="#foursats">Why (at least) four satellites</a></li>
+      <li><a href="#time">GPS time, UTC, and why GNSS makes a great clock</a></li>
+      <li><a href="#nmea">NMEA 0183: how the position actually reaches you</a></li>
+      <li><a href="#latlong">Decoding latitude and longitude</a></li>
+      <li><a href="#quality">Fix quality and HDOP</a></li>
+      <li><a href="#ttff">Time to first fix</a></li>
+      <li><a href="#accuracy">Sources of error</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="constellations">Constellations, briefly</h2>
+  <p>
+    "GPS" is technically just the United States' system; "GNSS" (Global
+    Navigation Satellite System) is the umbrella term covering all of
+    them — GPS, Russia's GLONASS, the EU's Galileo, and China's BeiDou.
+    A modern receiver typically tracks satellites from several
+    constellations simultaneously (visible in NMEA output as talker IDs
+    like <code>GP</code> for GPS-only sentences or <code>GN</code> for a
+    combined multi-constellation fix), simply because more visible
+    satellites means a faster, more accurate fix.
+  </p>
+
+  <h2 id="pseudorange">Pseudorange: turning a timestamp into a distance</h2>
+  <p>
+    Every satellite carries an atomic clock and continuously broadcasts
+    two things: its own precise orbital position at that moment
+    (<strong>ephemeris</strong> data) and the exact time it sent the
+    signal. Radio waves travel at a known, constant speed (the speed of
+    light), so:
+  </p>
+  <pre><code>distance to satellite ≈ speed of light × (receive time − transmit time)</code></pre>
+  <p>
+    That's called a <strong>pseudorange</strong> rather than a true range
+    because the receiver's own clock is a cheap quartz oscillator, not an
+    atomic clock — it's off by some unknown amount, so every one of these
+    computed "distances" is off by the same unknown timing error. That
+    error turns out to be solvable rather than a fatal flaw — see
+    <a href="#foursats">why four satellites</a> below.
+  </p>
+
+  <h2 id="trilateration">Trilateration: turning distances into a position</h2>
+  <p>
+    Knowing your distance from one satellite puts you somewhere on a
+    sphere centered on that satellite. Knowing your distance from a
+    second satellite narrows that down to a circle (where two spheres
+    intersect). A third narrows it to (at most) two points — and usually
+    one of those two is obviously wrong (e.g. it's out in space), leaving
+    a single position.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 400 300" role="img" aria-labelledby="gnss-trilat-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="gnss-trilat-title">Three satellite range circles intersecting at the receiver's position</title>
+      <circle cx="80" cy="60" r="166" fill="none" class="seq-arrow" />
+      <circle cx="320" cy="70" r="128" fill="none" class="seq-arrow" />
+      <circle cx="200" cy="260" r="112" fill="none" class="seq-arrow" />
+
+      <circle cx="80" cy="60" r="4" style="fill:var(--accent);" />
+      <text class="seq-actor-text" x="80" y="42" text-anchor="middle" font-size="11">Sat A</text>
+      <circle cx="320" cy="70" r="4" style="fill:var(--accent);" />
+      <text class="seq-actor-text" x="320" y="52" text-anchor="middle" font-size="11">Sat B</text>
+      <circle cx="200" cy="260" r="4" style="fill:var(--accent);" />
+      <text class="seq-actor-text" x="200" y="282" text-anchor="middle" font-size="11">Sat C</text>
+
+      <circle cx="220" cy="150" r="5" style="fill:var(--teal);" />
+      <text class="seq-label" x="232" y="146" font-size="11">receiver position</text>
+    </svg>
+    <figcaption class="diagram__caption">
+      Each circle is "all points this far from that satellite." With clean measurements, three
+      circles meet at one point — the receiver's location.
+    </figcaption>
+  </figure>
+  <p>
+    In reality this happens in three dimensions with spheres, not circles,
+    and the receiver solves it numerically (least-squares, typically) —
+    the picture above is the 2D intuition for what's fundamentally the
+    same idea.
+  </p>
+
+  <h2 id="foursats">Why (at least) four satellites</h2>
+  <p>
+    A 3D position has three unknowns: x, y, z. That alone would suggest
+    three satellites are enough. But because the receiver's clock error
+    is also unknown and affects every single pseudorange equally, it
+    becomes a <em>fourth</em> unknown — so the receiver needs a fourth
+    independent equation (a fourth satellite) to solve for all four
+    unknowns simultaneously: position <em>and</em> clock bias. This is
+    also, incidentally, how the receiver ends up with an accurate clock
+    of its own — solving for that bias is a byproduct of solving for
+    position at all.
+  </p>
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      With only three satellites and a known, fixed altitude (e.g. sea
+      level), a receiver can still produce a 2D fix by using altitude as
+      the missing constraint instead of a fourth satellite — this is why
+      some receivers report a valid-looking fix with only three satellites
+      tracked, but it's leaning on an assumption rather than solving the
+      problem outright.
+    </p>
+  </div>
+
+  <h2 id="time">GPS time, UTC, and why GNSS makes a great clock</h2>
+  <p>
+    GPS time is a continuous count of seconds since January 6, 1980, with
+    <strong>no leap seconds</strong> — unlike UTC, which periodically
+    inserts them to stay aligned with Earth's slightly irregular
+    rotation. The navigation message broadcasts the current accumulated
+    offset between GPS time and UTC (currently on the order of eighteen
+    seconds), which is how a receiver converts the raw satellite time it
+    solves for into the UTC timestamp it actually reports.
+  </p>
+  <p>
+    Because that timestamp is derived from atomic clocks in orbit and
+    corrected as part of the same position solve, it's accurate to
+    tens of nanoseconds — dramatically better than almost any other cheap
+    embedded time source. This is exactly why GNSS receivers are commonly
+    used purely as precision clocks (GNSS-disciplined oscillators),
+    completely independent of anyone actually caring where the receiver
+    physically is.
+  </p>
+
+  <h2 id="nmea">NMEA 0183: how the position actually reaches you</h2>
+  <p>
+    Most GNSS modules hand off fixes to a microcontroller as plain ASCII
+    text sentences over <a href="/protocols/uart/index.html">UART</a> (commonly
+    starting at 9600 baud), following the NMEA 0183 standard. Each
+    sentence starts with <code>$</code>, a two-letter talker ID
+    (<code>GP</code>, <code>GN</code>, ...) plus a three-letter sentence
+    type, comma-separated fields, and ends with <code>*</code> followed
+    by a two-hex-digit checksum.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 640 100" role="img" aria-labelledby="gnss-nmea-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="gnss-nmea-title">Layout of a GGA sentence's comma-separated fields</title>
+      <rect class="frame-box" x="10" y="24" width="70" height="40" /><text class="frame-label" x="45" y="48" text-anchor="middle" font-size="9">$GPGGA</text>
+      <rect class="frame-box" x="84" y="24" width="66" height="40" /><text class="frame-label" x="117" y="48" text-anchor="middle" font-size="9">UTC time</text>
+      <rect class="frame-box" x="154" y="24" width="90" height="40" /><text class="frame-label" x="199" y="48" text-anchor="middle" font-size="9">Lat, N/S</text>
+      <rect class="frame-box" x="248" y="24" width="90" height="40" /><text class="frame-label" x="293" y="48" text-anchor="middle" font-size="9">Lon, E/W</text>
+      <rect class="frame-box" x="342" y="24" width="66" height="40" /><text class="frame-label" x="375" y="44" text-anchor="middle" font-size="9">Fix</text><text class="frame-label" x="375" y="56" text-anchor="middle" font-size="9">quality</text>
+      <rect class="frame-box" x="412" y="24" width="60" height="40" /><text class="frame-label" x="442" y="44" text-anchor="middle" font-size="9">Sats</text><text class="frame-label" x="442" y="56" text-anchor="middle" font-size="9">used</text>
+      <rect class="frame-box" x="476" y="24" width="60" height="40" /><text class="frame-label" x="506" y="48" text-anchor="middle" font-size="9">HDOP</text>
+      <rect class="frame-box" x="540" y="24" width="70" height="40" /><text class="frame-label" x="575" y="44" text-anchor="middle" font-size="9">Altitude</text><text class="frame-label" x="575" y="56" text-anchor="middle" font-size="9">+ checksum</text>
+    </svg>
+    <figcaption class="diagram__caption">A trimmed view of $GPGGA — real sentences also carry geoid separation and DGPS fields between altitude and the checksum.</figcaption>
+  </figure>
+  <table>
+    <thead><tr><th>Sentence</th><th>Carries</th></tr></thead>
+    <tbody>
+      <tr><td>GGA</td><td>Fix data: time, latitude/longitude, fix quality, satellite count, HDOP, altitude.</td></tr>
+      <tr><td>RMC</td><td>"Recommended minimum": time, date, latitude/longitude, ground speed, course, validity flag — the single most common sentence for "give me a fix."</td></tr>
+      <tr><td>GSA</td><td>Which satellites are being used in the current solution, plus DOP values (position/horizontal/vertical).</td></tr>
+      <tr><td>GSV</td><td>Satellites in view and their signal strength — useful for diagnosing a weak-signal environment, not for the fix itself.</td></tr>
+    </tbody>
+  </table>
+  <p>See <a href="/sensors/gnss/examples.html">examples</a> for actually parsing one of these out.</p>
+
+  <h2 id="latlong">Decoding latitude and longitude</h2>
+  <p>
+    NMEA encodes coordinates as <strong>DDMM.MMMM</strong> — degrees, then
+    minutes with a decimal fraction — not plain decimal degrees, which is
+    the most common gotcha when writing a parser for the first time:
+  </p>
+  <pre><code>decimal_degrees = degrees + (minutes / 60)
+// then negate if the hemisphere field is 'S' or 'W'</code></pre>
+  <p>
+    For example <code>4807.038,N</code> is 48 degrees, 07.038 minutes —
+    <code>48 + 07.038/60 = 48.1173°</code> north.
+  </p>
+
+  <h2 id="quality">Fix quality and HDOP</h2>
+  <table>
+    <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Fix quality 0</td><td>No fix — the rest of the sentence's fields are meaningless.</td></tr>
+      <tr><td>Fix quality 1</td><td>Standard GPS fix.</td></tr>
+      <tr><td>Fix quality 2</td><td>DGPS-corrected fix — better accuracy via a correction service.</td></tr>
+      <tr><td>HDOP</td><td>Horizontal Dilution of Precision — a unitless number describing how much the current satellite geometry amplifies measurement error. Lower is better; satellites clustered close together in the sky (poor geometry) produce a high HDOP even with otherwise clean signals.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="ttff">Time to first fix</h2>
+  <p>
+    How long a receiver takes to produce its first fix depends heavily on
+    what it already knows:
+  </p>
+  <dl class="kv">
+    <dt>Hot start</dt><dd>Recent ephemeris, almanac, position, and time are all still valid (e.g. power-cycled seconds ago) — a fix in a few seconds.</dd>
+    <dt>Warm start</dt><dd>Approximate position/time and almanac are known, but ephemeris (which expires in a few hours) needs re-downloading — tens of seconds.</dd>
+    <dt>Cold start</dt><dd>Nothing usable is stored (first power-up, or moved a long distance while off) — the receiver has to download a fresh almanac from scratch, which can take a few minutes.</dd>
+  </dl>
+
+  <h2 id="accuracy">Sources of error</h2>
+  <ul>
+    <li><strong>Ionospheric/tropospheric delay</strong> — the atmosphere isn't a vacuum; signal speed varies slightly, and dual-frequency receivers can measure and correct for this directly.</li>
+    <li><strong>Multipath</strong> — a signal bouncing off a building or the ground before reaching the antenna arrives later than the direct path, biasing the pseudorange — the classic "GPS is unreliable downtown" effect.</li>
+    <li><strong>Satellite geometry (DOP)</strong> — covered above as HDOP; satellites spread widely across the sky give a much better solution than a tight cluster.</li>
+    <li><strong>Augmentation (SBAS/WAAS/EGNOS, DGPS)</strong> — ground or satellite-based correction services that broadcast known error corrections, improving accuracy well beyond a standalone fix when available.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A checksum failure on a sentence isn't rare on a noisy UART line at power-up — always validate before trusting the fields, rather than assuming any received <code>$...*hh</code> line is intact.</li>
+      <li>Fix quality 0 with otherwise well-formed fields is a real, common state (e.g. indoors, cold start) — code that blindly parses lat/long without checking fix quality first will happily report stale or zeroed coordinates as if they were real.</li>
+      <li>The DDMM.MMMM-to-decimal conversion is the single most common bug in a first GNSS parser — test it against a known reference coordinate before trusting live data.</li>
+    </ul>
+  </div>
+
+  <p><a href="/sensors/gnss/examples.html">→ Code examples for GNSS</a></p>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "next": { "href": "/sensors/accelerometer/index.html", "title": "Accelerometer" },
+  "related": [
+    { "href": "/sensors/accelerometer/index.html", "title": "Accelerometer" },
+    { "href": "/protocols/uart/index.html", "title": "UART" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

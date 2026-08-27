@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GNSS examples — Sensors — Embedded Pandora</title>
+<meta name="description" content="Parsing a $GPGGA NMEA sentence in C to extract latitude, longitude, and timestamp, with checksum validation." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Sensors / GNSS</p>
+  <h1>Examples</h1>
+  <p class="lede">
+    Extracting latitude, longitude, and timestamp from a real
+    <code>$GPGGA</code> sentence read over <a href="/protocols/uart/index.html">UART</a>.
+  </p>
+
+  <h2>A sample sentence</h2>
+  <pre><code>$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47</code></pre>
+  <p>
+    Fields, in order: UTC time (<code>123519</code> = 12:35:19), latitude
+    (<code>4807.038,N</code>), longitude (<code>01131.000,E</code>), fix
+    quality (<code>1</code>), satellites used (<code>08</code>), HDOP
+    (<code>0.9</code>), altitude (<code>545.4,M</code>), geoid separation,
+    then an empty DGPS field, and finally the checksum after <code>*</code>.
+  </p>
+
+  <h2>Checksum validation</h2>
+  <p>
+    The checksum is the XOR of every byte between <code>$</code> and
+    <code>*</code>, compared against the two hex digits that follow.
+  </p>
+  <pre><code>bool nmea_checksum_ok(const char *sentence) {
+    if (sentence[0] != '$') return false;
+
+    const char *star = strchr(sentence, '*');
+    if (!star) return false;
+
+    uint8_t checksum = 0;
+    for (const char *p = sentence + 1; p &lt; star; p++)
+        checksum ^= (uint8_t)*p;
+
+    uint8_t expected = (uint8_t)strtol(star + 1, NULL, 16);
+    return checksum == expected;
+}</code></pre>
+
+  <h2>Parsing latitude/longitude and time</h2>
+  <pre><code>#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+
+typedef struct {
+    int hour, minute, second;
+    double latitude;   // decimal degrees, +north / -south
+    double longitude;  // decimal degrees, +east / -west
+    int fix_quality;
+} gnss_fix_t;
+
+static double dm_to_decimal(const char *dm, char hemisphere) {
+    double raw = atof(dm);              // e.g. 4807.038
+    int degrees = (int)(raw / 100);     // 48
+    double minutes = raw - (degrees * 100); // 07.038
+    double decimal = degrees + minutes / 60.0;
+    if (hemisphere == 'S' || hemisphere == 'W')
+        decimal = -decimal;
+    return decimal;
+}
+
+bool parse_gpgga(const char *sentence, gnss_fix_t *out) {
+    if (!nmea_checksum_ok(sentence)) return false;
+    if (strncmp(sentence, "$GPGGA", 6) != 0 &amp;&amp;
+        strncmp(sentence, "$GNGGA", 6) != 0) return false;
+
+    char time_field[16], lat_field[16], lat_hemi[2];
+    char lon_field[16], lon_hemi[2];
+    int fix_quality;
+
+    // field order: time, lat, N/S, lon, E/W, fix quality, ...
+    int n = sscanf(sentence,
+        "$%*3s,%15[^,],%15[^,],%1[^,],%15[^,],%1[^,],%d",
+        time_field, lat_field, lat_hemi, lon_field, lon_hemi, &amp;fix_quality);
+    if (n &lt; 6) return false;
+
+    out->fix_quality = fix_quality;
+    if (fix_quality == 0) return false; // fields below aren't meaningful yet
+
+    out->hour   = (time_field[0] - '0') * 10 + (time_field[1] - '0');
+    out->minute = (time_field[2] - '0') * 10 + (time_field[3] - '0');
+    out->second = (time_field[4] - '0') * 10 + (time_field[5] - '0');
+
+    out->latitude  = dm_to_decimal(lat_field, lat_hemi[0]);
+    out->longitude = dm_to_decimal(lon_field, lon_hemi[0]);
+    return true;
+}</code></pre>
+
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      Checking <code>fix_quality == 0</code> and bailing out early matters
+      more than it looks like it should — a receiver with no fix yet
+      still happily sends well-formed <code>$GPGGA</code> sentences with
+      empty or stale latitude/longitude fields, and a parser that doesn't
+      check fix quality first will silently hand back garbage coordinates
+      that look plausible.
+    </p>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/sensors/gnss/index.html", "title": "GNSS overview" },
+  "related": [
+    { "href": "/sensors/gnss/index.html", "title": "GNSS overview" },
+    { "href": "/protocols/uart/index.html", "title": "UART" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
