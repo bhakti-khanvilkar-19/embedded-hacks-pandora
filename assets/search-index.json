@@ -53,6 +53,17 @@
     ]
   },
   {
+    "title": "Passive Components — Electronics",
+    "url": "/electronics/passive-components/index.html",
+    "domain": "Electronics",
+    "category": "Passive Components",
+    "description": "Resistors, capacitors, and inductors: what each one physically does, the resistor color code, RC charge curves, back-EMF, and how to tell them apart on a board.",
+    "tags": [
+      "electronics",
+      "passive-components"
+    ]
+  },
+  {
     "title": "GPIO — Embedded",
     "url": "/embedded/gpio/index.html",
     "domain": "Embedded",

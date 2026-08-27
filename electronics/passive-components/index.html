@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Passive Components — Electronics — Embedded Pandora</title>
+<meta name="description" content="Resistors, capacitors, and inductors: what each one physically does, the resistor color code, RC charge curves, back-EMF, and how to tell them apart on a board." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Electronics</p>
+  <h1>Passive Components — resistors, capacitors, and inductors</h1>
+  <p class="lede">
+    "Passive" just means a component that can't amplify a signal or add
+    energy of its own — it only resists, stores, or releases the energy
+    already flowing through it. Almost every board you'll ever look at is
+    mostly these three parts, plus a handful of active semiconductors.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Resistor opposes current; capacitor stores energy in an electric field and opposes voltage change; inductor stores energy in a magnetic field and opposes current change.</dd>
+      <dt>Mental model</dt><dd>R = friction, C = a small water tank that fills/drains, L = a heavy flywheel that resists changing speed.</dd>
+      <dt>Key numbers</dt><dd>Ohms (Ω), Farads (F, usually µF/nF/pF), Henries (H, usually mH/µH); RC time constant τ = R × C.</dd>
+      <dt>Reach for it when</dt><dd>Reading any schematic — these three symbols outnumber every other component on a typical board.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#resistor">Resistor</a></li>
+      <li><a href="#color-code">The resistor color code</a></li>
+      <li><a href="#capacitor">Capacitor</a></li>
+      <li><a href="#rc">Charging: the RC time constant</a></li>
+      <li><a href="#cap-types">Capacitor types — and the polarity trap</a></li>
+      <li><a href="#inductor">Inductor</a></li>
+      <li><a href="#flyback">Back-EMF and flyback</a></li>
+      <li><a href="#compare">R vs. C vs. L at a glance</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="resistor">Resistor</h2>
+  <p>
+    A resistor opposes current flow, converting electrical energy into
+    heat in the process — see <a href="/electronics/fundamentals/index.html#resistance">Fundamentals</a>
+    for Ohm's Law itself. Two ratings matter beyond its resistance value:
+  </p>
+  <dl class="kv">
+    <dt>Power rating</dt><dd>How much heat it can dissipate continuously (commonly ⅛ W, ¼ W, ½ W for small through-hole parts) — exceed it and the resistor overheats, drifts in value, or fails outright.</dd>
+    <dt>Tolerance</dt><dd>How far the actual resistance can vary from the labeled value (±5%, ±1%, tighter for precision parts).</dd>
+  </dl>
+  <p>
+    A <strong>potentiometer</strong> is a resistor with a movable wiper,
+    giving a variable, user-adjustable resistance — the working part
+    inside a volume knob or a trimmer used to calibrate a circuit.
+  </p>
+
+  <h2 id="color-code">The resistor color code</h2>
+  <p>
+    Small resistors are too tiny to print numbers on legibly, so value
+    and tolerance are encoded as colored bands instead.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 400 150" role="img" aria-labelledby="resistor-bands-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="resistor-bands-title">A 4-band resistor reading red, red, brown, gold — 22 times 10 ohms, plus or minus 5 percent, which is 220 ohms</title>
+      <line x1="20" y1="70" x2="80" y2="70" stroke="var(--ink-faint)" stroke-width="3" />
+      <line x1="320" y1="70" x2="380" y2="70" stroke="var(--ink-faint)" stroke-width="3" />
+      <rect class="frame-box" x="80" y="50" width="240" height="40" rx="20" />
+      <rect x="135" y="50" width="14" height="40" fill="#c0392b" />
+      <rect x="165" y="50" width="14" height="40" fill="#c0392b" />
+      <rect x="195" y="50" width="14" height="40" fill="#7b4a2b" />
+      <rect x="255" y="50" width="14" height="40" fill="#c9a227" />
+
+      <text class="frame-caption" x="142" y="105" text-anchor="middle">2</text>
+      <text class="frame-caption" x="172" y="105" text-anchor="middle">2</text>
+      <text class="frame-caption" x="202" y="105" text-anchor="middle">×10</text>
+      <text class="frame-caption" x="262" y="105" text-anchor="middle">±5%</text>
+      <text class="frame-label" x="200" y="130" text-anchor="middle">Red · Red · Brown · Gold = 22 × 10 Ω = 220 Ω ±5%</text>
+    </svg>
+    <figcaption class="diagram__caption">Read the bands starting from the end furthest from the tolerance band (usually gold or silver, and set slightly apart from the rest).</figcaption>
+  </figure>
+  <table>
+    <thead><tr><th>Color</th><th>Digit</th><th>Multiplier</th><th>Tolerance</th></tr></thead>
+    <tbody>
+      <tr><td>Black</td><td>0</td><td>×1</td><td>—</td></tr>
+      <tr><td>Brown</td><td>1</td><td>×10</td><td>±1%</td></tr>
+      <tr><td>Red</td><td>2</td><td>×100</td><td>±2%</td></tr>
+      <tr><td>Orange</td><td>3</td><td>×1,000</td><td>—</td></tr>
+      <tr><td>Yellow</td><td>4</td><td>×10,000</td><td>—</td></tr>
+      <tr><td>Green</td><td>5</td><td>×100,000</td><td>±0.5%</td></tr>
+      <tr><td>Blue</td><td>6</td><td>×1,000,000</td><td>±0.25%</td></tr>
+      <tr><td>Violet</td><td>7</td><td>—</td><td>±0.1%</td></tr>
+      <tr><td>Grey</td><td>8</td><td>—</td><td>—</td></tr>
+      <tr><td>White</td><td>9</td><td>—</td><td>—</td></tr>
+      <tr><td>Gold</td><td>—</td><td>×0.1</td><td>±5%</td></tr>
+      <tr><td>Silver</td><td>—</td><td>×0.01</td><td>±10%</td></tr>
+    </tbody>
+  </table>
+  <p>
+    A 5-band resistor works the same way with one extra digit band, for
+    tighter tolerances. When in doubt (or the bands are hard to see), a
+    multimeter is faster and more reliable than reading tiny paint bands.
+  </p>
+
+  <h2 id="capacitor">Capacitor</h2>
+  <p>
+    A capacitor is two conductive plates separated by an insulator (the
+    <strong>dielectric</strong>). Applying a voltage across it pushes
+    charge onto the plates, building up an electric field — that field is
+    where the energy is actually stored.
+  </p>
+  <dl class="kv">
+    <dt>Symbol</dt><dd>C</dd>
+    <dt>Unit</dt><dd>Farad (F) — practically always µF, nF, or pF; a full Farad is enormous</dd>
+    <dt>Key behavior</dt><dd>Blocks DC once fully charged (looks like an open circuit at steady state); passes AC (more easily at higher frequency)</dd>
+  </dl>
+
+  <h2 id="rc">Charging: the RC time constant</h2>
+  <p>
+    A capacitor doesn't charge instantly — through a resistor, it follows
+    a predictable exponential curve, characterized by the
+    <strong>time constant τ = R × C</strong> (in seconds, with R in ohms
+    and C in farads).
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 520 220" role="img" aria-labelledby="rc-charge-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="rc-charge-title">A battery charging a capacitor through a resistor, and the resulting exponential voltage-versus-time curve reaching about 63 percent after one time constant</title>
+      <rect x="20" y="60" width="140" height="80" fill="none" class="seq-arrow flow-path" stroke-width="2.5" />
+      <rect class="frame-box block-amber" x="10" y="80" width="55" height="40" rx="4" />
+      <text class="frame-label" x="37" y="104" text-anchor="middle" font-size="10">Battery</text>
+      <rect class="frame-box block-green" x="115" y="45" width="60" height="35" rx="4" />
+      <text class="frame-label" x="145" y="67" text-anchor="middle" font-size="10">R</text>
+      <rect class="frame-box block-blue" x="145" y="120" width="30" height="40" rx="3" />
+      <text class="frame-label" x="160" y="145" text-anchor="middle" font-size="10">C</text>
+
+      <line x1="220" y1="190" x2="220" y2="20" stroke="var(--ink-faint)" stroke-width="1.5" />
+      <line x1="220" y1="190" x2="500" y2="190" stroke="var(--ink-faint)" stroke-width="1.5" />
+      <text class="frame-caption" x="360" y="210" text-anchor="middle">time</text>
+      <text class="frame-caption" x="212" y="100" text-anchor="end">V</text>
+
+      <path d="M220,190 C 250,90 280,55 320,42 C 360,32 420,26 500,24"
+            fill="none" stroke="var(--accent)" stroke-width="3" />
+
+      <line x1="280" y1="190" x2="280" y2="70" stroke="var(--ink-faint)" stroke-dasharray="3 3" />
+      <circle cx="280" cy="70" r="4" class="pulse-dot" style="fill:var(--accent);" />
+      <text class="frame-caption" x="280" y="208" text-anchor="middle">1τ</text>
+      <text class="seq-note" x="330" y="65" text-anchor="start">63% charged at 1τ</text>
+      <text class="seq-note" x="330" y="82" text-anchor="start">~99% charged by 5τ</text>
+    </svg>
+    <figcaption class="diagram__caption">Current (dashed, animated) flows in fast at first, then tapers off as the capacitor's own voltage starts opposing the source — the same shape every RC charging curve has.</figcaption>
+  </figure>
+  <p>
+    This exact curve is why capacitors are used for timing delays, why a
+    "power good" signal after startup takes a moment to settle, and why a
+    debounce circuit's RC values are chosen deliberately — too small a τ
+    and switch bounce sneaks through, too large and a real button press
+    feels sluggish.
+  </p>
+
+  <h2 id="cap-types">Capacitor types — and the polarity trap</h2>
+  <table>
+    <thead><tr><th>Type</th><th>Typical range</th><th>Polarized?</th><th>Common use</th></tr></thead>
+    <tbody>
+      <tr><td>Ceramic</td><td>pF – µF</td><td>No</td><td>Decoupling/bypass right next to IC power pins</td></tr>
+      <tr><td>Electrolytic</td><td>µF – mF</td><td><strong>Yes</strong></td><td>Bulk power-rail filtering, energy storage</td></tr>
+      <tr><td>Tantalum</td><td>µF range</td><td><strong>Yes</strong></td><td>Compact, stable bulk capacitance where board space is tight</td></tr>
+      <tr><td>Film</td><td>nF – µF</td><td>No</td><td>Precision timing, audio, higher-voltage filtering</td></tr>
+    </tbody>
+  </table>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <p>
+      Electrolytic and tantalum capacitors have a marked + and − lead and
+      <strong>must</strong> be wired the right way around — reversed, they
+      can leak, vent, or in the worst case fail explosively. Ceramic and
+      film capacitors don't care about polarity at all. Also worth
+      remembering: a large charged capacitor can still hold a dangerous
+      voltage well after power is removed from the board.
+    </p>
+  </div>
+
+  <h2 id="inductor">Inductor</h2>
+  <p>
+    An inductor is a coil of wire. Current flowing through it builds a
+    magnetic field, and that field is where the energy is stored — the
+    mirror image of a capacitor storing energy electrically.
+  </p>
+  <dl class="kv">
+    <dt>Symbol</dt><dd>L</dd>
+    <dt>Unit</dt><dd>Henry (H) — practically mH or µH</dd>
+    <dt>Key behavior</dt><dd>Passes DC at steady state (just the coil's wire resistance); opposes fast changes in current</dd>
+  </dl>
+
+  <h2 id="flyback">Back-EMF and flyback</h2>
+  <p>
+    Because an inductor actively resists any change in its current, an
+    inductor carrying current that gets suddenly interrupted (a
+    transistor switching off a relay coil or motor) tries to keep that
+    current flowing — and does so by generating a large voltage spike
+    across itself as the magnetic field collapses. That spike, if left
+    unmanaged, is easily large enough to destroy the switching transistor.
+    The standard fix is a <strong>flyback diode</strong> wired backward
+    across the inductive load, giving the collapsing current a safe path
+    to circulate through instead of arcing through the switch.
+  </p>
+
+  <h2 id="compare">R vs. C vs. L at a glance</h2>
+  <table>
+    <thead><tr><th></th><th>Resistor</th><th>Capacitor</th><th>Inductor</th></tr></thead>
+    <tbody>
+      <tr><td>Stores energy?</td><td>No — dissipates as heat</td><td>Yes — electric field</td><td>Yes — magnetic field</td></tr>
+      <tr><td>DC steady state</td><td>Opposes current (always)</td><td>Open circuit (blocks)</td><td>Short circuit (just wire resistance)</td></tr>
+      <tr><td>Opposes change in...</td><td>—</td><td>Voltage</td><td>Current</td></tr>
+      <tr><td>Fast transients</td><td>No effect</td><td>Passes AC / high frequency</td><td>Blocks AC / high frequency</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Decoupling capacitors —</strong> a small ceramic capacitor next to almost every IC's power pin absorbs fast current spikes the power supply itself can't react to quickly enough.</li>
+    <li><strong>Power supply filtering —</strong> bulk electrolytic capacitors smooth out the ripple left over after AC is rectified to DC.</li>
+    <li><strong>Switching regulators (buck/boost converters)</strong> — an inductor is the core energy-storage element that makes efficient DC-DC voltage conversion possible.</li>
+    <li><strong>Motor and relay driver circuits —</strong> a flyback diode across the coil is close to mandatory any time a microcontroller switches an inductive load.</li>
+    <li><strong>Debounce circuits and RC delays —</strong> a resistor and capacitor together are the simplest way to filter switch bounce or generate a startup delay without any code.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A resistor's power rating is easy to forget when current is higher than expected — check P = I²R against the rated wattage, not just the resistance value.</li>
+      <li>Reversed electrolytic/tantalum capacitor polarity is one of the most common hand-assembly mistakes on a first prototype board — double-check the silkscreen polarity marking against the part before soldering.</li>
+      <li>Driving a relay or motor without a flyback diode will eventually destroy the driving transistor — it may even survive a few switching cycles before failing, which makes the bug look intermittent.</li>
+      <li>"Fully charged" and "fully discharged" are asymptotic, not exact — by convention, 5τ is treated as close enough (~99.3%) for practical purposes.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/electronics/fundamentals/index.html", "title": "Fundamentals" },
+  "related": [
+    { "href": "/electronics/fundamentals/index.html", "title": "Fundamentals" },
+    { "href": "/embedded/gpio/index.html", "title": "GPIO" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
