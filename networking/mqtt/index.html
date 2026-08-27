@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MQTT — Networking — Embedded Pandora</title>
+<meta name="description" content="Publish/subscribe messaging over TCP: topics, wildcards, QoS 0/1/2, retained messages, last will and testament, and when it beats CoAP or raw sockets." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>MQTT — Message Queuing Telemetry Transport</h1>
+  <p class="lede">
+    A lightweight publish/subscribe messaging protocol built on top of
+    <a href="/networking/tcp/index.html">TCP</a>. Instead of one device
+    talking directly to another, every device talks to a central
+    <strong>broker</strong> — publishers send messages tagged with a
+    <strong>topic</strong>, and the broker fans each one out to whoever
+    subscribed to that topic, with no publisher ever needing to know who
+    (or how many) is listening.
+  </p>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#model">The pub/sub model</a></li>
+      <li><a href="#topics">Topics and wildcards</a></li>
+      <li><a href="#qos">Quality of Service: 0, 1, 2</a></li>
+      <li><a href="#retained">Retained messages</a></li>
+      <li><a href="#lwt">Last Will and Testament</a></li>
+      <li><a href="#packets">The packet types, briefly</a></li>
+      <li><a href="#vs">MQTT vs. CoAP vs. AMQP</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="model">The pub/sub model</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 220" role="img" aria-labelledby="mqtt-pubsub-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="mqtt-pubsub-title">A publisher sends one message to the broker, which fans it out to every subscriber of that topic</title>
+      <rect class="seq-actor-chip" x="20" y="90" width="110" height="40" rx="8" />
+      <text class="seq-actor-text" x="75" y="115" text-anchor="middle">Publisher</text>
+
+      <rect class="frame-box" x="220" y="80" width="120" height="60" rx="6" />
+      <text class="frame-label" x="280" y="106" text-anchor="middle">Broker</text>
+      <text class="frame-caption" x="280" y="124" text-anchor="middle">routes by topic</text>
+
+      <line class="seq-arrow" x1="130" y1="110" x2="212" y2="110" />
+      <polygon class="seq-arrowhead" points="220,110 208,105 208,115" />
+      <text class="seq-sub" x="176" y="98" text-anchor="middle">PUBLISH sensors/room1/temp</text>
+
+      <rect class="seq-actor-chip" x="430" y="10" width="110" height="36" rx="8" />
+      <text class="seq-actor-text" x="485" y="33" text-anchor="middle">Subscriber A</text>
+      <rect class="seq-actor-chip" x="430" y="92" width="110" height="36" rx="8" />
+      <text class="seq-actor-text" x="485" y="115" text-anchor="middle">Subscriber B</text>
+      <rect class="seq-actor-chip" x="430" y="174" width="110" height="36" rx="8" />
+      <text class="seq-actor-text" x="485" y="197" text-anchor="middle">Subscriber C</text>
+
+      <line class="seq-arrow" x1="340" y1="100" x2="424" y2="35" />
+      <polygon class="seq-arrowhead" points="430,28 419,35 427,44" />
+      <line class="seq-arrow" x1="340" y1="110" x2="424" y2="110" />
+      <polygon class="seq-arrowhead" points="430,110 418,105 418,115" />
+      <line class="seq-arrow" x1="340" y1="120" x2="424" y2="185" />
+      <polygon class="seq-arrowhead" points="430,192 419,185 427,176" />
+      <text class="seq-note" x="380" y="150" text-anchor="middle">every matching subscriber gets its own copy</text>
+    </svg>
+    <figcaption class="diagram__caption">The publisher sends exactly one message to the broker; the broker decides fan-out. Publishers and subscribers never connect to each other directly.</figcaption>
+  </figure>
+  <p>
+    This decoupling is the whole point: a publisher doesn't need to know
+    how many subscribers exist, whether they're online right now, or where
+    they are — it just publishes. New subscribers can appear later and
+    start receiving without the publisher changing anything.
+  </p>
+
+  <h2 id="topics">Topics and wildcards</h2>
+  <p>
+    A topic is a slash-separated hierarchy the application defines itself
+    — there's no fixed schema, e.g. <code>factory/line1/press3/temperature</code>.
+    Subscribers can match a specific topic exactly, or use wildcards:
+  </p>
+  <dl class="kv">
+    <dt><code>+</code></dt><dd>Matches exactly one topic level. <code>factory/+/press3/temperature</code> matches any line.</dd>
+    <dt><code>#</code></dt><dd>Matches any number of remaining levels — must be the last character. <code>factory/line1/#</code> matches everything under <code>line1</code>.</dd>
+  </dl>
+
+  <h2 id="qos">Quality of Service: 0, 1, 2</h2>
+  <p>
+    Unlike <a href="/networking/coap/index.html">CoAP</a>'s binary
+    confirmable/non-confirmable choice, MQTT has three delivery guarantees,
+    chosen per-message by the publisher:
+  </p>
+  <table>
+    <thead><tr><th>QoS</th><th>Guarantee</th><th>Mechanism</th></tr></thead>
+    <tbody>
+      <tr><td>0</td><td>At most once</td><td>Fire-and-forget — no acknowledgement, message may be lost, never duplicated.</td></tr>
+      <tr><td>1</td><td>At least once</td><td>Sender keeps retrying until it gets a <code>PUBACK</code> — message will arrive, but a lost ACK can cause a duplicate delivery.</td></tr>
+      <tr><td>2</td><td>Exactly once</td><td>A four-packet handshake (<code>PUBLISH → PUBREC → PUBREL → PUBCOMP</code>) that both guarantees delivery and de-duplicates — the most expensive, reserved for messages where duplicates would actually cause harm (e.g. "charge this transaction").</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Note QoS is between each client and the broker independently — a
+    publisher can send at QoS 2 while a given subscriber receives at
+    whatever QoS it subscribed with, whichever is lower wins for that hop.
+  </p>
+
+  <h2 id="retained">Retained messages</h2>
+  <p>
+    A publisher can mark a message <strong>retained</strong>; the broker
+    keeps the latest retained message on that topic and immediately sends
+    it to any client that subscribes later — without waiting for the next
+    publish. This is how a newly-connected dashboard immediately shows
+    "last known temperature" instead of a blank value until the next
+    reading arrives.
+  </p>
+
+  <h2 id="lwt">Last Will and Testament</h2>
+  <p>
+    When connecting, a client can register a <strong>will message</strong>
+    with the broker — a topic and payload the broker will publish
+    <em>on the client's behalf</em> if that client disconnects
+    ungracefully (network drop, crash, power loss) rather than sending a
+    clean <code>DISCONNECT</code>. This is the standard way to get
+    reliable "device went offline" notifications without polling — a
+    dashboard subscribes to <code>devices/+/status</code> and finds out
+    immediately, from the broker, when a device vanishes.
+  </p>
+
+  <h2 id="packets">The packet types, briefly</h2>
+  <table>
+    <thead><tr><th>Packet</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>CONNECT / CONNACK</td><td>Client authenticates and opens a session with the broker.</td></tr>
+      <tr><td>PUBLISH</td><td>Send a message on a topic, at a chosen QoS.</td></tr>
+      <tr><td>SUBSCRIBE / SUBACK</td><td>Register interest in a topic (filter), broker confirms the granted QoS.</td></tr>
+      <tr><td>PINGREQ / PINGRESP</td><td>Keepalive — lets the broker detect a dead connection before the TCP stack would.</td></tr>
+      <tr><td>DISCONNECT</td><td>Clean shutdown — explicitly tells the broker not to fire the will message.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="vs">MQTT vs. CoAP vs. AMQP</h2>
+  <table>
+    <thead><tr><th></th><th>MQTT</th><th><a href="/networking/coap/index.html">CoAP</a></th><th><a href="/networking/amqp/index.html">AMQP</a></th></tr></thead>
+    <tbody>
+      <tr><td>Model</td><td>Publish/subscribe via broker</td><td>REST request/response</td><td>Message queues via broker (routing, not just topics)</td></tr>
+      <tr><td>Transport</td><td>TCP</td><td>UDP (usually)</td><td>TCP</td></tr>
+      <tr><td>Connection state</td><td>Persistent connection per client</td><td>None required</td><td>Persistent connection per client</td></tr>
+      <tr><td>Typical fit</td><td>Fleet telemetry, many-to-many fan-out, constrained-but-not-tiny devices</td><td>Individually constrained devices, request/response device control</td><td>Enterprise messaging with complex routing and delivery guarantees</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>QoS 1 <em>will</em> occasionally deliver duplicates — if the application isn't idempotent to duplicate messages, QoS 1 alone doesn't save it.</li>
+      <li>A broker is a single point of failure and a piece of infrastructure a raw-socket or CoAP design doesn't need — factor that operational cost in, not just the wire protocol's elegance.</li>
+      <li>Retained messages and the will message are easy to forget about when debugging "why did a stale value show up" — check for a retained flag before assuming a device is actually publishing that value right now.</li>
+      <li>MQTT's persistent TCP connection is exactly the cost <a href="/networking/coap/index.html">CoAP</a> was designed to avoid on genuinely tiny, battery-constrained nodes — MQTT tends to fit better once a device already has a stable network connection to spare.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/networking/coap/index.html", "title": "CoAP" },
+  "next": { "href": "/networking/amqp/index.html", "title": "AMQP" },
+  "related": [
+    { "href": "/networking/coap/index.html", "title": "CoAP" },
+    { "href": "/networking/amqp/index.html", "title": "AMQP" },
+    { "href": "/networking/tcp/index.html", "title": "TCP" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CAN — Protocols — Embedded Pandora</title>
+<meta name="description" content="Controller Area Network: differential multi-master bus, non-destructive bitwise arbitration, frame format, error states, bit stuffing, and CAN FD." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Protocols</p>
+  <h1>CAN — Controller Area Network</h1>
+  <p class="lede">
+    A differential, multi-master, broadcast bus designed for noisy
+    electrical environments — originally automotive, now everywhere from
+    factory floors to elevators. Its defining trick isn't the wiring, it's
+    <strong>arbitration</strong>: multiple nodes can start transmitting at
+    once and the bus resolves who wins, bit by bit, without corrupting
+    anyone's message.
+  </p>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#physical">Physical layer: dominant and recessive</a></li>
+      <li><a href="#broadcast">Multi-master, broadcast, no addresses</a></li>
+      <li><a href="#arbitration">Arbitration, bit by bit</a></li>
+      <li><a href="#frame">Frame format</a></li>
+      <li><a href="#stuffing">Bit stuffing</a></li>
+      <li><a href="#errors">Error handling and bus-off</a></li>
+      <li><a href="#canfd">CAN FD</a></li>
+      <li><a href="#vs">CAN vs. SPI vs. I2C vs. UART</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="physical">Physical layer: dominant and recessive</h2>
+  <p>
+    CAN runs over a twisted differential pair, <strong>CAN_H</strong> and
+    <strong>CAN_L</strong>. Every node can only drive the bus to one of two
+    states:
+  </p>
+  <dl class="kv">
+    <dt>Dominant (logic 0)</dt><dd>A node actively pulls CAN_H high and CAN_L low, widening the differential voltage. Any node driving dominant wins over one driving recessive — this is the physical fact arbitration is built on.</dd>
+    <dt>Recessive (logic 1)</dt><dd>A node simply stops driving; pull resistors bring the differential back near zero. If nobody drives dominant, the bus reads recessive.</dd>
+  </dl>
+  <p>
+    Because dominant always overrides recessive when both happen at once,
+    the bus behaves like a wired-AND: the resulting bus level is dominant
+    if <em>any</em> node drives dominant, recessive only if <em>every</em>
+    node is recessive. <strong>120 Ω termination resistors</strong> belong
+    at the two physical ends of the bus (not at every node) — the classic
+    wiring mistake is terminating every node, which wrecks the bus
+    impedance just as thoroughly as terminating nowhere at all.
+  </p>
+  <p>
+    Classical CAN tops out around 1 Mbit/s; see <a href="#canfd">CAN FD</a>
+    for how newer controllers push that further.
+  </p>
+
+  <h2 id="broadcast">Multi-master, broadcast, no addresses</h2>
+  <p>
+    Unlike <a href="/protocols/i2c/index.html">I2C</a>'s addressed devices
+    or <a href="/protocols/spi/index.html">SPI</a>'s per-device chip select,
+    a CAN frame has no destination address at all. Every node on the bus
+    receives every frame and decides for itself, based on the frame's
+    <strong>identifier</strong>, whether to process it or ignore it
+    (typically via a hardware acceptance filter so the CPU isn't
+    interrupted for traffic it doesn't care about). Any node can start
+    transmitting whenever the bus is idle — there's no single bus master.
+  </p>
+
+  <h2 id="arbitration">Arbitration, bit by bit</h2>
+  <p>
+    If two nodes start transmitting at exactly the same time, CAN resolves
+    the conflict without either message getting corrupted or needing a
+    retry from scratch. While transmitting, every node also
+    <em>reads back</em> the actual bus level. If a node sends recessive
+    but reads back dominant, some other node is transmitting a dominant
+    bit at that position — meaning that node's identifier is numerically
+    lower, and this node has just lost arbitration. It immediately stops
+    driving and switches to listening, and automatically retries once the
+    bus goes idle again. Nothing is corrupted: the winning node's frame
+    transmits exactly as if it had the bus to itself.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 460 250" role="img" aria-labelledby="can-arb-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="can-arb-title">Two nodes contending for the bus: Node A's lower identifier wins arbitration at bit 4, and Node B silently backs off</title>
+
+      <text class="frame-caption" x="15" y="20">bit</text>
+      <text class="frame-label" x="82" y="20" text-anchor="middle">1</text>
+      <text class="frame-label" x="140" y="20" text-anchor="middle">2</text>
+      <text class="frame-label" x="198" y="20" text-anchor="middle">3</text>
+      <text class="frame-label" x="256" y="20" text-anchor="middle">4</text>
+      <text class="frame-label" x="314" y="20" text-anchor="middle">5</text>
+      <text class="frame-label" x="372" y="20" text-anchor="middle">6</text>
+
+      <text class="seq-actor-text" x="15" y="48" font-size="11">Node A</text>
+      <g font-family="var(--font-mono)">
+        <rect class="frame-box" x="57" y="30" width="50" height="30" style="fill:var(--accent-soft);stroke:var(--accent);" /><text class="frame-label" x="82" y="50" text-anchor="middle">0</text>
+        <rect class="frame-box" x="115" y="30" width="50" height="30" /><text class="frame-label" x="140" y="50" text-anchor="middle">1</text>
+        <rect class="frame-box" x="173" y="30" width="50" height="30" style="fill:var(--accent-soft);stroke:var(--accent);" /><text class="frame-label" x="198" y="50" text-anchor="middle">0</text>
+        <rect class="frame-box" x="231" y="30" width="50" height="30" style="fill:var(--accent-soft);stroke:var(--accent);" /><text class="frame-label" x="256" y="50" text-anchor="middle">0</text>
+        <rect class="frame-box" x="289" y="30" width="50" height="30" /><text class="frame-label" x="314" y="50" text-anchor="middle">1</text>
+        <rect class="frame-box" x="347" y="30" width="50" height="30" /><text class="frame-label" x="372" y="50" text-anchor="middle">1</text>
+      </g>
+
+      <text class="seq-actor-text" x="15" y="98" font-size="11">Node B</text>
+      <g font-family="var(--font-mono)">
+        <rect class="frame-box" x="57" y="80" width="50" height="30" style="fill:var(--accent-soft);stroke:var(--accent);" /><text class="frame-label" x="82" y="100" text-anchor="middle">0</text>
+        <rect class="frame-box" x="115" y="80" width="50" height="30" /><text class="frame-label" x="140" y="100" text-anchor="middle">1</text>
+        <rect class="frame-box" x="173" y="80" width="50" height="30" style="fill:var(--accent-soft);stroke:var(--accent);" /><text class="frame-label" x="198" y="100" text-anchor="middle">0</text>
+        <rect class="frame-box" x="231" y="80" width="50" height="30" style="stroke:var(--accent);stroke-width:2.5;" /><text class="frame-label" x="256" y="100" text-anchor="middle">1</text>
+        <rect class="frame-box frame-box--variable" x="289" y="80" width="50" height="30" /><rect class="frame-box frame-box--variable" x="347" y="80" width="50" height="30" />
+      </g>
+      <text class="seq-note" x="313" y="100" text-anchor="middle">off bus</text>
+
+      <text class="seq-actor-text" x="15" y="148" font-size="11">Bus</text>
+      <g font-family="var(--font-mono)">
+        <rect class="frame-box" x="57" y="130" width="50" height="30" style="fill:var(--accent-soft);stroke:var(--accent);" /><text class="frame-label" x="82" y="150" text-anchor="middle">0</text>
+        <rect class="frame-box" x="115" y="130" width="50" height="30" /><text class="frame-label" x="140" y="150" text-anchor="middle">1</text>
+        <rect class="frame-box" x="173" y="130" width="50" height="30" style="fill:var(--accent-soft);stroke:var(--accent);" /><text class="frame-label" x="198" y="150" text-anchor="middle">0</text>
+        <rect class="frame-box" x="231" y="130" width="50" height="30" style="fill:var(--accent-soft);stroke:var(--accent);stroke-width:2.5;" /><text class="frame-label" x="256" y="150" text-anchor="middle">0</text>
+        <rect class="frame-box" x="289" y="130" width="50" height="30" /><text class="frame-label" x="314" y="150" text-anchor="middle">1</text>
+        <rect class="frame-box" x="347" y="130" width="50" height="30" /><text class="frame-label" x="372" y="150" text-anchor="middle">1</text>
+      </g>
+
+      <line class="seq-arrow" x1="256" y1="166" x2="256" y2="188" />
+      <polygon class="seq-arrowhead" points="256,194 250,182 262,182" />
+      <text class="seq-note" x="256" y="212" text-anchor="middle">B drove recessive (1), read back dominant (0) — arbitration lost here</text>
+      <text class="seq-note" x="256" y="230" text-anchor="middle">A's bit was dominant, so A's lower ID wins; A keeps transmitting uninterrupted</text>
+    </svg>
+    <figcaption class="diagram__caption">
+      Filled cells = dominant (0). At bit 4, Node A's identifier bit is dominant while Node B's is
+      recessive — Node B loses instantly and cleanly, without corrupting Node A's frame.
+    </figcaption>
+  </figure>
+
+  <p>
+    The practical consequence: <strong>lower numeric identifier = higher
+    priority</strong>, and priority is enforced by the bus itself, not by
+    software. This is what makes CAN genuinely real-time — the highest
+    priority message pending anywhere on the bus always gets through
+    first, deterministically.
+  </p>
+
+  <h2 id="frame">Frame format</h2>
+  <p>
+    A standard (CAN 2.0A) data frame, 11-bit identifier:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 600 100" role="img" aria-labelledby="can-frame-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="can-frame-title">CAN standard data frame fields from Start of Frame through End of Frame</title>
+      <rect class="frame-box" x="10" y="24" width="26" height="40" /><text class="frame-label" x="23" y="48" text-anchor="middle" font-size="9">SOF</text>
+      <rect class="frame-box" x="40" y="24" width="96" height="40" /><text class="frame-label" x="88" y="48" text-anchor="middle">Identifier</text>
+      <rect class="frame-box" x="140" y="24" width="26" height="40" /><text class="frame-label" x="153" y="48" text-anchor="middle" font-size="9">RTR</text>
+      <rect class="frame-box" x="170" y="24" width="46" height="40" /><text class="frame-label" x="193" y="44" text-anchor="middle" font-size="9">IDE</text><text class="frame-label" x="193" y="56" text-anchor="middle" font-size="9">r0</text>
+      <rect class="frame-box" x="220" y="24" width="46" height="40" /><text class="frame-label" x="243" y="48" text-anchor="middle" font-size="9">DLC</text>
+      <rect class="frame-box frame-box--variable" x="270" y="24" width="90" height="40" /><text class="frame-label" x="315" y="48" text-anchor="middle">Data</text>
+      <rect class="frame-box" x="364" y="24" width="70" height="40" /><text class="frame-label" x="399" y="44" text-anchor="middle" font-size="9">CRC</text><text class="frame-label" x="399" y="56" text-anchor="middle" font-size="9">+ delim</text>
+      <rect class="frame-box" x="438" y="24" width="50" height="40" /><text class="frame-label" x="463" y="44" text-anchor="middle" font-size="9">ACK</text><text class="frame-label" x="463" y="56" text-anchor="middle" font-size="9">+ delim</text>
+      <rect class="frame-box" x="492" y="24" width="60" height="40" /><text class="frame-label" x="522" y="48" text-anchor="middle" font-size="9">EOF</text>
+
+      <text class="frame-caption" x="23" y="80" text-anchor="middle">1b</text>
+      <text class="frame-caption" x="88" y="80" text-anchor="middle">11b</text>
+      <text class="frame-caption" x="153" y="80" text-anchor="middle">1b</text>
+      <text class="frame-caption" x="193" y="80" text-anchor="middle">2b</text>
+      <text class="frame-caption" x="243" y="80" text-anchor="middle">4b</text>
+      <text class="frame-caption" x="315" y="80" text-anchor="middle">0–64b (0–8B)</text>
+      <text class="frame-caption" x="399" y="80" text-anchor="middle">15b+1b</text>
+      <text class="frame-caption" x="463" y="80" text-anchor="middle">1b+1b</text>
+      <text class="frame-caption" x="522" y="80" text-anchor="middle">7b</text>
+    </svg>
+    <figcaption class="diagram__caption">Identifier plus control fields decide who wins arbitration; DLC gives the data length so the CRC and ACK slots line up correctly.</figcaption>
+  </figure>
+  <table>
+    <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>SOF</td><td>Start of Frame — a single dominant bit that marks the beginning; also what other nodes synchronize to.</td></tr>
+      <tr><td>Identifier</td><td>11 bits (standard) or 29 bits (extended) — determines both priority (via arbitration) and meaning/content, not a destination address.</td></tr>
+      <tr><td>RTR</td><td>Remote Transmission Request — dominant for a normal data frame, recessive for a remote frame (a request asking another node to send data with that ID).</td></tr>
+      <tr><td>IDE / r0</td><td>Identifier Extension bit (distinguishes standard vs. extended frames) plus a reserved bit.</td></tr>
+      <tr><td>DLC</td><td>Data Length Code — how many data bytes follow (0–8 in classical CAN).</td></tr>
+      <tr><td>Data</td><td>0 to 8 bytes of payload.</td></tr>
+      <tr><td>CRC + delimiter</td><td>15-bit checksum over the frame, catching transmission errors.</td></tr>
+      <tr><td>ACK slot + delimiter</td><td>The sender leaves this bit recessive; <em>any</em> other node that received the frame correctly overwrites it dominant — acknowledgement without naming who acknowledged.</td></tr>
+      <tr><td>EOF</td><td>7 recessive bits marking the end of the frame.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Extended (CAN 2.0B) frames use a 29-bit identifier (11 base bits + 18
+    extension bits) for a much larger ID space, at the cost of a slightly
+    longer arbitration phase — everything else about arbitration and
+    framing works the same way.
+  </p>
+
+  <h2 id="stuffing">Bit stuffing</h2>
+  <p>
+    CAN encodes bits directly as bus voltage levels (NRZ) with no separate
+    clock signal — receivers resynchronize on every edge they see. To
+    guarantee edges keep appearing even during long runs of identical
+    data, a transmitter automatically inserts one bit of the opposite
+    polarity after every five consecutive identical bits (in most parts of
+    the frame); receivers automatically remove it. This also gives error
+    detection a freebie: six identical bits in a row where stuffing should
+    have broken them up is itself a detectable <strong>stuff error</strong>.
+  </p>
+
+  <h2 id="errors">Error handling and bus-off</h2>
+  <p>
+    Every node tracks a Transmit Error Counter and Receive Error Counter,
+    incremented on detected errors (bit, stuff, CRC, form, or
+    acknowledgement errors) and decremented on successful communication.
+    Those counters drive three states:
+  </p>
+  <table>
+    <thead><tr><th>State</th><th>Behavior</th></tr></thead>
+    <tbody>
+      <tr><td>Error-active</td><td>Normal operation. On detecting an error, the node broadcasts an active error flag (dominant bits) that destroys the current frame for everyone — forcing a clean retry rather than letting a corrupted frame silently propagate.</td></tr>
+      <tr><td>Error-passive</td><td>Entered once error counts pass a threshold. The node can still transmit and receive, but its error flags are now recessive — it can no longer forcibly interrupt other traffic, a deliberate throttle on a node that's already causing trouble.</td></tr>
+      <tr><td>Bus-off</td><td>Entered once error counts pass a second, higher threshold. The node electrically disconnects itself from the bus entirely and needs a reset/recovery sequence to rejoin — the bus's last line of defense against a single malfunctioning node jamming everyone else.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="canfd">CAN FD</h2>
+  <p>
+    CAN FD (Flexible Data-rate) extends classical CAN with two changes:
+    payload grows from 8 bytes up to <strong>64 bytes</strong>, and a
+    Bit Rate Switch (BRS) lets the frame's data phase run at a
+    <strong>much higher bit rate</strong> than arbitration phase (which
+    stays slow enough for reliable arbitration across the whole bus).
+    Arbitration itself works identically to classical CAN — the speed and
+    payload gains only apply once a node has already won the bus. CAN FD
+    controllers can usually still talk classical CAN, but classical-only
+    controllers can't decode CAN FD frames on a shared bus, so mixing them
+    needs care.
+  </p>
+
+  <h2 id="vs">CAN vs. SPI vs. I2C vs. UART</h2>
+  <table>
+    <thead><tr><th></th><th>CAN</th><th>SPI</th><th>I2C</th><th>UART</th></tr></thead>
+    <tbody>
+      <tr><td>Topology</td><td>Multi-master bus, any number of nodes</td><td>Single controller, per-device CS</td><td>Multi-drop, addressed</td><td>Point-to-point</td></tr>
+      <tr><td>Addressing</td><td>None — content-based ID, broadcast to all</td><td>Physical (CS line)</td><td>In-band address</td><td>None needed</td></tr>
+      <tr><td>Priority handling</td><td>Built into the bus (arbitration)</td><td>None — controller decides</td><td>None</td><td>None</td></tr>
+      <tr><td>Typical range</td><td>Tens of meters, noisy environments</td><td>Short, on-board</td><td>Short, on-board</td><td>Short to moderate</td></tr>
+      <tr><td>Typical use</td><td>Automotive/industrial networks of many nodes</td><td>Fast on-board peripherals (flash, displays)</td><td>Low-speed on-board sensors</td><td>Simple point-to-point links, console access</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Termination at every node (instead of exactly the two physical bus ends) is the single most common CAN wiring mistake — it under-terminates the bus and causes reflections that look like intermittent, hard-to-reproduce errors.</li>
+      <li>A node stuck retransmitting a losing message over and over on a busy bus with many higher-priority nodes can genuinely starve — identifier assignment is a real design decision, not an afterthought.</li>
+      <li>A silently bus-off node stops participating entirely with no frame ever indicating why — check error counters and bus-off state directly, not just "is data arriving."</li>
+      <li>On Linux, CAN is exposed through <strong>SocketCAN</strong> — a network protocol family, not a character device like <a href="/protocols/spi/index.html">spidev</a> or <a href="/protocols/i2c/index.html">i2c-dev</a> — see <a href="/protocols/can/examples.html">examples</a> and <a href="/linux/drivers/index.html">Linux drivers</a>.</li>
+    </ul>
+  </div>
+
+  <p><a href="/protocols/can/examples.html">→ Code examples for CAN</a></p>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/protocols/uart/index.html", "title": "UART" },
+  "related": [
+    { "href": "/protocols/spi/index.html", "title": "SPI" },
+    { "href": "/protocols/i2c/index.html", "title": "I2C" },
+    { "href": "/protocols/uart/index.html", "title": "UART" },
+    { "href": "/linux/drivers/index.html", "title": "Linux drivers" },
+    { "href": "/embedded/interrupts/index.html", "title": "Interrupts" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

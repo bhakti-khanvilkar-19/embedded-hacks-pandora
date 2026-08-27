@@ -96,6 +96,17 @@
     ]
   },
   {
+    "title": "AMQP — Networking",
+    "url": "/networking/amqp/index.html",
+    "domain": "Networking",
+    "category": "Amqp",
+    "description": "Advanced Message Queuing Protocol: exchanges, queues, and bindings — routing decoupled from storage, exchange types, acknowledgements, and 0-9-1 vs 1.0.",
+    "tags": [
+      "networking",
+      "amqp"
+    ]
+  },
+  {
     "title": "CoAP — Networking",
     "url": "/networking/coap/index.html",
     "domain": "Networking",
@@ -128,6 +139,17 @@
     ]
   },
   {
+    "title": "MQTT — Networking",
+    "url": "/networking/mqtt/index.html",
+    "domain": "Networking",
+    "category": "Mqtt",
+    "description": "Publish/subscribe messaging over TCP: topics, wildcards, QoS 0/1/2, retained messages, last will and testament, and when it beats CoAP or raw sockets.",
+    "tags": [
+      "networking",
+      "mqtt"
+    ]
+  },
+  {
     "title": "TCP — Networking",
     "url": "/networking/tcp/index.html",
     "domain": "Networking",
@@ -147,6 +169,28 @@
     "tags": [
       "networking",
       "udp"
+    ]
+  },
+  {
+    "title": "CAN examples — Protocols",
+    "url": "/protocols/can/examples.html",
+    "domain": "Protocols",
+    "category": "CAN",
+    "description": "Bringing up a CAN interface and sending/receiving frames on Linux via SocketCAN, from the command line and from C.",
+    "tags": [
+      "protocols",
+      "can"
+    ]
+  },
+  {
+    "title": "CAN — Protocols",
+    "url": "/protocols/can/index.html",
+    "domain": "Protocols",
+    "category": "CAN",
+    "description": "Controller Area Network: differential multi-master bus, non-destructive bitwise arbitration, frame format, error states, bit stuffing, and CAN FD.",
+    "tags": [
+      "protocols",
+      "can"
     ]
   },
   {

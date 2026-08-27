@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CAN examples — Protocols — Embedded Pandora</title>
+<meta name="description" content="Bringing up a CAN interface and sending/receiving frames on Linux via SocketCAN, from the command line and from C." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Protocols / CAN</p>
+  <h1>Examples</h1>
+  <p class="lede">
+    Linux talks CAN through <strong>SocketCAN</strong>: the interface
+    behaves like a network device (<code>can0</code>), and frames are sent
+    with ordinary <code>socket()</code> calls using the <code>AF_CAN</code>
+    address family — not a character device like
+    <a href="/protocols/spi/index.html">spidev</a> or
+    <a href="/protocols/i2c/index.html">i2c-dev</a>.
+  </p>
+
+  <h2>Bringing the interface up</h2>
+  <pre><code># set the bitrate and bring the interface up (needs CAP_NET_ADMIN)
+sudo ip link set can0 type can bitrate 500000
+sudo ip link set can0 up
+
+# for CAN FD, also set a data-phase bitrate
+sudo ip link set can0 type can bitrate 500000 dbitrate 2000000 fd on
+sudo ip link set can0 up</code></pre>
+
+  <h2>Command-line send and receive — <code>can-utils</code></h2>
+  <pre><code># watch every frame arriving on can0
+candump can0
+
+# send a frame with ID 0x123 and 3 data bytes
+cansend can0 123#AABBCC
+
+# send a CAN FD frame (## instead of #, with flags)
+cansend can0 123##1AABBCCDDEEFF0011</code></pre>
+
+  <h2>C — sending a frame with SocketCAN</h2>
+  <pre><code>#include &lt;linux/can.h&gt;
+#include &lt;linux/can/raw.h&gt;
+#include &lt;sys/ioctl.h&gt;
+#include &lt;net/if.h&gt;
+#include &lt;sys/socket.h&gt;
+
+int s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+
+struct ifreq ifr;
+strcpy(ifr.ifr_name, "can0");
+ioctl(s, SIOCGIFINDEX, &amp;ifr);
+
+struct sockaddr_can addr = {0};
+addr.can_family = AF_CAN;
+addr.can_ifindex = ifr.ifr_ifindex;
+bind(s, (struct sockaddr *)&amp;addr, sizeof(addr));
+
+struct can_frame frame = {0};
+frame.can_id = 0x123;
+frame.can_dlc = 3;
+frame.data[0] = 0xAA;
+frame.data[1] = 0xBB;
+frame.data[2] = 0xCC;
+
+write(s, &amp;frame, sizeof(frame));</code></pre>
+
+  <h2>C — receiving frames</h2>
+  <pre><code>struct can_frame frame;
+while (1) {
+    int nbytes = read(s, &amp;frame, sizeof(frame));
+    if (nbytes &lt; 0) continue;
+
+    printf("id=0x%03X dlc=%d data=", frame.can_id, frame.can_dlc);
+    for (int i = 0; i &lt; frame.can_dlc; i++)
+        printf("%02X ", frame.data[i]);
+    printf("\n");
+}</code></pre>
+
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      Because SocketCAN treats <code>can0</code> as a network interface,
+      the usual network debugging habits apply directly —
+      <code>ip -details link show can0</code> shows the bus state
+      (error-active/passive/bus-off) and bitrate, and a bus-off interface
+      needs the link cycled down and back up to recover, the same shape as
+      recovering a jammed Ethernet link.
+    </p>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/protocols/can/index.html", "title": "CAN overview" },
+  "related": [
+    { "href": "/protocols/can/index.html", "title": "CAN overview" },
+    { "href": "/linux/drivers/index.html", "title": "Linux drivers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

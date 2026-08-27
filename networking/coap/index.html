@@ -300,7 +300,7 @@
 
   <h2 id="compare">CoAP vs. raw UDP vs. MQTT vs. HTTP</h2>
   <table>
-    <thead><tr><th></th><th>Raw UDP</th><th>CoAP</th><th>MQTT</th><th>HTTP</th></tr></thead>
+    <thead><tr><th></th><th>Raw UDP</th><th>CoAP</th><th><a href="/networking/mqtt/index.html">MQTT</a></th><th>HTTP</th></tr></thead>
     <tbody>
       <tr><td>Transport</td><td>UDP</td><td>UDP (usually)</td><td>TCP</td><td>TCP</td></tr>
       <tr><td>Model</td><td>You define everything</td><td>REST (request/response)</td><td>Publish/subscribe via broker</td><td>REST (request/response)</td></tr>
@@ -318,7 +318,7 @@
     <ul>
       <li><strong>Choose raw UDP</strong> when you control both ends completely, need the absolute minimum overhead, and don't need REST semantics, standardized discovery, or interoperability with anything else — you're willing to hand-roll framing and (if needed) reliability yourself.</li>
       <li><strong>Choose CoAP</strong> when you want REST-style request/response (GET a sensor value, PUT an actuator state) on a constrained device, want optional reliability without TCP's cost, need multicast discovery on a local network, or want interoperability with other CoAP-speaking devices/tools.</li>
-      <li><strong>Choose MQTT</strong> when the shape of the problem is really publish/subscribe with many producers and consumers, and a central broker plus TCP's connection overhead is acceptable (i.e. the device isn't as constrained, or already needs a persistent connection anyway).</li>
+      <li><strong>Choose <a href="/networking/mqtt/index.html">MQTT</a></strong> when the shape of the problem is really publish/subscribe with many producers and consumers, and a central broker plus TCP's connection overhead is acceptable (i.e. the device isn't as constrained, or already needs a persistent connection anyway). For complex routing rather than flat topics, see <a href="/networking/amqp/index.html">AMQP</a>.</li>
       <li><strong>Choose HTTP</strong> when the client is a normal web browser or service, constraints don't apply, and you want to use the existing web ecosystem (auth, caching, tooling) as-is.</li>
     </ul>
   </div>
@@ -371,10 +371,13 @@
 <script type="application/json" id="page-meta">
 {
   "prev": { "href": "/networking/udp/index.html", "title": "UDP" },
+  "next": { "href": "/networking/mqtt/index.html", "title": "MQTT" },
   "related": [
     { "href": "/networking/udp/index.html", "title": "UDP" },
     { "href": "/networking/tcp/index.html", "title": "TCP" },
-    { "href": "/networking/ip/index.html", "title": "IP" }
+    { "href": "/networking/ip/index.html", "title": "IP" },
+    { "href": "/networking/mqtt/index.html", "title": "MQTT" },
+    { "href": "/networking/amqp/index.html", "title": "AMQP" }
   ]
 }
 </script>

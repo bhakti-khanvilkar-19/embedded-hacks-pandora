@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AMQP — Networking — Embedded Pandora</title>
+<meta name="description" content="Advanced Message Queuing Protocol: exchanges, queues, and bindings — routing decoupled from storage, exchange types, acknowledgements, and 0-9-1 vs 1.0." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>AMQP — Advanced Message Queuing Protocol</h1>
+  <p class="lede">
+    A message-broker protocol like <a href="/networking/mqtt/index.html">MQTT</a>,
+    but built around a more explicit model: routing (deciding where a
+    message goes) is a separate concept from queuing (storing it until a
+    consumer is ready), which is what makes complex fan-out and filtering
+    rules possible without every consumer needing its own bespoke topic
+    scheme.
+  </p>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#model">Exchanges, queues, and bindings</a></li>
+      <li><a href="#exchanges">Exchange types</a></li>
+      <li><a href="#delivery">Acknowledgements and delivery guarantees</a></li>
+      <li><a href="#channels">Connections and channels</a></li>
+      <li><a href="#versions">0-9-1 vs. 1.0 — two different protocols, one name</a></li>
+      <li><a href="#vs">AMQP vs. MQTT vs. CoAP</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="model">Exchanges, queues, and bindings</h2>
+  <p>
+    Where MQTT has publishers, a broker, and topic subscriptions all in
+    one flat concept, AMQP (0-9-1, the model RabbitMQ made popular) splits
+    it into three explicit pieces:
+  </p>
+  <dl class="kv">
+    <dt>Exchange</dt><dd>What a producer actually publishes to. It receives a message and a routing key, and decides — based on its type and its bindings — which queue(s), if any, get a copy.</dd>
+    <dt>Queue</dt><dd>Where messages actually sit until a consumer reads them. Independent of any exchange — the same queue can be bound to multiple exchanges, or none.</dd>
+    <dt>Binding</dt><dd>A rule connecting an exchange to a queue, usually with a routing key or pattern that decides which messages cross that link.</dd>
+  </dl>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 560 240" role="img" aria-labelledby="amqp-routing-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="amqp-routing-title">A producer publishes to an exchange, which routes copies into bound queues based on routing key, and consumers read from those queues independently</title>
+      <rect class="seq-actor-chip" x="10" y="90" width="100" height="40" rx="8" />
+      <text class="seq-actor-text" x="60" y="115" text-anchor="middle">Producer</text>
+
+      <rect class="frame-box" x="190" y="80" width="110" height="60" rx="6" />
+      <text class="frame-label" x="245" y="106" text-anchor="middle">Exchange</text>
+      <text class="frame-caption" x="245" y="124" text-anchor="middle">routes by key</text>
+
+      <line class="seq-arrow" x1="110" y1="110" x2="182" y2="110" />
+      <polygon class="seq-arrowhead" points="190,110 178,105 178,115" />
+      <text class="seq-sub" x="146" y="98" text-anchor="middle">publish, key="order.eu"</text>
+
+      <rect class="frame-box frame-box--variable" x="370" y="20" width="90" height="40" />
+      <text class="frame-label" x="415" y="44" text-anchor="middle" font-size="11">Queue A</text>
+      <rect class="frame-box frame-box--variable" x="370" y="100" width="90" height="40" />
+      <text class="frame-label" x="415" y="124" text-anchor="middle" font-size="11">Queue B</text>
+      <rect class="frame-box frame-box--variable" x="370" y="180" width="90" height="40" />
+      <text class="frame-label" x="415" y="204" text-anchor="middle" font-size="11">Queue C</text>
+
+      <line class="seq-arrow" x1="300" y1="95" x2="364" y2="42" />
+      <polygon class="seq-arrowhead" points="370,36 359,41 366,50" />
+      <line class="seq-arrow" x1="300" y1="112" x2="364" y2="118" />
+      <polygon class="seq-arrowhead" points="370,120 359,113 359,123" />
+      <text class="seq-note" x="330" y="160" text-anchor="middle">Queue C isn't bound to this routing key — gets nothing</text>
+
+      <rect class="seq-actor-chip" x="480" y="20" width="70" height="30" rx="8" />
+      <text class="seq-actor-text" x="515" y="40" text-anchor="middle" font-size="10">Consumer</text>
+      <rect class="seq-actor-chip" x="480" y="105" width="70" height="30" rx="8" />
+      <text class="seq-actor-text" x="515" y="125" text-anchor="middle" font-size="10">Consumer</text>
+      <line class="seq-arrow" x1="460" y1="38" x2="474" y2="35" />
+      <polygon class="seq-arrowhead" points="480,33 470,30 470,38" />
+      <line class="seq-arrow" x1="460" y1="118" x2="474" y2="119" />
+      <polygon class="seq-arrowhead" points="480,120 470,115 470,123" />
+    </svg>
+    <figcaption class="diagram__caption">
+      Routing (exchange) and storage (queue) are separate objects, wired together with
+      bindings — a message can fan into several queues, or none, purely based on those rules.
+    </figcaption>
+  </figure>
+
+  <h2 id="exchanges">Exchange types</h2>
+  <table>
+    <thead><tr><th>Type</th><th>Routing rule</th></tr></thead>
+    <tbody>
+      <tr><td>direct</td><td>Delivers to queues whose binding key exactly matches the message's routing key.</td></tr>
+      <tr><td>topic</td><td>Pattern matching on a dot-separated routing key using <code>*</code> (one word) and <code>#</code> (zero or more words) — the same flavor of hierarchy as MQTT topics, but as one exchange type among several rather than the whole model.</td></tr>
+      <tr><td>fanout</td><td>Ignores the routing key entirely; delivers to every queue bound to the exchange — the direct equivalent of broadcast.</td></tr>
+      <tr><td>headers</td><td>Routes based on message header attributes instead of the routing key, for matching that doesn't fit into a simple string pattern.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="delivery">Acknowledgements and delivery guarantees</h2>
+  <p>
+    A consumer explicitly <strong>acknowledges</strong> a message once
+    it's safely processed; an unacknowledged message (consumer crashed,
+    connection dropped) gets redelivered — the same at-least-once shape as
+    <a href="/networking/mqtt/index.html">MQTT</a> QoS 1, but paired with
+    genuine persistent queuing: a durable queue holding a persistent
+    message survives a broker restart, so nothing is lost even if no
+    consumer is online when it's published. Producers can request
+    <strong>publisher confirms</strong> to know a message was safely
+    accepted by the broker before considering the publish complete.
+  </p>
+
+  <h2 id="channels">Connections and channels</h2>
+  <p>
+    Opening a fresh TCP connection per logical stream is expensive, so
+    AMQP multiplexes many lightweight <strong>channels</strong> over a
+    single TCP connection — each channel behaves like its own independent
+    session (its own publishes, consumes, acknowledgements) without paying
+    for a new handshake and connection-level overhead every time.
+  </p>
+
+  <h2 id="versions">0-9-1 vs. 1.0 — two different protocols, one name</h2>
+  <div class="callout callout--note">
+    <span class="callout__label">Worth knowing</span>
+    <p>
+      "AMQP" in casual conversation almost always means <strong>AMQP
+      0-9-1</strong> — the exchange/queue/binding model above, and what
+      RabbitMQ implements natively. <strong>AMQP 1.0</strong> is a
+      different, later, OASIS-standardized wire protocol — leaner, more
+      focused purely on message transfer semantics, without mandating the
+      exchange/queue model as part of the wire format itself (a broker can
+      still implement that model on top of it). It's used by Azure Service
+      Bus, ActiveMQ Artemis, and Solace, among others. The two are not
+      wire-compatible — check which one a given broker or client library
+      actually speaks before assuming interoperability.
+    </p>
+  </div>
+
+  <h2 id="vs">AMQP vs. MQTT vs. CoAP</h2>
+  <table>
+    <thead><tr><th></th><th>AMQP</th><th><a href="/networking/mqtt/index.html">MQTT</a></th><th><a href="/networking/coap/index.html">CoAP</a></th></tr></thead>
+    <tbody>
+      <tr><td>Routing model</td><td>Exchanges + queues + bindings — flexible, multiple exchange types</td><td>Flat topic hierarchy with wildcards</td><td>REST resources, no broker</td></tr>
+      <tr><td>Persistence</td><td>Durable queues survive broker restarts natively</td><td>Retained messages (single latest value per topic), broker-dependent persistence</td><td>None — stateless request/response</td></tr>
+      <tr><td>Typical deployment</td><td>Enterprise/backend messaging, service-to-service integration</td><td>IoT device fleets, telemetry fan-out</td><td>Individually constrained embedded devices</td></tr>
+      <tr><td>Client weight</td><td>Heavier — assumes a capable client and stable connection</td><td>Light enough for small MCUs with networking</td><td>Lightest — designed for the smallest nodes</td></tr>
+    </tbody>
+  </table>
+  <p>
+    On an embedded device, AMQP is far more often found at the
+    <em>backend</em> end of a pipeline (a gateway or server ingesting
+    device data) than running directly on the constrained device itself —
+    that role usually falls to <a href="/networking/coap/index.html">CoAP</a>
+    or <a href="/networking/mqtt/index.html">MQTT</a>.
+  </p>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A queue with no consumers and no length/TTL limit grows without bound if producers keep publishing — set queue limits and dead-letter exchanges deliberately, don't rely on consumers always keeping up.</li>
+      <li>"AMQP" without a version number is genuinely ambiguous — confirm 0-9-1 vs. 1.0 before assuming a client library and broker will actually interoperate.</li>
+      <li>An exchange with no matching binding for a given routing key silently drops the message — there's no error by default, so a "message never arrived" bug is often a missing or misconfigured binding, not a broker or network problem.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/networking/mqtt/index.html", "title": "MQTT" },
+  "related": [
+    { "href": "/networking/mqtt/index.html", "title": "MQTT" },
+    { "href": "/networking/coap/index.html", "title": "CoAP" },
+    { "href": "/networking/tcp/index.html", "title": "TCP" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

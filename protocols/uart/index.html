@@ -30,6 +30,8 @@
       <li><a href="#baud">Baud rate</a></li>
       <li><a href="#flow">Flow control</a></li>
       <li><a href="#levels">Voltage levels: UART vs. RS-232 vs. RS-485</a></li>
+      <li><a href="#fifo">FIFO buffering and overrun</a></li>
+      <li><a href="#break">Break condition and 9-bit multidrop mode</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -87,6 +89,42 @@
     framing underneath but a different electrical layer.
   </p>
 
+  <h2 id="fifo">FIFO buffering and overrun</h2>
+  <p>
+    A UART peripheral without any buffering needs the CPU to read every
+    received byte before the next one finishes arriving — at any
+    meaningful baud rate, that means an interrupt per byte, which adds up
+    fast. Most real UART peripherals include a small hardware
+    <strong>FIFO</strong> (typically 16 bytes or so) that lets several
+    bytes accumulate before firing an interrupt, cutting interrupt
+    overhead roughly in proportion to the FIFO depth. If the software
+    genuinely can't keep up and the FIFO fills completely, the next
+    incoming byte causes an <strong>overrun</strong> — it's simply lost,
+    silently, with only an overrun-error flag (if the application checks
+    for it) as evidence anything went wrong.
+  </p>
+
+  <h2 id="break">Break condition and 9-bit multidrop mode</h2>
+  <p>
+    A <strong>break</strong> is a deliberate, extended low period held
+    longer than a normal frame would ever be — long enough that it can't
+    be confused with any valid start bit plus data plus stop bit sequence.
+    It's used as an out-of-band signal: some bootloaders watch for a break
+    to force entry into a recovery mode, and some multidrop protocols use
+    it to mark "this is a new addressed frame, resynchronize here."
+  </p>
+  <p>
+    Separately, some UART peripherals support a <strong>9-bit mode</strong>
+    (8 data bits plus one extra address/data marker bit) specifically to
+    support simple multidrop buses: a byte with the marker bit set is
+    interpreted as a device address, letting every device on a shared
+    line wake up, check if the address is theirs, and go back to ignoring
+    traffic if it isn't — a lightweight alternative to CAN-style
+    multi-master arbitration for buses that don't need CAN's full
+    feature set. This is the mechanism under protocols like Modbus RTU's
+    addressed multidrop mode.
+  </p>
+
   <h2 id="gotchas">Gotchas</h2>
   <div class="callout callout--warn">
     <span class="callout__label">Field notes</span>
@@ -106,9 +144,11 @@
 <script type="application/json" id="page-meta">
 {
   "prev": { "href": "/protocols/i2c/index.html", "title": "I2C" },
+  "next": { "href": "/protocols/can/index.html", "title": "CAN" },
   "related": [
     { "href": "/protocols/spi/index.html", "title": "SPI" },
     { "href": "/protocols/i2c/index.html", "title": "I2C" },
+    { "href": "/protocols/can/index.html", "title": "CAN" },
     { "href": "/linux/drivers/index.html", "title": "Linux drivers" }
   ]
 }
