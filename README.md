@@ -1,8 +1,9 @@
 # Embedded Pandora
 
-A personal, long-term knowledge base for everything learned about embedded
-systems, sensors, protocols, Linux, networking, bootloaders, and Snap
-packaging — also a static website, deployable directly to Vercel.
+A personal, long-term knowledge base for everything learned about
+electronics, embedded systems, sensors, protocols, Linux, networking,
+bootloaders, and Snap packaging — also a static website, deployable
+directly to Vercel.
 
 Every topic lives in its own logically organized folder (domain → category
 → topic): SPI and I2C are separate topics under `protocols/`, TCP/IP/UDP
