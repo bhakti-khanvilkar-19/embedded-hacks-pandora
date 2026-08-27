@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Packaging — Snap — Embedded Pandora</title>
+<meta name="description" content="snapcraft.yaml field by field: name, version, grade, confinement, apps, command, hooks, parts, plugs/slots, and how they assemble into a .snap." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Snap</p>
+  <h1>Packaging — <code>snapcraft.yaml</code> in detail</h1>
+  <p class="lede">
+    Every snap is built from a single recipe file, <code>snap/snapcraft.yaml</code>,
+    that the <code>snapcraft</code> tool reads to fetch sources, build them,
+    and assemble the result into the <code>.snap</code> squashfs image
+    described in <a href="/snap/fundamentals/index.html">Fundamentals</a>.
+    This page goes through that file field by field.
+  </p>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#identity">Identity: name, version, title, summary, description</a></li>
+      <li><a href="#grade">Grade</a></li>
+      <li><a href="#confinement">Confinement and base</a></li>
+      <li><a href="#apps">Apps: command, daemon, plugs, environment</a></li>
+      <li><a href="#hooks">Hooks</a></li>
+      <li><a href="#parts">Parts: how the snap actually gets built</a></li>
+      <li><a href="#interfaces">Plugs and slots</a></li>
+      <li><a href="#other">Other fields worth knowing</a></li>
+      <li><a href="#example">A full annotated example</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="identity">Identity: name, version, title, summary, description</h2>
+  <dl class="kv">
+    <dt>name</dt><dd>The snap's globally unique identifier on the store — lowercase letters, digits, and hyphens only, can't start or end with a hyphen, max 40 characters. This is what <code>snap install &lt;name&gt;</code> uses, and it has to be registered (<code>snapcraft register</code>) before you can push a build to the store under it.</dd>
+    <dt>version</dt><dd>A short version string, max 32 characters. Can be hardcoded, or computed at build time from a part (via <code>adopt-info</code> pointing at a part that sets it with <code>craftctl set version=...</code>) — common in CI so the snap version tracks <code>git describe</code> automatically.</dd>
+    <dt>title</dt><dd>A human-friendly display name for store listings, separate from the machine-oriented <code>name</code>.</dd>
+    <dt>summary</dt><dd>One line, 78 characters max — shown in search results and <code>snap info</code>.</dd>
+    <dt>description</dt><dd>The full multi-line description shown on the snap's store page.</dd>
+  </dl>
+
+  <h2 id="grade">Grade</h2>
+  <p>
+    <code>grade: stable</code> or <code>grade: devel</code>. This is a
+    publishing gate, not a runtime setting: a snap built with
+    <code>devel</code> grade can be pushed to any channel <em>except</em>
+    <code>stable</code>, which is exactly the point — it stops an
+    in-progress build from accidentally landing in front of users who
+    track the stable channel. Flip it to <code>stable</code> once the
+    build is actually meant to be released there.
+  </p>
+
+  <h2 id="confinement">Confinement and base</h2>
+  <p>
+    <code>confinement: strict | classic | devmode</code> — the same three
+    levels covered in <a href="/snap/fundamentals/index.html">Fundamentals</a>,
+    declared here at build time rather than chosen by the installer.
+  </p>
+  <p>
+    <code>base:</code> names the base snap (e.g. <code>core22</code>,
+    <code>core24</code>) that provides the minimal root filesystem and
+    core libraries every strictly-confined app in this snap runs against —
+    see <a href="/snap/ubuntu-core/index.html">Snap types &amp; Ubuntu Core</a>
+    for what a base snap actually is under the hood.
+  </p>
+
+  <h2 id="apps">Apps: command, daemon, plugs, environment</h2>
+  <p>
+    The <code>apps:</code> map defines every executable the snap exposes,
+    keyed by app name (exposed as <code>snapname.appname</code>, or bare
+    <code>snapname</code> if the app name matches the snap name).
+  </p>
+  <dl class="kv">
+    <dt>command</dt><dd>The executable or script actually run, as a path relative to the snap's own root (e.g. <code>bin/my-tool</code>) — <strong>the</strong> field that answers "what runs when this app is invoked."</dd>
+    <dt>command-chain</dt><dd>A list of extra executables run <em>before</em> <code>command</code>, in order — the usual place for wrapper scripts that set up environment variables or paths before handing off to the real binary.</dd>
+    <dt>daemon</dt><dd><code>simple | forking | oneshot | notify | dbus</code> — declares the app as a background service managed by systemd instead of something a user runs directly. Paired with <code>daemon-scope</code> (system/user), <code>restart-condition</code>, <code>install-mode</code> (whether it starts automatically after install).</dd>
+    <dt>plugs</dt><dd>Which interfaces (see below) this specific app needs — narrower than declaring them snap-wide when only one app actually needs, say, <code>camera</code>.</dd>
+    <dt>environment</dt><dd>Key/value environment variables set for this app's process.</dd>
+    <dt>passthrough</dt><dd>An escape hatch: fields written here are copied verbatim into the built <code>meta/snap.yaml</code> even if <code>snapcraft</code> doesn't have first-class support for them yet.</dd>
+  </dl>
+
+  <h2 id="hooks">Hooks</h2>
+  <p>
+    Hooks are scripts snapd runs automatically at specific lifecycle
+    moments, placed at <code>snap/hooks/&lt;hookname&gt;</code> in the source
+    tree (ending up at <code>meta/hooks/&lt;hookname&gt;</code> in the built
+    snap). They run just as confined as the snap's own apps.
+  </p>
+  <table>
+    <thead><tr><th>Hook</th><th>Fires when</th></tr></thead>
+    <tbody>
+      <tr><td>install</td><td>Right after the snap is first installed, before it starts running.</td></tr>
+      <tr><td>configure</td><td>After install, after every refresh, and whenever <code>snap set &lt;name&gt; key=value</code> changes a configuration option.</td></tr>
+      <tr><td>pre-refresh / post-refresh</td><td>Immediately before / after an update is applied.</td></tr>
+      <tr><td>remove</td><td>Right before the snap is removed — the place to clean up external state the snap created.</td></tr>
+      <tr><td>connect-plug-&lt;iface&gt; / disconnect-plug-&lt;iface&gt;</td><td>When a plug this snap declares is connected to / disconnected from a slot — e.g. restart a service so it picks up newly-granted access.</td></tr>
+      <tr><td>connect-slot-&lt;iface&gt; / disconnect-slot-&lt;iface&gt;</td><td>The same, from the slot-providing side.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="parts">Parts: how the snap actually gets built</h2>
+  <p>
+    <code>parts:</code> is the actual build recipe — one or more named
+    components, each fetched and built independently, then combined into
+    the final snap. Snapcraft runs each part through four lifecycle steps:
+    <strong>pull</strong> (fetch source) → <strong>build</strong> (compile) →
+    <strong>stage</strong> (collect build output) → <strong>prime</strong>
+    (final trim before packing into the snap).
+  </p>
+  <dl class="kv">
+    <dt>plugin</dt><dd>How to build this part — <code>nil</code> (nothing, just copy), <code>dump</code> (copy a pre-built tree as-is), or language/build-system plugins like <code>cmake</code>, <code>autotools</code>, <code>python</code>, <code>go</code>, <code>meson</code>.</dd>
+    <dt>source</dt><dd>Where the code comes from — a local path, a git URL (with optional <code>source-branch</code>/<code>source-tag</code>), or a tarball URL.</dd>
+    <dt>build-packages</dt><dd>Host packages needed only to build this part (compilers, headers) — not shipped in the final snap.</dd>
+    <dt>stage-packages</dt><dd>Packages whose <em>contents</em> must ship inside the snap (runtime shared libraries the app links against, for instance).</dd>
+    <dt>override-pull / override-build / override-stage / override-prime</dt><dd>Custom shell commands replacing (or, with <code>craftctl default</code>, supplementing) the plugin's default behavior at each lifecycle step.</dd>
+    <dt>organize / stage / prime</dt><dd>Filters controlling which files move where, and which ones actually make it into the final snap — used to trim build artifacts that shouldn't ship.</dd>
+  </dl>
+
+  <h2 id="interfaces">Plugs and slots</h2>
+  <p>
+    Interfaces are how a strictly-confined snap reaches anything outside
+    its own sandbox. A <strong>plug</strong> is a snap declaring "I need
+    this kind of access" (<code>network</code>, <code>home</code>,
+    <code>camera</code>, <code>gpio</code>, <code>i2c</code>); a
+    <strong>slot</strong> is what provides it — usually the system itself,
+    but sometimes another snap. <code>snap connect &lt;snap&gt;:&lt;plug&gt; &lt;provider&gt;:&lt;slot&gt;</code>
+    wires them together (some interfaces auto-connect, others need an
+    explicit connection or store review).
+  </p>
+  <p>
+    One interface worth knowing by name: <strong>content</strong> — lets
+    one snap expose a directory of files (a shared library, a data set, a
+    trained ML model) that another snap reads from its own confined
+    filesystem view, without either snap needing broad filesystem access.
+    This is the standard way to let a model update independently of the
+    engine that consumes it — see the inference-snap pattern in
+    <a href="/snap/ubuntu-core/index.html">Snap types &amp; Ubuntu Core</a>.
+  </p>
+
+  <h2 id="other">Other fields worth knowing</h2>
+  <dl class="kv">
+    <dt>architectures</dt><dd>Which CPU architectures to build for, as <code>build-on</code>/<code>run-on</code> pairs — matters immediately once you're targeting <code>arm64</code> or <code>armhf</code> boards rather than just <code>amd64</code>.</dd>
+    <dt>layout</dt><dd>Remaps paths at runtime for software that hardcodes absolute paths (e.g. <code>/etc/foo</code>) outside the snap's own directory, without needing to patch the upstream source.</dd>
+    <dt>epoch</dt><dd>Marks breaking changes in on-disk data format across versions, so snapd won't auto-refresh a device straight across an incompatible boundary.</dd>
+    <dt>license</dt><dd>An SPDX license expression for the store listing.</dd>
+    <dt>icon, contact, website, source-code, issues, donation</dt><dd>Store-listing metadata — cosmetic, but expected by the store's review process for published snaps.</dd>
+  </dl>
+
+  <h2 id="example">A full annotated example</h2>
+  <pre><code>name: sensor-bridge
+title: Sensor Bridge
+version: '1.4.2'
+summary: Reads I2C sensors and republishes over MQTT
+description: |
+  A small daemon that polls I2C sensors on the board and republishes
+  readings over MQTT for the fleet dashboard to consume.
+grade: stable
+confinement: strict
+base: core22
+
+apps:
+  sensor-bridge:
+    command: bin/sensor-bridge
+    daemon: simple
+    restart-condition: on-failure
+    plugs: [i2c, network]
+    environment:
+      LOG_LEVEL: info
+
+parts:
+  sensor-bridge:
+    plugin: go
+    source: .
+    build-packages: [gcc]
+    stage-packages: [libc6]
+
+plugs:
+  i2c:
+    interface: i2c
+    path: /dev/i2c-1</code></pre>
+  <p>
+    This ties directly back to <a href="/protocols/i2c/index.html">I2C</a>
+    and <a href="/linux/drivers/index.html">Linux drivers</a> — the
+    <code>i2c</code> plug here is exactly what grants access to
+    <code>/dev/i2c-1</code> that a strictly-confined snap wouldn't have by
+    default.
+  </p>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li><code>name</code> must be registered on the store (<code>snapcraft register</code>) before the first push under that name succeeds — a mismatch between the local <code>snapcraft.yaml</code> name and the registered name is a common first-publish failure.</li>
+      <li>A version bump alone does not change <code>grade</code> or push a build to a channel — <code>snapcraft push</code>/<code>snapcraft release</code> targets a channel explicitly, independent of what <code>grade</code> says (grade only blocks <em>stable</em>).</li>
+      <li>Hooks run under the same confinement as the snap's apps — a <code>configure</code> hook that needs an interface not yet connected fails the same way an app would, often silently from the user's point of view.</li>
+      <li>Missing <code>stage-packages</code> for a runtime shared library is a very common "works when built, crashes when installed" bug — the build environment has libraries the confined runtime snap doesn't.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/snap/fundamentals/index.html", "title": "Fundamentals" },
+  "next": { "href": "/snap/ubuntu-core/index.html", "title": "Snap types & Ubuntu Core" },
+  "related": [
+    { "href": "/snap/fundamentals/index.html", "title": "Snap fundamentals" },
+    { "href": "/snap/ubuntu-core/index.html", "title": "Snap types & Ubuntu Core" },
+    { "href": "/protocols/i2c/index.html", "title": "I2C" },
+    { "href": "/linux/drivers/index.html", "title": "Linux drivers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
