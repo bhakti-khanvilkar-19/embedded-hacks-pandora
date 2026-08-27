@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>I2C — Protocols — Embedded Pandora</title>
+<meta name="description" content="Inter-Integrated Circuit: two-wire addressed bus, start/stop conditions, ACK/NACK, clock stretching, and multi-master arbitration." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Protocols</p>
+  <h1>I2C — Inter-Integrated Circuit</h1>
+  <p class="lede">
+    A two-wire, multi-drop, addressed bus. Where SPI trades pins for speed,
+    I2C trades speed for pin count — many devices can share the same two
+    wires because addressing happens in-band.
+  </p>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#wires">Wires and pull-ups</a></li>
+      <li><a href="#framing">Anatomy of a transaction</a></li>
+      <li><a href="#addressing">Addressing</a></li>
+      <li><a href="#speed">Speed grades</a></li>
+      <li><a href="#stretch">Clock stretching and arbitration</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="wires">Wires and pull-ups</h2>
+  <dl class="kv">
+    <dt>SDA</dt><dd>Serial data — bidirectional, shared by every device on the bus.</dd>
+    <dt>SCL</dt><dd>Serial clock — driven by the current bus master; can also be held low by a slave (clock stretching).</dd>
+  </dl>
+  <p>
+    Both lines are <strong>open-drain</strong>: every device can only pull
+    them low, never drive them high. A device idles by releasing the line,
+    and external pull-up resistors (typically 2.2 kΩ–10 kΩ, board-dependent)
+    bring it back to the logic-high rail. Missing or too-weak pull-ups is the
+    most common reason a "correctly wired" I2C bus doesn't work at all.
+  </p>
+
+  <h2 id="framing">Anatomy of a transaction</h2>
+  <ol>
+    <li><strong>START</strong> — master pulls SDA low while SCL is high.</li>
+    <li><strong>Address byte</strong> — 7 (or 10) address bits + 1 read/write bit, MSB first.</li>
+    <li><strong>ACK/NACK</strong> — receiver pulls SDA low for one clock to acknowledge each byte.</li>
+    <li><strong>Data byte(s)</strong> — 8 bits each, ACKed individually.</li>
+    <li><strong>STOP</strong> — master releases SDA while SCL is high.</li>
+  </ol>
+  <p>
+    A <strong>repeated START</strong> (a new START without an intervening
+    STOP) is how a master switches from writing a register address to
+    reading its value without releasing the bus — critical for the common
+    "write register pointer, then read" pattern used by most I2C sensors.
+  </p>
+
+  <h2 id="addressing">Addressing</h2>
+  <p>
+    Most parts use 7-bit addresses (0x08–0x77 usable; some ranges reserved).
+    Datasheets sometimes list an 8-bit "write address" that already includes
+    the R/W bit shifted in — a frequent source of off-by-one-bit confusion
+    when porting code between platforms.
+  </p>
+
+  <h2 id="speed">Speed grades</h2>
+  <table>
+    <thead><tr><th>Mode</th><th>Max clock</th></tr></thead>
+    <tbody>
+      <tr><td>Standard</td><td>100 kHz</td></tr>
+      <tr><td>Fast</td><td>400 kHz</td></tr>
+      <tr><td>Fast Plus</td><td>1 MHz</td></tr>
+      <tr><td>High Speed</td><td>3.4 MHz</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="stretch">Clock stretching and arbitration</h2>
+  <p>
+    Because SCL is open-drain, a slow slave can hold it low to pause the
+    master mid-byte (<strong>clock stretching</strong>) — useful for
+    peripherals that need time to prepare data, but it means SCL should
+    always be read back, not assumed. In multi-master systems, arbitration
+    works because a master monitors SDA while transmitting and backs off if
+    it sees a bit it didn't drive — no separate bus-grant mechanism is
+    needed.
+  </p>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>No pull-ups (or pull-ups on only one side of a level shifter) → bus stuck low, nothing acks.</li>
+      <li>A device that locks up mid-transaction can hold SDA low forever; toggling SCL manually up to 9 times is the standard "unstick the bus" recovery.</li>
+      <li>7-bit vs. 8-bit address confusion — check whether the datasheet's listed address already includes the R/W bit.</li>
+      <li>On Linux, <code>i2c-dev</code> plus <code>i2c-tools</code> (<code>i2cdetect</code>, <code>i2cget</code>, <code>i2cset</code>) let you probe a bus from userspace — see <a href="/linux/drivers/index.html">Linux → Drivers</a>.</li>
+    </ul>
+  </div>
+
+  <p><a href="/protocols/i2c/examples.html">→ Code examples for I2C</a></p>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/protocols/spi/index.html", "title": "SPI" },
+  "next": { "href": "/protocols/uart/index.html", "title": "UART" },
+  "related": [
+    { "href": "/protocols/spi/index.html", "title": "SPI" },
+    { "href": "/protocols/uart/index.html", "title": "UART" },
+    { "href": "/embedded/interrupts/index.html", "title": "Interrupts" },
+    { "href": "/linux/drivers/index.html", "title": "Linux drivers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

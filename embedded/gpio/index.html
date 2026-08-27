@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GPIO — Embedded — Embedded Pandora</title>
+<meta name="description" content="General-purpose I/O: pin modes, push-pull vs open-drain, pull resistors, and driving GPIO from Linux userspace." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Embedded</p>
+  <h1>GPIO — General-Purpose I/O</h1>
+  <p class="lede">
+    The most basic building block: a pin that firmware can configure as an
+    input or output, and read or drive directly. Everything from bit-banged
+    protocols to chip-select lines for <a href="/protocols/spi/index.html">SPI</a>
+    ultimately rests on GPIO.
+  </p>
+
+  <h2>Pin modes</h2>
+  <table>
+    <thead><tr><th>Mode</th><th>Behavior</th></tr></thead>
+    <tbody>
+      <tr><td>Input (floating)</td><td>High-impedance; reads whatever voltage is externally applied — undefined if nothing drives it.</td></tr>
+      <tr><td>Input, pull-up</td><td>Internal resistor weakly pulls the pin high when nothing else drives it.</td></tr>
+      <tr><td>Input, pull-down</td><td>Internal resistor weakly pulls the pin low when nothing else drives it.</td></tr>
+      <tr><td>Output, push-pull</td><td>Actively drives both high and low — the default for most outputs.</td></tr>
+      <tr><td>Output, open-drain</td><td>Can only pull low; needs an external (or internal) pull-up to reach high. Required for shared buses like <a href="/protocols/i2c/index.html">I2C</a> where multiple devices share a line.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Why open-drain matters</h2>
+  <p>
+    On a push-pull bus, two devices disagreeing about the line's state fight
+    each other — one drives high, one drives low, and current flows between
+    them (a short). Open-drain avoids this: every device can only pull low
+    or release, so the "loudest" state that wins is always low, and nobody
+    fights over who's allowed to drive high. This is exactly the property
+    I2C depends on for both signaling and simple multi-master arbitration.
+  </p>
+
+  <h2>Electrical basics worth remembering</h2>
+  <ul>
+    <li><strong>Max source/sink current</strong> — a GPIO pin can only supply a few tens of mA; driving an LED directly is fine, driving a motor is not.</li>
+    <li><strong>Voltage domains</strong> — 3.3 V logic driving a 5 V input is usually fine (check the datasheet's "V<sub>IH</sub>" threshold); the reverse (5 V driving a 3.3 V-only input) can damage the pin without a level shifter.</li>
+    <li><strong>Slew rate / drive strength</strong> — many MCUs let you configure how fast a pin switches; faster edges radiate more EMI and can ring on long traces.</li>
+  </ul>
+
+  <h2>Linux userspace: the character-device GPIO API</h2>
+  <p>
+    Modern Linux exposes GPIO to userspace through <code>/dev/gpiochipN</code>
+    character devices and the <code>libgpiod</code> library (the older
+    sysfs <code>/sys/class/gpio</code> interface is deprecated). See
+    <a href="/linux/drivers/index.html">Linux → Drivers</a> for the driver-model
+    context.
+  </p>
+  <pre><code># command-line, via libgpiod tools
+gpioget gpiochip0 17          # read line 17
+gpioset gpiochip0 17=1        # drive line 17 high</code></pre>
+
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      A pin left floating (no pull-up/down, nothing driving it) doesn't read
+      as a stable 0 or 1 — it reads noise, and can even oscillate rapidly
+      enough to burn extra power through the input buffer. Always give an
+      unused or momentarily-unconnected input pin a defined pull state.
+    </p>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "next": { "href": "/embedded/interrupts/index.html", "title": "Interrupts" },
+  "related": [
+    { "href": "/embedded/interrupts/index.html", "title": "Interrupts" },
+    { "href": "/protocols/spi/index.html", "title": "SPI" },
+    { "href": "/protocols/i2c/index.html", "title": "I2C" },
+    { "href": "/linux/drivers/index.html", "title": "Linux drivers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

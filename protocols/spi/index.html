@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SPI — Protocols — Embedded Pandora</title>
+<meta name="description" content="Serial Peripheral Interface: clock modes, chip select, full-duplex framing, and where SPI fits versus I2C and UART." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Protocols</p>
+  <h1>SPI — Serial Peripheral Interface</h1>
+  <p class="lede">
+    A synchronous, full-duplex, master-driven bus used for short-range,
+    high-speed communication between a microcontroller and peripherals
+    like sensors, flash memory, displays, and ADCs.
+  </p>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#wires">Wires and roles</a></li>
+      <li><a href="#modes">Clock polarity and phase (modes)</a></li>
+      <li><a href="#framing">How a transfer works</a></li>
+      <li><a href="#cs">Chip select strategies</a></li>
+      <li><a href="#vs">SPI vs. I2C vs. UART</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="wires">Wires and roles</h2>
+  <p>
+    A standard SPI bus uses four signals, driven by one master (in classic
+    terminology: <em>master/slave</em>; modern datasheets increasingly say
+    <em>controller/peripheral</em>):
+  </p>
+  <dl class="kv">
+    <dt>SCLK</dt><dd>Serial clock — always driven by the controller. Peripherals never generate their own clock.</dd>
+    <dt>MOSI</dt><dd>Controller Out, Peripheral In (also seen as SDO/SDI on newer datasheets).</dd>
+    <dt>MISO</dt><dd>Controller In, Peripheral Out.</dd>
+    <dt>CS / SS</dt><dd>Chip Select — active-low, one line per peripheral, selects which device is listening.</dd>
+  </dl>
+  <p>
+    Because clock and chip-select are separate from the data lines, SPI has
+    no addressing scheme on the wire — the wiring itself (which CS line is
+    asserted) determines who you're talking to. That's the key structural
+    difference from <a href="/protocols/i2c/index.html">I2C</a>, which
+    addresses peripherals in-band over a shared two-wire bus.
+  </p>
+
+  <h2 id="modes">Clock polarity and phase (modes)</h2>
+  <p>
+    SPI has four modes, defined by two independent bits: CPOL (clock idle
+    polarity) and CPHA (which clock edge data is sampled on). Getting this
+    wrong is the single most common reason a "correctly wired" SPI device
+    produces garbage.
+  </p>
+  <table>
+    <caption>SPI modes</caption>
+    <thead>
+      <tr><th>Mode</th><th>CPOL</th><th>CPHA</th><th>Clock idle</th><th>Data sampled on</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>0</td><td>0</td><td>0</td><td>Low</td><td>Rising edge (leading)</td></tr>
+      <tr><td>1</td><td>0</td><td>1</td><td>Low</td><td>Falling edge (trailing)</td></tr>
+      <tr><td>2</td><td>1</td><td>0</td><td>High</td><td>Falling edge (leading)</td></tr>
+      <tr><td>3</td><td>1</td><td>1</td><td>High</td><td>Rising edge (trailing)</td></tr>
+    </tbody>
+  </table>
+  <p>Mode 0 is by far the most common default; check the peripheral's datasheet timing diagram rather than assuming.</p>
+
+  <h2 id="framing">How a transfer works</h2>
+  <p>
+    SPI is <strong>full-duplex</strong> and has no formal "packet" concept —
+    every clock pulse shifts one bit out on MOSI and one bit in on MISO,
+    simultaneously, for as long as CS stays asserted. This means:
+  </p>
+  <ul>
+    <li>To read N bytes from a peripheral, the controller typically has to clock out N dummy bytes.</li>
+    <li>Command framing (register address, read/write bit, byte count) is entirely a software convention defined by each chip's datasheet — SPI itself doesn't define it.</li>
+    <li>Deasserting CS usually marks the end of a logical transaction (e.g. flash chips reset their internal address counter on CS high).</li>
+  </ul>
+
+  <div class="figure">
+    <svg viewBox="0 0 420 140" role="img" aria-labelledby="spi-svg-title" xmlns="http://www.w3.org/2000/svg" style="max-width: 26rem; width:100%;">
+      <title id="spi-svg-title">SPI mode 0 timing: SCLK, MOSI and MISO relative to CS</title>
+      <g fill="none" stroke="currentColor" stroke-width="1.5">
+        <text x="4" y="18" font-size="11" fill="currentColor" stroke="none">CS</text>
+        <path d="M40 12 L60 12 L60 26 L400 26 L400 12 L410 12" />
+        <text x="4" y="52" font-size="11" fill="currentColor" stroke="none">SCLK</text>
+        <path d="M40 60 L60 60 L60 46 L80 46 L80 60 L100 60 L100 46 L120 46 L120 60 L140 60 L140 46 L160 46 L160 60 L180 60 L180 46 L200 46 L200 60 L220 60 L220 46 L240 46 L240 60 L260 60 L260 46 L280 46 L280 60 L400 60" />
+        <text x="4" y="88" font-size="11" fill="currentColor" stroke="none">MOSI</text>
+        <path d="M60 96 L400 96" />
+        <text x="4" y="118" font-size="11" fill="currentColor" stroke="none">MISO</text>
+        <path d="M60 126 L400 126" />
+      </g>
+    </svg>
+    <figcaption>CS frames the transaction; MOSI and MISO shift simultaneously with every SCLK edge (mode 0 shown).</figcaption>
+  </div>
+
+  <h2 id="cs">Chip select strategies</h2>
+  <p>
+    Because SPI addressing is physical rather than in-band, adding peripherals
+    costs GPIO pins — see <a href="/embedded/gpio/index.html">GPIO</a> for how
+    those pins are configured as outputs. Two common approaches when you have
+    many peripherals:
+  </p>
+  <ul>
+    <li><strong>One CS per device</strong> — simplest, but doesn't scale past the number of spare pins.</li>
+    <li><strong>Daisy-chained (SPI chain)</strong> — supported by some devices (e.g. shift registers, some ADCs); shares one CS but requires clocking through the whole chain.</li>
+  </ul>
+
+  <h2 id="vs">SPI vs. I2C vs. UART</h2>
+  <table>
+    <thead>
+      <tr><th></th><th>SPI</th><th>I2C</th><th>UART</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Wires</td><td>4+ (SCLK, MOSI, MISO, 1×CS per device)</td><td>2 (SDA, SCL)</td><td>2 (TX, RX)</td></tr>
+      <tr><td>Duplex</td><td>Full</td><td>Half</td><td>Full</td></tr>
+      <tr><td>Addressing</td><td>Physical (CS line)</td><td>In-band (7/10-bit address)</td><td>Point-to-point, none needed</td></tr>
+      <tr><td>Typical speed</td><td>Up to tens of MHz</td><td>100 kHz–3.4 MHz</td><td>Up to ~few Mbps</td></tr>
+      <tr><td>Clock</td><td>Shared, controller-driven</td><td>Shared, controller-driven</td><td>None — both sides agree on baud rate</td></tr>
+    </tbody>
+  </table>
+  <p>See <a href="/protocols/i2c/index.html">I2C</a> and <a href="/protocols/uart/index.html">UART</a> for the full picture.</p>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Mismatched SPI mode is the #1 cause of "garbage on the first byte then it works" symptoms.</li>
+      <li>MISO should usually be tri-stated by deselected peripherals — if it isn't, bus contention corrupts reads from other devices.</li>
+      <li>Long wires + fast SCLK = ringing. Slow the clock down before assuming the chip is dead.</li>
+      <li>On Linux, <code>spidev</code> lets you drive SPI from userspace without writing a kernel driver — see <a href="/linux/drivers/index.html">Linux → Drivers</a>.</li>
+    </ul>
+  </div>
+
+  <p><a href="/protocols/spi/examples.html">→ Code examples for SPI</a></p>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "next": { "href": "/protocols/i2c/index.html", "title": "I2C" },
+  "related": [
+    { "href": "/protocols/i2c/index.html", "title": "I2C" },
+    { "href": "/protocols/uart/index.html", "title": "UART" },
+    { "href": "/embedded/gpio/index.html", "title": "GPIO" },
+    { "href": "/embedded/interrupts/index.html", "title": "Interrupts" },
+    { "href": "/linux/drivers/index.html", "title": "Linux drivers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

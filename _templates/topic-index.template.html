@@ -1,0 +1,90 @@
+<!--
+  TEMPLATE: topic index.html
+  Copy this file to <domain>/<topic>/index.html and fill in every {{PLACEHOLDER}}.
+  Delete this comment block once you start editing.
+
+  Reminders:
+  - Use root-relative links everywhere: /domain/topic/index.html, /assets/...
+  - Keep the <script id="page-meta"> block even if some fields are empty —
+    just omit "prev"/"next"/"related" keys you don't need.
+  - Add this page as a row to <domain>/index.html's topic-list, and move it
+    out of that page's "Planned" badges if it was listed there.
+  - Re-run `node scripts/build-search-index.js` after adding the page.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{{Topic}} — {{Domain}} — Embedded Pandora</title>
+<meta name="description" content="{{One sentence describing this topic.}}" />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">{{Domain}}</p>
+  <h1>{{Topic}}</h1>
+  <p class="lede">{{One or two sentences: what this topic is and why it matters.}}</p>
+
+  <!-- Optional — only add a table of contents once the page has several headings.
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#section-id">Section title</a></li>
+    </ul>
+  </nav>
+  -->
+
+  <h2 id="section-id">{{Section heading}}</h2>
+  <p>{{Body copy.}}</p>
+
+  <!-- Definition list for quick key/value facts (pinout, register meanings, etc.) -->
+  <!--
+  <dl class="kv">
+    <dt>Term</dt><dd>Definition</dd>
+  </dl>
+  -->
+
+  <!-- Table for comparisons or structured reference data -->
+  <!--
+  <table>
+    <thead><tr><th>Column</th></tr></thead>
+    <tbody><tr><td>Value</td></tr></tbody>
+  </table>
+  -->
+
+  <!-- Use for pitfalls, hard-won lessons, "what I learned" -->
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>{{Insight.}}</p>
+  </div>
+
+  <!-- Use callout--warn for gotchas/danger, callout--todo for open questions -->
+
+  <!-- Link out to a sibling examples/notes page if this topic has one -->
+  <!-- <p><a href="/{{domain}}/{{topic}}/examples.html">→ Code examples</a></p> -->
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/{{domain}}/{{previous-topic}}/index.html", "title": "{{Previous topic}}" },
+  "next": { "href": "/{{domain}}/{{next-topic}}/index.html", "title": "{{Next topic}}" },
+  "related": [
+    { "href": "/{{domain}}/{{related-topic}}/index.html", "title": "{{Related topic}}" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

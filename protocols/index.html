@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Protocols — Embedded Pandora</title>
+<meta name="description" content="SPI, I2C, UART, CAN, and other communication buses, each as its own topic." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Domain</p>
+  <h1>Protocols</h1>
+  <p class="lede">
+    Wire-level communication protocols used between chips and boards.
+    Each protocol is its own topic folder — SPI and I2C are never merged
+    just because they're both "serial buses."
+  </p>
+
+  <h2>Topics</h2>
+  <ul class="topic-list">
+    <li><a href="/protocols/spi/index.html"><span>SPI — Serial Peripheral Interface</span><span class="status">written</span></a></li>
+    <li><a href="/protocols/i2c/index.html"><span>I2C — Inter-Integrated Circuit</span><span class="status">written</span></a></li>
+    <li><a href="/protocols/uart/index.html"><span>UART — asynchronous serial</span><span class="status">written</span></a></li>
+  </ul>
+
+  <h2>Planned</h2>
+  <p>
+    <span class="badge">can</span>
+    <span class="badge">one-wire</span>
+    <span class="badge">rs-485</span>
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">Scope note</span>
+    <p>
+      How Linux exposes these buses to userspace (spidev, i2c-dev, tty) is
+      covered from the OS side in <a href="/linux/drivers/index.html">Linux → Drivers</a>,
+      and cross-linked from each protocol page.
+    </p>
+  </div>
+</main>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

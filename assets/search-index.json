@@ -1,0 +1,259 @@
+[
+  {
+    "title": "Fundamentals — Bootloaders",
+    "url": "/bootloaders/fundamentals/index.html",
+    "domain": "Bootloaders",
+    "category": "Fundamentals",
+    "description": "Boot stages from ROM code to a full bootloader: SPL/TPL, why staged booting exists, and the role of a bootloader in general.",
+    "tags": [
+      "bootloaders",
+      "fundamentals"
+    ]
+  },
+  {
+    "title": "Bootloaders",
+    "url": "/bootloaders/index.html",
+    "domain": "Bootloaders",
+    "category": "Overview",
+    "description": "Boot flow fundamentals and U-Boot specifics, kept separate from the Linux kernel material.",
+    "tags": [
+      "bootloaders"
+    ]
+  },
+  {
+    "title": "U-Boot — Bootloaders",
+    "url": "/bootloaders/u-boot/index.html",
+    "domain": "Bootloaders",
+    "category": "U-Boot",
+    "description": "U-Boot environment variables, boot commands, and the standard flow for loading and booting a Linux kernel.",
+    "tags": [
+      "bootloaders",
+      "u-boot"
+    ]
+  },
+  {
+    "title": "GPIO — Embedded",
+    "url": "/embedded/gpio/index.html",
+    "domain": "Embedded",
+    "category": "GPIO",
+    "description": "General-purpose I/O: pin modes, push-pull vs open-drain, pull resistors, and driving GPIO from Linux userspace.",
+    "tags": [
+      "embedded",
+      "gpio"
+    ]
+  },
+  {
+    "title": "Embedded",
+    "url": "/embedded/index.html",
+    "domain": "Embedded",
+    "category": "Overview",
+    "description": "Microcontrollers, GPIO, interrupts, timers, memory, and debugging — the core building blocks of firmware.",
+    "tags": [
+      "embedded"
+    ]
+  },
+  {
+    "title": "Interrupts — Embedded",
+    "url": "/embedded/interrupts/index.html",
+    "domain": "Embedded",
+    "category": "Interrupts",
+    "description": "ISRs, vector tables, priority/nesting, latency, and the classic pitfalls of shared state between interrupt and main context.",
+    "tags": [
+      "embedded",
+      "interrupts"
+    ]
+  },
+  {
+    "title": "Boot — Linux",
+    "url": "/linux/boot/index.html",
+    "domain": "Linux",
+    "category": "Boot",
+    "description": "What happens from bootloader handoff to PID 1: kernel decompression, device tree, initramfs, and init.",
+    "tags": [
+      "linux",
+      "boot"
+    ]
+  },
+  {
+    "title": "Drivers — Linux",
+    "url": "/linux/drivers/index.html",
+    "domain": "Linux",
+    "category": "Drivers",
+    "description": "The Linux device model, character devices, and how SPI/I2C/UART/GPIO reach userspace.",
+    "tags": [
+      "linux",
+      "drivers"
+    ]
+  },
+  {
+    "title": "Linux",
+    "url": "/linux/index.html",
+    "domain": "Linux",
+    "category": "Overview",
+    "description": "Kernel, drivers, boot process, processes, memory, and filesystems on embedded Linux.",
+    "tags": [
+      "linux"
+    ]
+  },
+  {
+    "title": "Networking",
+    "url": "/networking/index.html",
+    "domain": "Networking",
+    "category": "Overview",
+    "description": "TCP, IP, UDP, Ethernet, and DNS — layered networking concepts, each organized as its own topic.",
+    "tags": [
+      "networking"
+    ]
+  },
+  {
+    "title": "IP — Networking",
+    "url": "/networking/ip/index.html",
+    "domain": "Networking",
+    "category": "IP",
+    "description": "Internet Protocol: addressing, subnetting, routing, and where IP's job ends and TCP/UDP's begins.",
+    "tags": [
+      "networking",
+      "ip"
+    ]
+  },
+  {
+    "title": "TCP — Networking",
+    "url": "/networking/tcp/index.html",
+    "domain": "Networking",
+    "category": "TCP",
+    "description": "Connection-oriented, reliable, ordered byte-stream transport: three-way handshake, sequence numbers, windows, and retransmission.",
+    "tags": [
+      "networking",
+      "tcp"
+    ]
+  },
+  {
+    "title": "UDP — Networking",
+    "url": "/networking/udp/index.html",
+    "domain": "Networking",
+    "category": "UDP",
+    "description": "Connectionless, unreliable, message-oriented transport — minimal overhead, no ordering or delivery guarantees, no congestion control.",
+    "tags": [
+      "networking",
+      "udp"
+    ]
+  },
+  {
+    "title": "I2C examples — Protocols",
+    "url": "/protocols/i2c/examples.html",
+    "domain": "Protocols",
+    "category": "I2C",
+    "description": "Linux userspace i2c-dev register read example, plus command-line probing with i2c-tools.",
+    "tags": [
+      "protocols",
+      "i2c"
+    ]
+  },
+  {
+    "title": "I2C — Protocols",
+    "url": "/protocols/i2c/index.html",
+    "domain": "Protocols",
+    "category": "I2C",
+    "description": "Inter-Integrated Circuit: two-wire addressed bus, start/stop conditions, ACK/NACK, clock stretching, and multi-master arbitration.",
+    "tags": [
+      "protocols",
+      "i2c"
+    ]
+  },
+  {
+    "title": "Protocols",
+    "url": "/protocols/index.html",
+    "domain": "Protocols",
+    "category": "Overview",
+    "description": "SPI, I2C, UART, CAN, and other communication buses, each as its own topic.",
+    "tags": [
+      "protocols"
+    ]
+  },
+  {
+    "title": "SPI examples — Protocols",
+    "url": "/protocols/spi/examples.html",
+    "domain": "Protocols",
+    "category": "SPI",
+    "description": "Bare-metal register-level SPI transfer and Linux userspace spidev examples.",
+    "tags": [
+      "protocols",
+      "spi"
+    ]
+  },
+  {
+    "title": "SPI — Protocols",
+    "url": "/protocols/spi/index.html",
+    "domain": "Protocols",
+    "category": "SPI",
+    "description": "Serial Peripheral Interface: clock modes, chip select, full-duplex framing, and where SPI fits versus I2C and UART.",
+    "tags": [
+      "protocols",
+      "spi"
+    ]
+  },
+  {
+    "title": "UART examples — Protocols",
+    "url": "/protocols/uart/examples.html",
+    "domain": "Protocols",
+    "category": "UART",
+    "description": "Configuring a Linux tty with termios for raw 8N1 serial communication.",
+    "tags": [
+      "protocols",
+      "uart"
+    ]
+  },
+  {
+    "title": "UART — Protocols",
+    "url": "/protocols/uart/index.html",
+    "domain": "Protocols",
+    "category": "UART",
+    "description": "Asynchronous serial: framing, baud rate agreement, parity, flow control, and why there's no shared clock.",
+    "tags": [
+      "protocols",
+      "uart"
+    ]
+  },
+  {
+    "title": "References",
+    "url": "/references/index.html",
+    "domain": "References",
+    "category": "Overview",
+    "description": "Books, datasheets, articles, and curated links that don't belong to a single topic.",
+    "tags": [
+      "references"
+    ]
+  },
+  {
+    "title": "Useful links — References",
+    "url": "/references/useful-links/index.html",
+    "domain": "References",
+    "category": "Useful Links",
+    "description": "Curated external resources that don't belong to a single topic.",
+    "tags": [
+      "references",
+      "useful-links"
+    ]
+  },
+  {
+    "title": "Fundamentals — Snap",
+    "url": "/snap/fundamentals/index.html",
+    "domain": "Snap",
+    "category": "Fundamentals",
+    "description": "What a snap is, confinement levels, channels, and how snaps differ from traditional Linux packages.",
+    "tags": [
+      "snap",
+      "fundamentals"
+    ]
+  },
+  {
+    "title": "Snap",
+    "url": "/snap/index.html",
+    "domain": "Snap",
+    "category": "Overview",
+    "description": "Snapcraft, confinement, and Ubuntu Core packaging.",
+    "tags": [
+      "snap"
+    ]
+  }
+]

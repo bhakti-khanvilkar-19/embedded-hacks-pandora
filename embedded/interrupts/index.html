@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Interrupts — Embedded — Embedded Pandora</title>
+<meta name="description" content="ISRs, vector tables, priority/nesting, latency, and the classic pitfalls of shared state between interrupt and main context." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Embedded</p>
+  <h1>Interrupts</h1>
+  <p class="lede">
+    A mechanism for the hardware to force the CPU to stop what it's doing and
+    run a specific handler in response to an event — a timer tick, an
+    incoming UART byte, a GPIO edge — without the main loop having to poll
+    for it.
+  </p>
+
+  <h2>The basic flow</h2>
+  <ol>
+    <li>A peripheral (or the core itself) asserts an interrupt request.</li>
+    <li>The interrupt controller (e.g. NVIC on Cortex-M) checks it's enabled and its priority beats what's currently running.</li>
+    <li>The CPU finishes its current instruction, saves context (registers, return address), and jumps to the handler address in the <strong>vector table</strong>.</li>
+    <li>The ISR (Interrupt Service Routine) runs.</li>
+    <li>On return, the CPU restores context and resumes exactly where it left off.</li>
+  </ol>
+
+  <h2>Priority and nesting</h2>
+  <p>
+    Most microcontroller interrupt controllers support priority levels: a
+    higher-priority interrupt can preempt a lower-priority one already
+    running (nesting), while equal-or-lower priority interrupts wait. Getting
+    priority assignment wrong is a common source of missed real-time
+    deadlines — e.g. a low-priority ISR that runs too long can delay a
+    time-critical one if priorities aren't set correctly.
+  </p>
+
+  <h2>Latency and jitter</h2>
+  <dl class="kv">
+    <dt>Latency</dt><dd>Time from the triggering event to the first instruction of the ISR — includes any currently-running higher/equal priority code, plus fixed hardware entry overhead (register stacking, pipeline flush).</dd>
+    <dt>Jitter</dt><dd>Variation in that latency between occurrences — often the more important number for control loops, since a fixed delay can be compensated for but variance can't.</dd>
+  </dl>
+
+  <h2>Shared state: the classic bug class</h2>
+  <p>
+    An ISR and the main loop (or two ISRs of different priority) can run
+    "at the same time" from the main loop's perspective, so any data they
+    both touch is a race condition waiting to happen.
+  </p>
+  <pre><code>// BUG: main loop reads a 32-bit counter the ISR increments.
+// On an 8-bit core, the read isn't atomic — the ISR can fire
+// between reading the low and high half, producing a torn value.
+volatile uint32_t tick_count;
+
+void TIMER_IRQHandler(void) {
+    tick_count++;
+}
+
+uint32_t safe_read_tick_count(void) {
+    uint32_t v;
+    __disable_irq();     // or a narrower critical section
+    v = tick_count;
+    __enable_irq();
+    return v;
+}</code></pre>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li><code>volatile</code> stops the compiler from caching a value in a register across accesses — it does <em>not</em> make an access atomic or provide any ordering/memory-barrier guarantee.</li>
+      <li>Keep ISRs short: do the minimum (capture data, set a flag), defer real work to the main loop. Long ISRs increase latency for everything else.</li>
+      <li>Disabling interrupts to protect a critical section works, but widens worst-case latency for every other interrupt — scope it as tightly as possible.</li>
+    </ul>
+  </div>
+
+  <h2>Related buses</h2>
+  <p>
+    Peripherals like <a href="/protocols/spi/index.html">SPI</a> and
+    <a href="/protocols/i2c/index.html">I2C</a> commonly use an interrupt
+    (transfer-complete, or a dedicated data-ready pin serviced by a
+    <a href="/embedded/gpio/index.html">GPIO</a> edge interrupt) instead of
+    polling a status register in a busy loop.
+  </p>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/embedded/gpio/index.html", "title": "GPIO" },
+  "related": [
+    { "href": "/embedded/gpio/index.html", "title": "GPIO" },
+    { "href": "/protocols/spi/index.html", "title": "SPI" },
+    { "href": "/protocols/i2c/index.html", "title": "I2C" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

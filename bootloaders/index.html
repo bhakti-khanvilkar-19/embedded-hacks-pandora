@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bootloaders — Embedded Pandora</title>
+<meta name="description" content="Boot flow fundamentals and U-Boot specifics, kept separate from the Linux kernel material." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Domain</p>
+  <h1>Bootloaders</h1>
+  <p class="lede">
+    Everything that runs before the operating system does. Kept separate
+    from <a href="/linux/index.html">Linux</a> on purpose — bootloader
+    concepts (ROM code, SPL, U-Boot) apply even on boards that never run
+    Linux at all.
+  </p>
+
+  <h2>Topics</h2>
+  <ul class="topic-list">
+    <li><a href="/bootloaders/fundamentals/index.html"><span>Fundamentals — boot stages, ROM code, SPL/TPL</span><span class="status">written</span></a></li>
+    <li><a href="/bootloaders/u-boot/index.html"><span>U-Boot — environment, commands, booting Linux</span><span class="status">written</span></a></li>
+  </ul>
+
+  <h2>Planned</h2>
+  <p>
+    <span class="badge">secure-boot</span>
+    <span class="badge">barebox</span>
+  </p>
+</main>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

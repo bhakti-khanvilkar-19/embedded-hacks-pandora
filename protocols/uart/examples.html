@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UART examples — Protocols — Embedded Pandora</title>
+<meta name="description" content="Configuring a Linux tty with termios for raw 8N1 serial communication." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Protocols / UART</p>
+  <h1>Examples</h1>
+
+  <h2>Linux userspace — configuring a tty with <code>termios</code></h2>
+  <pre><code>#include &lt;fcntl.h&gt;
+#include &lt;termios.h&gt;
+#include &lt;unistd.h&gt;
+
+int fd = open("/dev/ttyUSB0", O_RDWR | O_NOCTTY);
+
+struct termios tty;
+tcgetattr(fd, &amp;tty);
+
+cfsetispeed(&amp;tty, B115200);
+cfsetospeed(&amp;tty, B115200);
+
+tty.c_cflag = (tty.c_cflag &amp; ~CSIZE) | CS8;  // 8 data bits
+tty.c_cflag &amp;= ~PARENB;                      // no parity
+tty.c_cflag &amp;= ~CSTOPB;                      // 1 stop bit
+tty.c_cflag &amp;= ~CRTSCTS;                     // no hw flow control
+tty.c_cflag |= (CLOCAL | CREAD);
+
+cfmakeraw(&amp;tty);   // disable line-discipline processing — raw bytes in/out
+
+tcsetattr(fd, TCSANOW, &amp;tty);
+
+write(fd, "ping\n", 5);</code></pre>
+
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      Skipping <code>cfmakeraw()</code> is a classic trap: without it, the
+      line discipline may translate newlines, strip control characters, or
+      buffer by line — fine for a human terminal, silently corrupting for a
+      binary protocol.
+    </p>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/protocols/uart/index.html", "title": "UART overview" },
+  "related": [
+    { "href": "/protocols/uart/index.html", "title": "UART overview" },
+    { "href": "/linux/drivers/index.html", "title": "Linux drivers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

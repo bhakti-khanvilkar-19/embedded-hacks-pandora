@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TCP — Networking — Embedded Pandora</title>
+<meta name="description" content="Connection-oriented, reliable, ordered byte-stream transport: three-way handshake, sequence numbers, windows, and retransmission." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>TCP — Transmission Control Protocol</h1>
+  <p class="lede">
+    A connection-oriented transport built on top of <a href="/networking/ip/index.html">IP</a>
+    that turns IP's best-effort, unordered packet delivery into a reliable,
+    ordered byte stream — at the cost of connection setup, state, and
+    variable latency.
+  </p>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#handshake">Three-way handshake</a></li>
+      <li><a href="#reliability">How reliability actually works</a></li>
+      <li><a href="#window">Flow control and windows</a></li>
+      <li><a href="#teardown">Connection teardown</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="handshake">Three-way handshake</h2>
+  <p>Before any data flows, both sides synchronize initial sequence numbers:</p>
+  <ol>
+    <li><strong>SYN</strong> — client picks an initial sequence number and sends it.</li>
+    <li><strong>SYN-ACK</strong> — server acknowledges the client's SYN and sends its own.</li>
+    <li><strong>ACK</strong> — client acknowledges the server's SYN. Connection is now established.</li>
+  </ol>
+  <p>This is why TCP has connection setup latency that UDP doesn't — at least one full round-trip before the first byte of application data can even be sent.</p>
+
+  <h2 id="reliability">How reliability actually works</h2>
+  <p>
+    Every byte sent has a sequence number. The receiver sends back
+    acknowledgments (ACKs) naming the next byte it expects. If the sender
+    doesn't see an ACK within a computed retransmission timeout, it resends
+    the unacknowledged data — TCP doesn't require IP to retry anything; it
+    achieves reliability entirely by retransmitting from the endpoints.
+  </p>
+  <p>
+    Because segments carry sequence numbers, the receiver can also reorder
+    packets that arrived out of order (a normal occurrence when IP routes
+    packets independently) before handing bytes to the application in the
+    correct order.
+  </p>
+
+  <h2 id="window">Flow control and windows</h2>
+  <p>
+    The receiver advertises a <strong>window size</strong> — how many
+    unacknowledged bytes it's currently willing to buffer — preventing a
+    fast sender from overrunning a slow receiver. Separately,
+    <strong>congestion control</strong> (e.g. slow start, congestion
+    avoidance) makes the sender ramp up its send rate cautiously and back
+    off sharply on loss, to avoid overwhelming the network path itself
+    rather than just the receiver.
+  </p>
+
+  <h2 id="teardown">Connection teardown</h2>
+  <p>
+    A graceful close uses a FIN/ACK exchange from each side independently
+    (TCP connections are full-duplex, so each direction closes separately).
+    The side that closes first enters <code>TIME_WAIT</code> for a period to
+    absorb any stray late segments before fully releasing the connection —
+    the reason a server under heavy short-lived-connection churn can
+    accumulate many sockets in that state.
+  </p>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>TCP is a <em>byte stream</em>, not a message protocol — a single <code>send()</code> call is not guaranteed to correspond to a single <code>recv()</code> on the other end. Applications that need message framing add their own (length prefixes, delimiters).</li>
+      <li>Nagle's algorithm can batch small writes, adding latency for latency-sensitive small-message traffic — <code>TCP_NODELAY</code> disables it when that matters.</li>
+      <li>A "connection" is only a local abstraction: intermediate routers hold no per-connection state at all — see <a href="/networking/ip/index.html">IP</a>.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/networking/ip/index.html", "title": "IP" },
+  "next": { "href": "/networking/udp/index.html", "title": "UDP" },
+  "related": [
+    { "href": "/networking/ip/index.html", "title": "IP" },
+    { "href": "/networking/udp/index.html", "title": "UDP" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

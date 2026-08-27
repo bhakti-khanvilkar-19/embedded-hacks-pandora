@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fundamentals — Snap — Embedded Pandora</title>
+<meta name="description" content="What a snap is, confinement levels, channels, and how snaps differ from traditional Linux packages." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Snap</p>
+  <h1>Fundamentals</h1>
+  <p class="lede">
+    Snap is Canonical's containerized packaging format: an application and
+    all its dependencies bundled into a single compressed, read-only
+    filesystem image, installed and updated independently of the host
+    OS's own package versions.
+  </p>
+
+  <h2>What's actually inside a snap</h2>
+  <p>
+    A <code>.snap</code> file is a squashfs image. When installed, it's
+    mounted read-only at <code>/snap/&lt;name&gt;/&lt;revision&gt;</code>, and the
+    running application sees its own bundled libraries rather than
+    whatever versions happen to be installed on the host — the same
+    motivation as containers or Flatpak: eliminate "works on my machine"
+    dependency drift.
+  </p>
+
+  <h2>Confinement</h2>
+  <table>
+    <thead><tr><th>Level</th><th>Isolation</th></tr></thead>
+    <tbody>
+      <tr><td>strict</td><td>Full sandbox (seccomp, AppArmor); access to the system is only through explicitly declared <strong>interfaces</strong> (network, home, camera, etc.).</td></tr>
+      <tr><td>classic</td><td>No sandboxing — behaves like a traditional package; used when an app genuinely needs unrestricted system access.</td></tr>
+      <tr><td>devmode</td><td>Confinement violations are logged, not blocked — a debugging aid during development, not for production.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Strict confinement is the default and the point of the format from a
+    security standpoint: a compromised or buggy strictly-confined snap is
+    limited to whatever interfaces it was explicitly connected to.
+  </p>
+
+  <h2>Channels and tracks</h2>
+  <p>
+    Every snap can publish multiple release streams simultaneously along a
+    <code>track/risk</code> naming scheme, e.g. <code>latest/stable</code>,
+    <code>latest/edge</code>, or a versioned track like
+    <code>20/stable</code>. This lets a device pin to a specific track for
+    long-term stability while still receiving stability-risk updates within
+    it — important on devices you don't want silently jumping major
+    versions during an automatic update.
+  </p>
+  <pre><code>snap install mypackage --channel=20/stable
+snap refresh mypackage --channel=20/edge   # switch tracks/risk</code></pre>
+
+  <h2>Automatic updates and rollback</h2>
+  <p>
+    Snaps update themselves automatically by default (checked periodically),
+    and the previous revision is kept on disk — a failed update can be
+    rolled back to the last known-good revision without needing external
+    recovery tooling. On Ubuntu Core devices this extends to the OS,
+    kernel, and bootloader snaps themselves, all versioned and
+    rollback-capable the same way.
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      A strictly confined snap failing with a permission error that "should
+      work" is very often a missing interface connection, not a bug in the
+      app — check <code>snap connections &lt;name&gt;</code> before debugging
+      further up the stack.
+    </p>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/linux/index.html", "title": "Linux" },
+    { "href": "/references/useful-links/index.html", "title": "Useful links" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

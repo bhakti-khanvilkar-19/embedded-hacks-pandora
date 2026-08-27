@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IP — Networking — Embedded Pandora</title>
+<meta name="description" content="Internet Protocol: addressing, subnetting, routing, and where IP's job ends and TCP/UDP's begins." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>IP — Internet Protocol</h1>
+  <p class="lede">
+    The layer responsible for addressing and best-effort delivery of packets
+    between hosts, potentially across many intermediate networks. IP itself
+    makes no promise of delivery, order, or integrity beyond a basic header
+    checksum — those guarantees are <a href="/networking/tcp/index.html">TCP</a>'s job, not IP's.
+  </p>
+
+  <h2>Addressing</h2>
+  <p>
+    An IPv4 address is 32 bits, usually written as four dotted decimal
+    octets (e.g. <code>192.168.1.10</code>). It's split into a
+    <strong>network</strong> portion and a <strong>host</strong> portion by
+    a subnet mask (or CIDR prefix, e.g. <code>/24</code>).
+  </p>
+  <table>
+    <thead><tr><th>CIDR</th><th>Mask</th><th>Usable hosts</th></tr></thead>
+    <tbody>
+      <tr><td>/24</td><td>255.255.255.0</td><td>254</td></tr>
+      <tr><td>/16</td><td>255.255.0.0</td><td>65,534</td></tr>
+      <tr><td>/30</td><td>255.255.255.252</td><td>2 (common for point-to-point links)</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Two hosts can talk directly only if they're on the same network (same
+    network portion of their address). Otherwise, a packet is handed to a
+    <strong>gateway/router</strong>, which forwards it based on its routing
+    table — repeating hop by hop until it reaches a router directly attached
+    to the destination's network.
+  </p>
+
+  <h2>The IPv4 header, briefly</h2>
+  <p>
+    Key fields worth knowing by name: <strong>TTL</strong> (Time To Live —
+    decremented each hop, packet dropped at zero, preventing infinite
+    routing loops), <strong>Protocol</strong> (which transport protocol
+    follows — 6 for TCP, 17 for UDP), <strong>Source/Destination address</strong>,
+    and <strong>Fragmentation</strong> fields (used when a packet exceeds
+    the outgoing link's MTU).
+  </p>
+
+  <h2>Private address ranges (RFC 1918)</h2>
+  <ul>
+    <li><code>10.0.0.0/8</code></li>
+    <li><code>172.16.0.0/12</code></li>
+    <li><code>192.168.0.0/16</code></li>
+  </ul>
+  <p>Not routable on the public internet directly — devices behind a NAT gateway typically get an address from one of these ranges.</p>
+
+  <h2>IPv4 vs. IPv6</h2>
+  <p>
+    IPv6 uses 128-bit addresses (written as eight groups of hex digits, e.g.
+    <code>2001:db8::1</code>) mainly to solve IPv4 address exhaustion, and
+    drops some legacy IPv4 header complexity (like router-performed
+    fragmentation). The addressing model changes, but IP's core job —
+    best-effort packet delivery — stays the same.
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      "No delivery guarantee" is a design choice, not a limitation to work
+      around at the IP layer — it's precisely what keeps IP simple and fast
+      enough to run on every router in a path. Reliability, when needed, is
+      deliberately pushed up to <a href="/networking/tcp/index.html">TCP</a>.
+    </p>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "next": { "href": "/networking/tcp/index.html", "title": "TCP" },
+  "related": [
+    { "href": "/networking/tcp/index.html", "title": "TCP" },
+    { "href": "/networking/udp/index.html", "title": "UDP" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

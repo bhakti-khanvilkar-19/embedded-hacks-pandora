@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UART — Protocols — Embedded Pandora</title>
+<meta name="description" content="Asynchronous serial: framing, baud rate agreement, parity, flow control, and why there's no shared clock." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Protocols</p>
+  <h1>UART — Universal Asynchronous Receiver/Transmitter</h1>
+  <p class="lede">
+    Point-to-point, full-duplex, and <em>clockless</em> — both ends must
+    independently agree on the bit rate ahead of time, because there's no
+    shared clock line to synchronize with.
+  </p>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#wires">Wires</a></li>
+      <li><a href="#framing">Frame format</a></li>
+      <li><a href="#baud">Baud rate</a></li>
+      <li><a href="#flow">Flow control</a></li>
+      <li><a href="#levels">Voltage levels: UART vs. RS-232 vs. RS-485</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="wires">Wires</h2>
+  <dl class="kv">
+    <dt>TX</dt><dd>Transmit — connects to the other device's RX.</dd>
+    <dt>RX</dt><dd>Receive — connects to the other device's TX.</dd>
+    <dt>GND</dt><dd>Common ground reference — required, easy to forget when only two signal wires are wired up.</dd>
+  </dl>
+  <p>Optional handshaking lines (RTS/CTS) exist for hardware flow control; most embedded links skip them.</p>
+
+  <h2 id="framing">Frame format</h2>
+  <p>Each byte is sent as its own self-contained frame:</p>
+  <ol>
+    <li><strong>Start bit</strong> — line drops from idle-high to low, marking the beginning of a frame.</li>
+    <li><strong>Data bits</strong> — usually 8, LSB first.</li>
+    <li><strong>Parity bit</strong> — optional (none/even/odd), for basic error detection.</li>
+    <li><strong>Stop bit(s)</strong> — 1 or 2, line returns to idle-high.</li>
+  </ol>
+  <p>
+    Commonly written as a shorthand like <code>8N1</code> (8 data bits, no
+    parity, 1 stop bit) — the configuration both ends must agree on, along
+    with the baud rate.
+  </p>
+
+  <h2 id="baud">Baud rate</h2>
+  <p>
+    The receiver has no clock signal to lock onto — it estimates bit
+    timing from the start-bit edge and its own local baud-rate generator.
+    Common rates: 9600, 19200, 38400, 57600, 115200. A receiver whose clock
+    is off by more than roughly ±2–3% from the sender's will start
+    misreading bits, worse the longer the frame runs (which is part of why
+    frames are kept short — one byte at a time).
+  </p>
+
+  <h2 id="flow">Flow control</h2>
+  <table>
+    <thead><tr><th>Type</th><th>Mechanism</th></tr></thead>
+    <tbody>
+      <tr><td>None</td><td>Receiver must always be ready; risk of overrun on bursty data.</td></tr>
+      <tr><td>Software (XON/XOFF)</td><td>In-band control bytes pause/resume transmission — unsafe for binary data.</td></tr>
+      <tr><td>Hardware (RTS/CTS)</td><td>Extra wires signal buffer readiness — reliable, costs 2 more pins.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="levels">Voltage levels: UART vs. RS-232 vs. RS-485</h2>
+  <p>
+    "UART" describes the framing, not the voltage. A microcontroller UART
+    peripheral typically idles at logic-high (3.3 V or 5 V, non-inverted).
+    <strong>RS-232</strong> uses the same framing but inverted, higher
+    voltage swings (traditionally ±12 V) — a level-shifter (e.g. MAX3232)
+    is required between the two. <strong>RS-485</strong> is differential
+    and supports multi-drop buses over long distances, again the same
+    framing underneath but a different electrical layer.
+  </p>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>TX↔RX crossed wiring is the most common "nothing works" bug — connect TX to RX, not TX to TX.</li>
+      <li>Baud rate mismatch often shows up as consistent garbage, not intermittent failure — that's a strong hint to check baud/parity/stop-bit settings before touching the wiring.</li>
+      <li>On Linux, a UART shows up as a <code>tty</code> device (e.g. <code>/dev/ttyUSB0</code>, <code>/dev/ttyS0</code>) — configured with <code>termios</code>, covered in <a href="/linux/drivers/index.html">Linux → Drivers</a>.</li>
+    </ul>
+  </div>
+
+  <p><a href="/protocols/uart/examples.html">→ Code examples for UART</a></p>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/protocols/i2c/index.html", "title": "I2C" },
+  "related": [
+    { "href": "/protocols/spi/index.html", "title": "SPI" },
+    { "href": "/protocols/i2c/index.html", "title": "I2C" },
+    { "href": "/linux/drivers/index.html", "title": "Linux drivers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

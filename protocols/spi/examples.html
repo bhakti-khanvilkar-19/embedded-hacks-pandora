@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SPI examples — Protocols — Embedded Pandora</title>
+<meta name="description" content="Bare-metal register-level SPI transfer and Linux userspace spidev examples." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Protocols / SPI</p>
+  <h1>Examples</h1>
+  <p class="lede">Two levels: bare-metal register access, and Linux userspace via <code>spidev</code>.</p>
+
+  <h2>Bare-metal, generic register-style transfer</h2>
+  <p>Pattern common to most MCU SPI peripherals (exact register names vary by vendor):</p>
+  <pre><code>// Blocking, mode-0, single byte in/out
+uint8_t spi_transfer(uint8_t data_out) {
+    while (!(SPI-&gt;SR &amp; SPI_SR_TXE))   // wait for TX buffer empty
+        ;
+    SPI-&gt;DR = data_out;               // write starts the clock
+
+    while (!(SPI-&gt;SR &amp; SPI_SR_RXNE))  // wait for RX buffer full
+        ;
+    return SPI-&gt;DR;                   // byte shifted in during the same clocks
+}
+
+void read_register(uint8_t reg_addr, uint8_t *buf, size_t len) {
+    GPIO_CS_LOW();
+    spi_transfer(reg_addr | 0x80);    // datasheet-defined "read" bit
+    for (size_t i = 0; i &lt; len; i++)
+        buf[i] = spi_transfer(0x00);  // dummy byte to generate clocks
+    GPIO_CS_HIGH();
+}</code></pre>
+
+  <h2>Linux userspace — <code>spidev</code></h2>
+  <p>
+    <code>spidev</code> exposes an SPI bus as <code>/dev/spidevB.C</code> (bus B,
+    chip-select C) once the corresponding device tree overlay or board file
+    binds it. See <a href="/linux/drivers/index.html">Linux → Drivers</a> for how that
+    binding works.
+  </p>
+  <pre><code>#include &lt;fcntl.h&gt;
+#include &lt;sys/ioctl.h&gt;
+#include &lt;linux/spi/spidev.h&gt;
+
+int fd = open("/dev/spidev0.0", O_RDWR);
+
+uint8_t mode = SPI_MODE_0;
+ioctl(fd, SPI_IOC_WR_MODE, &amp;mode);
+
+uint32_t speed_hz = 1000000;
+ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ, &amp;speed_hz);
+
+uint8_t tx[2] = { 0x80, 0x00 };   // read register 0x00
+uint8_t rx[2] = { 0 };
+
+struct spi_ioc_transfer tr = {
+    .tx_buf = (unsigned long)tx,
+    .rx_buf = (unsigned long)rx,
+    .len    = sizeof(tx),
+    .speed_hz = speed_hz,
+    .bits_per_word = 8,
+};
+ioctl(fd, SPI_IOC_MESSAGE(1), &amp;tr);
+// rx[1] now holds the register value</code></pre>
+
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      <code>spidev</code> always does a full-duplex transfer — even a "write
+      only" call still clocks bytes into <code>rx_buf</code>, and even a "read
+      only" call still shifts something out of <code>tx_buf</code> (usually
+      zeroed). Plan buffer sizes accordingly.
+    </p>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/protocols/spi/index.html", "title": "SPI overview" },
+  "related": [
+    { "href": "/protocols/spi/index.html", "title": "SPI overview" },
+    { "href": "/linux/drivers/index.html", "title": "Linux drivers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
