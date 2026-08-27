@@ -1,10 +1,10 @@
 # GUIDE — how this repository is organized
 
 Embedded Pandora is a personal, long-term knowledge base for embedded
-systems, protocols, Linux, networking, bootloaders, and Snap packaging. It
-is also a static website (deployable to Vercel with zero build
-infrastructure). This document is the single source of truth for how to
-keep it organized as it grows — read it before adding anything.
+systems, sensors, protocols, Linux, networking, bootloaders, and Snap
+packaging. It is also a static website (deployable to Vercel with zero
+build infrastructure). This document is the single source of truth for
+how to keep it organized as it grows — read it before adding anything.
 
 ## The core rule
 
@@ -34,6 +34,8 @@ the content or picking a vaguer shared folder.
 │
 ├── embedded/                  the microcontroller itself: pins, cores, timing
 │   └── <topic>/
+├── sensors/                    the sensing element and the physics behind it
+│   └── <topic>/
 ├── protocols/                 wire-level buses: SPI, I2C, UART, CAN, ...
 │   └── <topic>/
 ├── networking/                 TCP/IP stack concepts, one layer per topic
@@ -55,6 +57,10 @@ Each topic is a subfolder of exactly one domain, with its own `index.html`.
 
 - **Embedded** — the microcontroller/SoC itself, in isolation: cores, pins,
   interrupts, timers, memory, debugging. Not the protocols it speaks.
+- **Sensors** — the sensing element itself and the physics or math behind
+  what it measures (GNSS trilateration, MEMS accelerometers, thermocouples).
+  Not the wire it's read over — that's Protocols — and not the
+  microcontroller reading it — that's Embedded.
 - **Protocols** — wire-level communication buses (SPI, I2C, UART, CAN, ...).
   Each protocol is always its own topic, never merged with another just
   because they're "similar" (e.g. SPI and I2C stay separate).
@@ -73,7 +79,7 @@ Each topic is a subfolder of exactly one domain, with its own `index.html`.
   datasheets, curated links). If something is really about one topic, it
   belongs in that topic's own page instead, not here.
 
-If you're about to create a new *domain* (rare — the seven above should
+If you're about to create a new *domain* (rare — the eight above should
 cover almost everything for years), copy an existing domain's `index.html`
 as a starting point and add a card for it on the homepage
 (`index.html`) and a link in `assets/partials/header.html`.

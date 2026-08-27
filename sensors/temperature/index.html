@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Temperature — Sensors — Embedded Pandora</title>
+<meta name="description" content="Thermistors, thermocouples, RTDs, and digital silicon sensors — four genuinely different physical principles for measuring temperature, and when to use each." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Sensors</p>
+  <h1>Temperature — thermistors, thermocouples, RTDs, and digital sensors</h1>
+  <p class="lede">
+    "Temperature sensor" covers four genuinely different physical
+    principles, not four packaging options for the same underlying
+    technology — which one belongs in a design depends heavily on the
+    range, accuracy, and wiring budget the application actually has.
+  </p>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#thermistor">Thermistor: resistance that changes with heat</a></li>
+      <li><a href="#thermocouple">Thermocouple: voltage from two dissimilar metals</a></li>
+      <li><a href="#rtd">RTD: precision resistance, usually platinum</a></li>
+      <li><a href="#digital">Digital silicon sensors</a></li>
+      <li><a href="#compare">Comparison</a></li>
+      <li><a href="#accuracy">Self-heating, response time, and placement</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="thermistor">Thermistor: resistance that changes with heat</h2>
+  <p>
+    A thermistor is a resistor whose resistance changes sharply and
+    predictably with temperature. <strong>NTC</strong> (Negative
+    Temperature Coefficient) — resistance drops as it warms up — is by
+    far the more common type; PTC (Positive Temperature Coefficient) is
+    the less common opposite, more often used as a resettable fuse than a
+    precision sensor.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 480 260" role="img" aria-labelledby="ntc-curve-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="ntc-curve-title">NTC thermistor resistance falling steeply and non-linearly as temperature rises</title>
+      <line x1="60" y1="20" x2="60" y2="210" class="seq-lifeline" />
+      <line x1="60" y1="210" x2="440" y2="210" class="seq-lifeline" />
+      <text class="frame-caption" x="30" y="115" text-anchor="middle" transform="rotate(-90 30 115)">Resistance</text>
+      <text class="frame-caption" x="250" y="245" text-anchor="middle">Temperature</text>
+
+      <path d="M60,30 C90,35 120,50 140,70 C170,95 195,110 220,120 C280,140 330,165 380,190 C400,197 415,199 430,200"
+            fill="none" class="seq-arrow" />
+
+      <line x1="140" y1="210" x2="140" y2="216" class="seq-lifeline" /><text class="frame-caption" x="140" y="228" text-anchor="middle">0°C</text>
+      <line x1="220" y1="210" x2="220" y2="216" class="seq-lifeline" /><text class="frame-caption" x="220" y="228" text-anchor="middle">25°C</text>
+      <line x1="380" y1="210" x2="380" y2="216" class="seq-lifeline" /><text class="frame-caption" x="380" y="228" text-anchor="middle">100°C</text>
+
+      <line x1="220" y1="120" x2="220" y2="210" class="seq-arrow-lost" />
+      <line x1="60" y1="120" x2="220" y2="120" class="seq-arrow-lost" />
+      <circle cx="220" cy="120" r="4" style="fill:var(--accent);" />
+      <text class="seq-note" x="270" y="112">R25 — the datasheet reference point</text>
+    </svg>
+    <figcaption class="diagram__caption">A steep, non-linear curve — most of a thermistor's usable sensitivity is packed into a fairly narrow temperature band around its rated range.</figcaption>
+  </figure>
+  <p>
+    That curve isn't a straight line, so getting a temperature back out of
+    a measured resistance means either a lookup table or a curve fit —
+    the <strong>Beta-parameter equation</strong> is the common
+    simplified version datasheets provide:
+  </p>
+  <pre><code>1/T = 1/T0 + (1/B) * ln(R / R0)
+// T, T0 in kelvin; R0, B from the datasheet (R0 typically the R25 value)</code></pre>
+  <p>
+    In circuit, a thermistor is almost always read as one half of a
+    voltage divider against a fixed resistor, with the midpoint voltage
+    sampled by an ADC — cheap, simple, and exactly why thermistors are
+    the default choice for "just tell me roughly how hot this is" in
+    consumer electronics.
+  </p>
+
+  <h2 id="thermocouple">Thermocouple: voltage from two dissimilar metals</h2>
+  <p>
+    A thermocouple is a junction of two different metals that produces a
+    small voltage proportional to the <strong>temperature difference</strong>
+    between that junction and a reference point — the <strong>Seebeck
+    effect</strong>. Crucially, a thermocouple can only ever measure a
+    difference, not an absolute temperature, so an accurate reading
+    requires knowing the temperature of the reference ("cold") junction
+    too — <strong>cold-junction compensation</strong>, usually done with a
+    second, different kind of sensor (often a digital silicon sensor,
+    see below) placed right at the connector where the thermocouple wire
+    meets the measuring circuit.
+  </p>
+  <p>
+    Different metal pairs (Type K, J, T, and others) trade off
+    temperature range, cost, and the exact — and non-linear — voltage
+    curve, which real thermocouple amplifier ICs linearize internally so
+    the rest of the system doesn't have to. The signal itself is tiny
+    (tens of microvolts per °C), so amplification close to the junction
+    matters for noise immunity. In exchange, thermocouples reach much
+    higher temperatures than any of the other technologies here — well
+    into furnace and industrial process territory.
+  </p>
+
+  <h2 id="rtd">RTD: precision resistance, usually platinum</h2>
+  <p>
+    A Resistance Temperature Detector uses a pure metal (almost always
+    platinum) whose resistance rises with temperature in a
+    <strong>nearly linear</strong>, extremely well-characterized way —
+    the industry-standard PT100 (100 Ω at 0°C) and PT1000 (1000 Ω at 0°C)
+    are named for that reference resistance. RTDs are the accuracy and
+    stability leader of the four technologies here, at higher cost and
+    real wiring complexity: because the sensing resistance itself is
+    small, the resistance of the lead wires running to it is a real
+    source of error, which is why precision RTD circuits commonly use
+    3-wire or 4-wire connections specifically to cancel lead-wire
+    resistance out of the measurement rather than 2-wire, which simply
+    adds it in.
+  </p>
+
+  <h2 id="digital">Digital silicon sensors</h2>
+  <p>
+    Integrated sensors (LM75, TMP102, DS18B20, and many others) put a
+    silicon bandgap temperature-sensing element and all the signal
+    conditioning on one chip, and hand back a temperature directly over
+    <a href="/protocols/i2c/index.html">I2C</a> or a similar digital bus
+    (DS18B20 is a well-known 1-Wire example) — no external reference
+    resistor, no ADC channel, no linearization math in application code.
+    That convenience trades off against range (typically -55°C to
+    +125°C) and accuracy (commonly around ±0.5°C) that fall short of
+    what a good RTD achieves.
+  </p>
+
+  <h2 id="compare">Comparison</h2>
+  <table>
+    <thead><tr><th>Type</th><th>Principle</th><th>Typical range</th><th>Accuracy</th><th>Interface</th></tr></thead>
+    <tbody>
+      <tr><td>Thermistor (NTC)</td><td>Resistance vs. temperature (non-linear)</td><td>-40°C to 125°C-ish</td><td>Moderate, curve-fit dependent</td><td>Analog (voltage divider + ADC)</td></tr>
+      <tr><td>Thermocouple</td><td>Seebeck effect (junction voltage)</td><td>Hundreds to 1000+ °C depending on type</td><td>Moderate, needs cold-junction compensation</td><td>Analog (amplified, often via a dedicated IC)</td></tr>
+      <tr><td>RTD (PT100/PT1000)</td><td>Platinum resistance vs. temperature (near-linear)</td><td>-200°C to 850°C-ish</td><td>High</td><td>Analog (precision excitation + 3/4-wire)</td></tr>
+      <tr><td>Digital silicon</td><td>On-chip bandgap reference</td><td>-55°C to 125°C-ish</td><td>Moderate (~±0.5°C typical)</td><td>Digital (I2C, 1-Wire, ...)</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="accuracy">Self-heating, response time, and placement</h2>
+  <ul>
+    <li><strong>Self-heating</strong> — any sensor that's read by passing current through it (thermistors, RTDs) dissipates a little power as heat itself; too much excitation current measurably warms the sensor above the actual ambient temperature, especially in still air with poor heat dissipation.</li>
+    <li><strong>Response time / thermal mass</strong> — a sensor with more physical mass (a large probe body) takes longer to reach the temperature of what it's touching — a fast-changing temperature can be under-read simply because the sensor hasn't caught up yet.</li>
+    <li><strong>Thermal coupling and placement</strong> — a sensor that isn't well thermally coupled to the thing it's supposed to measure (an air gap, a long unthermalized lead) will happily report a stable, accurate, and completely wrong number.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Using a thermistor's Beta-parameter equation far outside the temperature range it was fit for produces confidently wrong numbers, not obviously bad ones — the curve is only accurate near where it was characterized.</li>
+      <li>A thermocouple with no cold-junction compensation reads a temperature <em>difference</em>, not an absolute value — a "23°C" reading from an uncompensated setup is meaningless without knowing what the reference junction was actually at.</li>
+      <li>2-wire RTD measurements silently include lead resistance as if it were part of the sensor — fine for a short, known lead length, actively misleading for a long run without 3/4-wire compensation.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/sensors/motion/index.html", "title": "Motion & IMU" },
+  "related": [
+    { "href": "/sensors/accelerometer/index.html", "title": "Accelerometer" },
+    { "href": "/protocols/i2c/index.html", "title": "I2C" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
