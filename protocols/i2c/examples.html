@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>I2C examples — Protocols — Embedded Pandora</title>
+<meta name="description" content="Linux userspace i2c-dev register read example, plus command-line probing with i2c-tools." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Protocols / I2C</p>
+  <h1>Examples</h1>
+
+  <h2>Command-line probing</h2>
+  <pre><code># scan bus 1 for responding addresses
+i2cdetect -y 1
+
+# read register 0x0F from device at address 0x68 on bus 1
+i2cget -y 1 0x68 0x0f
+
+# write 0x01 to register 0x10 on the same device
+i2cset -y 1 0x68 0x10 0x01</code></pre>
+
+  <h2>Linux userspace — <code>i2c-dev</code></h2>
+  <pre><code>#include &lt;fcntl.h&gt;
+#include &lt;sys/ioctl.h&gt;
+#include &lt;linux/i2c-dev.h&gt;
+
+int fd = open("/dev/i2c-1", O_RDWR);
+ioctl(fd, I2C_SLAVE, 0x68);   // target address, no ioctl per-transfer needed after this
+
+uint8_t reg = 0x0F;
+write(fd, &amp;reg, 1);          // write the register pointer
+uint8_t value;
+read(fd, &amp;value, 1);         // repeated-START read of that register</code></pre>
+
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      Plain <code>write()</code> then <code>read()</code> on an
+      <code>i2c-dev</code> fd does <em>not</em> guarantee a repeated START
+      between them on every driver — for guaranteed repeated-START semantics,
+      use the <code>I2C_RDWR</code> ioctl with an
+      <code>struct i2c_rdwr_ioctl_data</code> combining both messages in one
+      call.
+    </p>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/protocols/i2c/index.html", "title": "I2C overview" },
+  "related": [
+    { "href": "/protocols/i2c/index.html", "title": "I2C overview" },
+    { "href": "/linux/drivers/index.html", "title": "Linux drivers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "embedded-pandora",
+  "private": true,
+  "description": "A personal, continuously growing knowledge base for embedded systems, protocols, Linux, networking, bootloaders, and Snap packaging.",
+  "scripts": {
+    "build": "node scripts/build-search-index.js",
+    "serve": "npx --yes serve ."
+  }
+}

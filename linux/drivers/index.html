@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Drivers — Linux — Embedded Pandora</title>
+<meta name="description" content="The Linux device model, character devices, and how SPI/I2C/UART/GPIO reach userspace." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Linux</p>
+  <h1>Drivers</h1>
+  <p class="lede">
+    How the kernel represents hardware, and the paths by which that hardware
+    becomes reachable from userspace — the piece that connects the protocol
+    pages in this notebook to actual running code.
+  </p>
+
+  <h2>The device model, in one paragraph</h2>
+  <p>
+    A <strong>bus</strong> (platform, SPI, I2C, USB, ...) knows how to
+    enumerate or is told about the <strong>devices</strong> attached to it.
+    A <strong>driver</strong> registers with a bus, declaring which devices
+    it knows how to handle (by compatible string, ID table, etc.). The bus
+    matches devices to drivers and calls the driver's <code>probe()</code>
+    function for each match. On most embedded ARM/RISC-V boards, the
+    devices themselves — and which bus/pins/IRQ they're wired to — are
+    described in the <strong>device tree</strong>, not hardcoded in the
+    kernel.
+  </p>
+
+  <h2>How this notebook's protocols reach userspace</h2>
+  <table>
+    <thead><tr><th>Protocol</th><th>Kernel-side concept</th><th>Userspace path</th></tr></thead>
+    <tbody>
+      <tr><td><a href="/protocols/spi/index.html">SPI</a></td><td>SPI master/controller driver + device tree node</td><td><code>/dev/spidevB.C</code> via the <code>spidev</code> driver</td></tr>
+      <tr><td><a href="/protocols/i2c/index.html">I2C</a></td><td>I2C adapter driver + device tree node</td><td><code>/dev/i2c-N</code> via <code>i2c-dev</code></td></tr>
+      <tr><td><a href="/protocols/uart/index.html">UART</a></td><td>Serial (tty) driver</td><td><code>/dev/ttySN</code>, <code>/dev/ttyUSBN</code>, etc., configured with <code>termios</code></td></tr>
+      <tr><td><a href="/embedded/gpio/index.html">GPIO</a></td><td>GPIO controller driver</td><td><code>/dev/gpiochipN</code> via <code>libgpiod</code></td></tr>
+    </tbody>
+  </table>
+  <p>
+    Note the pattern: each subsystem exposes a <em>generic</em> userspace
+    interface (spidev, i2c-dev, tty, gpiochip) that doesn't know anything
+    about the specific chip on the other end — that chip-specific knowledge
+    (register maps, command framing) lives in application code or, for
+    devices with a real in-kernel driver, in a dedicated kernel module that
+    exposes a higher-level interface instead (e.g. an IIO device for a
+    sensor, rather than raw register access).
+  </p>
+
+  <h2>Character devices vs. a real kernel driver</h2>
+  <p>
+    Using <code>spidev</code>/<code>i2c-dev</code> directly from userspace is
+    the fast path for prototyping or one-off tools, but it pushes all
+    protocol logic into userspace and gives up kernel-level integration
+    (power management, standard subsystem interfaces like IIO or input,
+    interrupt-driven operation without a userspace polling loop). Writing a
+    dedicated kernel driver is more work but is the right call for a
+    peripheral that needs to behave like a first-class kernel device.
+  </p>
+
+  <h2>Finding what's bound to what</h2>
+  <pre><code># what's on this I2C bus, and did anything claim address 0x68?
+i2cdetect -l
+i2cdetect -y 1
+
+# device tree nodes actually seen by the running kernel
+ls /sys/firmware/devicetree/base/
+
+# which driver is bound to a given platform device
+ls /sys/bus/platform/devices/&lt;device&gt;/driver</code></pre>
+
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      "The device tree looks right but the device isn't showing up" is
+      usually one of: the driver for that <code>compatible</code> string
+      isn't built/loaded, the node is disabled (<code>status = "disabled"</code>),
+      or an overlay didn't actually get applied — check
+      <code>dmesg</code> for probe failures before assuming the wiring
+      or device tree syntax is wrong.
+    </p>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/linux/boot/index.html", "title": "Boot" },
+  "related": [
+    { "href": "/protocols/spi/index.html", "title": "SPI" },
+    { "href": "/protocols/i2c/index.html", "title": "I2C" },
+    { "href": "/protocols/uart/index.html", "title": "UART" },
+    { "href": "/embedded/gpio/index.html", "title": "GPIO" },
+    { "href": "/linux/boot/index.html", "title": "Boot" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

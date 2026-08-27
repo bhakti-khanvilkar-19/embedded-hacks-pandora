@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Boot — Linux — Embedded Pandora</title>
+<meta name="description" content="What happens from bootloader handoff to PID 1: kernel decompression, device tree, initramfs, and init." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Linux</p>
+  <h1>Boot — from bootloader handoff to PID 1</h1>
+  <p class="lede">
+    Where <a href="/bootloaders/index.html">Bootloaders</a> leaves off: the
+    moment the bootloader jumps into the kernel image, through to the first
+    userspace process starting.
+  </p>
+
+  <h2>The handoff</h2>
+  <p>
+    The bootloader (see <a href="/bootloaders/u-boot/index.html">U-Boot</a>)
+    loads the kernel image and, on most embedded platforms, a
+    <strong>device tree blob (DTB)</strong> into RAM, then jumps to the
+    kernel's entry point with a pointer to that DTB (or, on x86, passes
+    boot parameters differently via a boot protocol). The device tree
+    describes the hardware — memory layout, peripherals, clocks — so the
+    same kernel binary can support many boards without being recompiled
+    for each one.
+  </p>
+
+  <h2>Kernel early boot</h2>
+  <ol>
+    <li>Architecture-specific low-level setup (MMU, initial page tables, CPU mode).</li>
+    <li>Decompress the kernel if it was stored compressed (zImage/uImage).</li>
+    <li>Parse the device tree, set up memory management proper, initialize core subsystems.</li>
+    <li>Probe and initialize drivers for devices described in the device tree, roughly in dependency order.</li>
+    <li>Mount the root filesystem — either directly, or via an <strong>initramfs</strong>.</li>
+    <li>Execute <code>/sbin/init</code> (or whatever <code>init=</code> specifies) as PID 1.</li>
+  </ol>
+
+  <h2>Why an initramfs?</h2>
+  <p>
+    An initramfs is a small filesystem image bundled into RAM alongside the
+    kernel, unpacked and run before the real root filesystem is available.
+    Common reasons to need one:
+  </p>
+  <ul>
+    <li>The real root filesystem lives somewhere the kernel can't reach without extra driver/module setup first (e.g. an encrypted or network filesystem).</li>
+    <li>You want an early userspace stage to pick between multiple root filesystems (A/B update schemes) before handing off.</li>
+    <li>Loading needed kernel modules that aren't statically built in.</li>
+  </ul>
+  <p>
+    Once its job is done, the initramfs typically <code>switch_root</code>s
+    (or <code>pivot_root</code>s) into the real root filesystem and execs
+    the real init there.
+  </p>
+
+  <h2>Kernel command line</h2>
+  <p>
+    A string passed by the bootloader that configures early kernel behavior
+    without recompiling anything — e.g. <code>console=ttyS0,115200</code>
+    (where to send early boot logs), <code>root=/dev/mmcblk0p2</code>
+    (which partition is the root filesystem), <code>init=/sbin/init</code>.
+    Visible at runtime via <code>/proc/cmdline</code>.
+  </p>
+
+  <h2>PID 1 and beyond</h2>
+  <p>
+    Whatever init system is configured (systemd, BusyBox init, a custom
+    minimal init) becomes PID 1 and is responsible for bringing up the rest
+    of userspace — mounting remaining filesystems, starting services,
+    reaping orphaned processes. If PID 1 ever exits, the kernel panics —
+    there is no next process to hand control to.
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      "No display output" during boot debugging is very often a console
+      configuration problem (<code>console=</code> pointing at the wrong
+      UART, or missing entirely), not a kernel-not-booting problem. Checking
+      the bootloader console log and the kernel's own
+      <code>console=</code> argument is a cheap first step before assuming
+      the kernel crashed.
+    </p>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "next": { "href": "/linux/drivers/index.html", "title": "Linux drivers" },
+  "related": [
+    { "href": "/bootloaders/u-boot/index.html", "title": "U-Boot" },
+    { "href": "/bootloaders/fundamentals/index.html", "title": "Bootloader fundamentals" },
+    { "href": "/linux/drivers/index.html", "title": "Linux drivers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

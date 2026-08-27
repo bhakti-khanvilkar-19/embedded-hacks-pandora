@@ -1,0 +1,49 @@
+<!--
+  TEMPLATE: notes.html
+  Only create this file when a topic accumulates enough loose observations,
+  gotchas, or "what I learned" entries that they'd clutter the main
+  concepts page. Copy to <domain>/<topic>/notes.html.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{{Topic}} notes — {{Domain}} — Embedded Pandora</title>
+<meta name="description" content="Field notes and gotchas for {{Topic}}." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">{{Domain}} / {{Topic}}</p>
+  <h1>Notes</h1>
+  <p class="lede">Loose observations and gotchas that didn't fit cleanly into the main overview.</p>
+
+  <div class="callout callout--warn">
+    <span class="callout__label">{{Date or context, e.g. "2026-08-27"}}</span>
+    <p>{{What happened, what you learned.}}</p>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/{{domain}}/{{topic}}/index.html", "title": "{{Topic}} overview" },
+  "related": [
+    { "href": "/{{domain}}/{{topic}}/index.html", "title": "{{Topic}} overview" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

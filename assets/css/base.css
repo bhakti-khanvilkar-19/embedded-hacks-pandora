@@ -1,0 +1,235 @@
+/*
+  Embedded Pandora — base.css
+  Design tokens, reset, and typography for the whole site.
+  Theme: light is default; dark applies when html[data-theme="dark"],
+  or when no explicit theme is set and the OS prefers dark.
+*/
+
+:root {
+  /* -- layout -- */
+  --content-width: 46rem;
+  --wide-width: 64rem;
+  --radius: 6px;
+  --gap: 1.25rem;
+
+  /* -- fonts (system stacks only, no external requests) -- */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* -- light palette -- */
+  --bg: #faf7f0;
+  --bg-raised: #f1ecdf;
+  --bg-inset: #efe9dc;
+  --ink: #1f2420;
+  --ink-soft: #4b5049;
+  --ink-faint: #7c8077;
+  --border: #ddd5c0;
+  --accent: #b5502a;
+  --accent-ink: #ffffff;
+  --accent-soft: #f3dccb;
+  --link: #8a4a1f;
+  --link-visited: #6c4a8a;
+  --teal: #2b6f76;
+  --code-bg: #efe9dc;
+  --code-border: #ddd5c0;
+  --shadow: 0 1px 2px rgba(31, 36, 32, 0.06), 0 4px 12px rgba(31, 36, 32, 0.05);
+  --scrollbar: #cfc6ab;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15181a;
+    --bg-raised: #1d2124;
+    --bg-inset: #1a1e20;
+    --ink: #e7e3d8;
+    --ink-soft: #b8b3a5;
+    --ink-faint: #82806f;
+    --border: #33372f;
+    --accent: #e08a5c;
+    --accent-ink: #15181a;
+    --accent-soft: #3a2a1f;
+    --link: #eaa06e;
+    --link-visited: #c49bea;
+    --teal: #6fc2c9;
+    --code-bg: #1a1e20;
+    --code-border: #33372f;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.35);
+    --scrollbar: #33372f;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #15181a;
+  --bg-raised: #1d2124;
+  --bg-inset: #1a1e20;
+  --ink: #e7e3d8;
+  --ink-soft: #b8b3a5;
+  --ink-faint: #82806f;
+  --border: #33372f;
+  --accent: #e08a5c;
+  --accent-ink: #15181a;
+  --accent-soft: #3a2a1f;
+  --link: #eaa06e;
+  --link-visited: #c49bea;
+  --teal: #6fc2c9;
+  --code-bg: #1a1e20;
+  --code-border: #33372f;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.35);
+  --scrollbar: #33372f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+img, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-serif);
+  line-height: 1.25;
+  color: var(--ink);
+  margin: 2.2em 0 0.6em;
+}
+
+h1 { font-size: 2.1rem; margin-top: 0; }
+h2 { font-size: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+h3 { font-size: 1.2rem; }
+h4 { font-size: 1.02rem; color: var(--ink-soft); }
+
+p, ul, ol {
+  margin: 0 0 1em;
+}
+
+ul, ol {
+  padding-left: 1.4em;
+}
+
+li + li {
+  margin-top: 0.3em;
+}
+
+a {
+  color: var(--link);
+  text-decoration-color: var(--border);
+  text-underline-offset: 2px;
+}
+
+a:visited {
+  color: var(--link-visited);
+}
+
+a:hover {
+  text-decoration-color: currentColor;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+}
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  line-height: 1.55;
+}
+
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.86em;
+}
+
+blockquote {
+  margin: 1.2em 0;
+  padding: 0.2em 1em;
+  border-left: 3px solid var(--accent);
+  color: var(--ink-soft);
+  background: var(--bg-raised);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.2em 0;
+  font-size: 0.94rem;
+}
+
+caption {
+  text-align: left;
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+  margin-bottom: 0.4em;
+}
+
+th, td {
+  text-align: left;
+  padding: 0.5em 0.7em;
+  border: 1px solid var(--border);
+  vertical-align: top;
+}
+
+th {
+  background: var(--bg-raised);
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
+tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--bg-raised) 45%, transparent);
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2.5em 0;
+}
+
+::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 6px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

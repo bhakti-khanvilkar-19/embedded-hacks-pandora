@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Embedded — Embedded Pandora</title>
+<meta name="description" content="Microcontrollers, GPIO, interrupts, timers, memory, and debugging — the core building blocks of firmware." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Domain</p>
+  <h1>Embedded</h1>
+  <p class="lede">
+    The core building blocks of firmware: how a microcontroller boots and
+    executes, how it talks to the outside world through pins and buses, and
+    how you find out why it isn't doing what you think it's doing.
+  </p>
+
+  <h2>Topics</h2>
+  <ul class="topic-list">
+    <li><a href="/embedded/gpio/index.html"><span>GPIO — general-purpose I/O pins</span><span class="status">written</span></a></li>
+    <li><a href="/embedded/interrupts/index.html"><span>Interrupts — ISRs, NVIC, latency</span><span class="status">written</span></a></li>
+  </ul>
+
+  <h2>Planned</h2>
+  <p class="lede" style="font-size:0.95rem;">Not written yet — will be added here as their own topic folders when the learning happens.</p>
+  <p>
+    <span class="badge">microcontrollers</span>
+    <span class="badge">timers</span>
+    <span class="badge">memory</span>
+    <span class="badge">debugging</span>
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">Scope note</span>
+    <p>
+      Bus protocols like SPI and I2C live under <a href="/protocols/index.html">Protocols</a>,
+      not here — this domain is about the microcontroller itself (cores, pins,
+      interrupts, timing, memory), not the wire-level protocols it speaks.
+    </p>
+  </div>
+</main>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

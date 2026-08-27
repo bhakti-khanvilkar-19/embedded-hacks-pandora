@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Useful links — References — Embedded Pandora</title>
+<meta name="description" content="Curated external resources that don't belong to a single topic." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">References</p>
+  <h1>Useful links</h1>
+  <p class="lede">
+    General-purpose references worth keeping close. Anything specific to
+    one topic belongs on that topic's own page instead — this list is for
+    material that spans domains or is just generally handy.
+  </p>
+
+  <h2>Specs and standards</h2>
+  <ul>
+    <li>Linux kernel documentation — <code>Documentation/</code> in the kernel source tree, especially the device tree bindings under <code>Documentation/devicetree/bindings/</code>.</li>
+    <li>Device Tree Specification — the formal reference for device tree syntax and semantics, useful whenever <a href="/linux/drivers/index.html">Linux drivers</a> and device tree overlays don't line up.</li>
+  </ul>
+
+  <h2>Tools</h2>
+  <ul>
+    <li><code>i2c-tools</code> — <code>i2cdetect</code>, <code>i2cget</code>, <code>i2cset</code> for <a href="/protocols/i2c/index.html">I2C</a> bring-up.</li>
+    <li><code>libgpiod</code> — modern userspace <a href="/embedded/gpio/index.html">GPIO</a> access, replacing sysfs GPIO.</li>
+    <li><code>minicom</code> / <code>picocom</code> — serial terminal clients for <a href="/protocols/uart/index.html">UART</a> console access.</li>
+    <li><code>tcpdump</code> / Wireshark — packet capture, invaluable when debugging anything under <a href="/networking/index.html">Networking</a>.</li>
+  </ul>
+
+  <div class="callout callout--todo">
+    <span class="callout__label">To do</span>
+    <p>
+      Add books and datasheets as their own topic folders under References
+      once there's enough material to organize (see <a href="/GUIDE.md">GUIDE.md</a>)
+      rather than growing this single page indefinitely.
+    </p>
+  </div>
+</main>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

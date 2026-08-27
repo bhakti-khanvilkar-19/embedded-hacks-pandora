@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>U-Boot — Bootloaders — Embedded Pandora</title>
+<meta name="description" content="U-Boot environment variables, boot commands, and the standard flow for loading and booting a Linux kernel." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Bootloaders</p>
+  <h1>U-Boot</h1>
+  <p class="lede">
+    The most widely used open-source bootloader in embedded Linux — see
+    <a href="/bootloaders/fundamentals/index.html">Fundamentals</a> for where
+    it sits in the boot chain. This page covers U-Boot itself: its
+    environment, shell, and the standard commands used to get a kernel
+    running.
+  </p>
+
+  <h2>Dropping into the U-Boot shell</h2>
+  <p>
+    Most boards print a countdown ("Hit any key to stop autoboot") on the
+    serial console. Interrupting it during that window drops you into an
+    interactive shell instead of continuing the default boot sequence —
+    the standard way to debug or override boot behavior without
+    reflashing anything.
+  </p>
+
+  <h2>The environment</h2>
+  <p>
+    U-Boot keeps a set of persistent key-value variables (the
+    <strong>environment</strong>), stored in flash separately from the
+    bootloader binary itself, that control boot behavior. A handful matter
+    on almost every board:
+  </p>
+  <dl class="kv">
+    <dt>bootcmd</dt><dd>The command sequence run automatically if the countdown isn't interrupted.</dd>
+    <dt>bootargs</dt><dd>The Linux kernel command line, passed at boot — see <a href="/linux/boot/index.html">Linux → Boot</a>.</dd>
+    <dt>bootdelay</dt><dd>Seconds to wait for a keypress before autobooting.</dd>
+    <dt>fdtaddr / fdt_addr</dt><dd>RAM address the device tree blob is loaded to.</dd>
+  </dl>
+  <pre><code>=&gt; printenv bootcmd
+=&gt; setenv bootargs "console=ttyS0,115200 root=/dev/mmcblk0p2 rw"
+=&gt; saveenv       # persist changes to flash</code></pre>
+
+  <h2>A typical boot sequence</h2>
+  <pre><code># load the kernel and device tree from an SD card partition into RAM
+load mmc 0:1 ${kernel_addr_r} zImage
+load mmc 0:1 ${fdt_addr_r} board.dtb
+
+# set the kernel command line
+setenv bootargs console=ttyS0,115200 root=/dev/mmcblk0p2 rw rootwait
+
+# hand off to the kernel — never returns on success
+bootz ${kernel_addr_r} - ${fdt_addr_r}</code></pre>
+  <p>
+    <code>bootz</code> boots a raw zImage; <code>bootm</code> boots a
+    U-Boot-wrapped uImage (or a FIT image, which can bundle kernel + DTB +
+    initramfs together with signature verification for secure boot setups).
+  </p>
+
+  <h2>Boot device probing</h2>
+  <p>
+    <code>bootcmd</code> commonly encodes a fallback order — try one boot
+    device, then another, then drop to a recovery/network boot — rather
+    than hardcoding a single source. Distro-style boot scripts (like the
+    "distro_bootcmd" used by many mainline U-Boot configs) generalize this
+    into scanning each available device for a standard boot script file.
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      <code>saveenv</code> is easy to forget — changes made with
+      <code>setenv</code> only live in RAM until you explicitly persist
+      them. A board that "loses" your bootarg changes after a power cycle
+      almost always just means <code>saveenv</code> was never run.
+    </p>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/bootloaders/fundamentals/index.html", "title": "Fundamentals" },
+  "related": [
+    { "href": "/bootloaders/fundamentals/index.html", "title": "Bootloader fundamentals" },
+    { "href": "/linux/boot/index.html", "title": "Linux boot" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+{
+  "buildCommand": "node scripts/build-search-index.js",
+  "outputDirectory": "."
+}

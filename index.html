@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Embedded Pandora — a personal engineering knowledge base</title>
+<meta name="description" content="A continuously growing personal reference for embedded systems, protocols, Linux, networking, bootloaders, and Snap packaging." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page page--wide">
+  <section class="hero">
+    <p class="kicker">Personal knowledge base</p>
+    <h1>Embedded Pandora</h1>
+    <p class="lede">
+      A long-term, continuously growing reference for everything I learn about
+      embedded systems, protocols, Linux, networking, bootloaders, and packaging.
+      Every topic lives in its own logically-organized folder — a lab notebook
+      that's meant to still make sense in ten years.
+    </p>
+  </section>
+
+  <section id="search" aria-label="Search">
+    <input
+      id="search-input"
+      type="search"
+      placeholder="Search topics — try “spi”, “tcp”, “u-boot”, “gpio”…"
+      aria-label="Search the knowledge base"
+      style="width:100%; font: inherit; font-size:1rem; padding:0.7em 1em; border:1px solid var(--border); border-radius:999px; background:var(--bg-raised); color:var(--ink);"
+    />
+    <p id="search-empty" class="search-hidden" style="color:var(--ink-faint); font-size:0.88rem; margin-top:0.6em;">
+      No matches yet — keep typing, or browse the domains below.
+    </p>
+    <div id="search-results" class="search-results"></div>
+  </section>
+
+  <section aria-label="Knowledge domains">
+    <h2>Domains</h2>
+    <div class="grid">
+      <a class="card" href="/embedded/index.html">
+        <span class="card__icon">🔧</span>
+        <h3 class="card__title">Embedded</h3>
+        <p class="card__desc">Microcontrollers, GPIO, interrupts, timers, memory, and debugging — the core building blocks of firmware.</p>
+        <span class="card__meta">Domain</span>
+      </a>
+      <a class="card" href="/protocols/index.html">
+        <span class="card__icon">🔌</span>
+        <h3 class="card__title">Protocols</h3>
+        <p class="card__desc">SPI, I2C, UART, CAN, and other buses — each protocol gets its own home, never lumped together.</p>
+        <span class="card__meta">Domain</span>
+      </a>
+      <a class="card" href="/networking/index.html">
+        <span class="card__icon">🌐</span>
+        <h3 class="card__title">Networking</h3>
+        <p class="card__desc">TCP, IP, UDP, Ethernet, DNS — layered networking concepts, each as an individually organized topic.</p>
+        <span class="card__meta">Domain</span>
+      </a>
+      <a class="card" href="/linux/index.html">
+        <span class="card__icon">🐧</span>
+        <h3 class="card__title">Linux</h3>
+        <p class="card__desc">Kernel, drivers, boot process, processes, memory, and filesystems on embedded Linux.</p>
+        <span class="card__meta">Domain</span>
+      </a>
+      <a class="card" href="/bootloaders/index.html">
+        <span class="card__icon">🥾</span>
+        <h3 class="card__title">Bootloaders</h3>
+        <p class="card__desc">Boot flow fundamentals and U-Boot specifics, kept separate from the Linux kernel material.</p>
+        <span class="card__meta">Domain</span>
+      </a>
+      <a class="card" href="/snap/index.html">
+        <span class="card__icon">📦</span>
+        <h3 class="card__title">Snap</h3>
+        <p class="card__desc">Snapcraft, confinement, and Ubuntu Core packaging — its own space, not folded into Linux.</p>
+        <span class="card__meta">Domain</span>
+      </a>
+      <a class="card" href="/references/index.html">
+        <span class="card__icon">📚</span>
+        <h3 class="card__title">References</h3>
+        <p class="card__desc">Books, datasheets, articles, and curated links that don't belong to a single topic.</p>
+        <span class="card__meta">Domain</span>
+      </a>
+    </div>
+  </section>
+
+  <section aria-label="About this repository">
+    <h2>How this notebook works</h2>
+    <p>
+      Every piece of knowledge is classified <strong>before</strong> it's written down:
+      domain → category → topic. SPI and I2C are separate topics under
+      <a href="/protocols/index.html">Protocols</a>; TCP, IP, and UDP are separated
+      under <a href="/networking/index.html">Networking</a>; Linux, bootloaders, and
+      Snap each evolve independently. Nothing gets dumped into a catch-all folder.
+      See <a href="/GUIDE.md">GUIDE.md</a> for the full convention on where new
+      material belongs and how to add it.
+    </p>
+  </section>
+</main>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+<script src="/assets/js/search.js" defer></script>
+</body>
+</html>

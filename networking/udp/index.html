@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UDP — Networking — Embedded Pandora</title>
+<meta name="description" content="Connectionless, unreliable, message-oriented transport — minimal overhead, no ordering or delivery guarantees, no congestion control." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>UDP — User Datagram Protocol</h1>
+  <p class="lede">
+    The minimal transport built on <a href="/networking/ip/index.html">IP</a>:
+    adds only port numbers and an optional checksum, and nothing else. No
+    connection setup, no ordering, no retransmission, no congestion control —
+    all of that is left to the application, if it needs it at all.
+  </p>
+
+  <h2>What the header actually adds over raw IP</h2>
+  <dl class="kv">
+    <dt>Source port</dt><dd>16 bits — identifies the sending application/socket.</dd>
+    <dt>Destination port</dt><dd>16 bits — identifies the receiving application/socket.</dd>
+    <dt>Length</dt><dd>Size of the UDP header + payload.</dd>
+    <dt>Checksum</dt><dd>Optional in IPv4, mandatory in IPv6 — covers header and data, catches corruption but not loss or reordering.</dd>
+  </dl>
+  <p>That's the entire header — 8 bytes, versus TCP's minimum 20.</p>
+
+  <h2>Message boundaries are preserved</h2>
+  <p>
+    Unlike TCP's byte stream, one <code>sendto()</code> call produces exactly
+    one datagram, and one <code>recvfrom()</code> call returns exactly that
+    datagram (or nothing) — never a partial piece of it and never merged
+    with another. This makes UDP a natural fit for protocols that are
+    already message-shaped (DNS queries, single-frame telemetry, etc.).
+  </p>
+
+  <h2>Why choose UDP over TCP</h2>
+  <table>
+    <thead><tr><th>Use case</th><th>Why UDP fits</th></tr></thead>
+    <tbody>
+      <tr><td>DNS queries</td><td>Single small request/response — TCP's handshake overhead isn't worth it for the common case.</td></tr>
+      <tr><td>Real-time media (VoIP, video)</td><td>A late retransmitted packet is worse than a dropped one — the application handles loss itself.</td></tr>
+      <tr><td>Simple LAN telemetry / broadcast-discovery</td><td>Low overhead, and UDP supports broadcast/multicast, which TCP structurally cannot (it's point-to-point).</td></tr>
+    </tbody>
+  </table>
+
+  <h2>What "unreliable" costs you if you build on it anyway</h2>
+  <p>
+    Any application-level guarantee — ordering, retransmission, deduplication,
+    congestion-aware pacing — has to be built by hand on top of UDP if it's
+    needed. This is a real, non-trivial amount of the complexity that TCP
+    already solved; it's only worth reinventing when TCP's specific behavior
+    (in-order delivery blocking newer data behind a lost old packet, for
+    instance) is actually the wrong fit for the application.
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      "Unreliable" doesn't mean "usually broken" — on a healthy LAN, UDP
+      datagram loss is often rare. It means the protocol makes
+      <em>no promise</em>, so an application that needs a guarantee must
+      provide it itself rather than assuming the network will.
+    </p>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/networking/tcp/index.html", "title": "TCP" },
+  "related": [
+    { "href": "/networking/ip/index.html", "title": "IP" },
+    { "href": "/networking/tcp/index.html", "title": "TCP" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

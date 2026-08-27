@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fundamentals — Bootloaders — Embedded Pandora</title>
+<meta name="description" content="Boot stages from ROM code to a full bootloader: SPL/TPL, why staged booting exists, and the role of a bootloader in general." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Bootloaders</p>
+  <h1>Fundamentals</h1>
+  <p class="lede">
+    What runs before an operating system exists to run anything at all —
+    and why that job is usually split across multiple stages instead of
+    being one program.
+  </p>
+
+  <h2>Why boot in stages?</h2>
+  <p>
+    At power-on, RAM is typically not yet initialized (DDR training takes
+    real configuration work) and the only memory guaranteed to be usable is
+    a small amount of on-chip SRAM or boot ROM. A full bootloader like
+    U-Boot is too large to fit in that small space. So boot is split:
+  </p>
+  <table>
+    <thead><tr><th>Stage</th><th>Runs from</th><th>Job</th></tr></thead>
+    <tbody>
+      <tr><td>ROM code (BootROM)</td><td>On-chip mask ROM, fixed at manufacture</td><td>Minimal — read a boot device (eMMC, SD, SPI flash) per boot-mode pins, load the next stage into on-chip SRAM, jump to it.</td></tr>
+      <tr><td>SPL / TPL (Secondary/Tertiary Program Loader)</td><td>On-chip SRAM</td><td>Initialize DRAM controller and minimal clocking, then load the next stage into DRAM.</td></tr>
+      <tr><td>Full bootloader (e.g. U-Boot proper)</td><td>DRAM</td><td>Full driver set, storage/network access, environment variables, boot menu logic, final load of the OS kernel.</td></tr>
+      <tr><td>OS kernel</td><td>DRAM</td><td>Takes over entirely — see <a href="/linux/boot/index.html">Linux → Boot</a>.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Not every platform has all of these stages — a simple microcontroller
+    typically jumps straight from a tiny ROM bootloader (or none at all)
+    into the application. The staged model above is most visible on
+    application-class SoCs that run Linux.
+  </p>
+
+  <h2>What a boot ROM actually decides</h2>
+  <p>
+    Boot-mode selection is usually determined by hardware strap pins or
+    eFuses read very early — which storage device to read the next stage
+    from (SD card, eMMC, SPI NOR/NAND, UART/USB recovery mode). This is why
+    "hold this pin, it boots from USB instead" exists on many dev boards —
+    it's a boot ROM feature, before any user code has run.
+  </p>
+
+  <h2>Secure/verified boot, briefly</h2>
+  <p>
+    On SoCs with a hardware root of trust, the boot ROM (or SPL) can verify
+    a cryptographic signature on the next stage before jumping to it,
+    forming a <strong>chain of trust</strong> — each stage verifies the
+    next before handing off control. Skipping or misconfiguring any link in
+    that chain breaks the guarantee for every stage after it.
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      "Bricked" after a bad bootloader flash usually still isn't
+      unrecoverable — the boot ROM stage is typically burned in mask ROM
+      and can't be overwritten, and often supports a recovery/download mode
+      specifically for this situation. Knowing your SoC's recovery boot
+      mode before you need it saves a lot of stress later.
+    </p>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "next": { "href": "/bootloaders/u-boot/index.html", "title": "U-Boot" },
+  "related": [
+    { "href": "/bootloaders/u-boot/index.html", "title": "U-Boot" },
+    { "href": "/linux/boot/index.html", "title": "Linux boot" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
