@@ -30,6 +30,8 @@
       <li><a href="#framing">How a transfer works</a></li>
       <li><a href="#cs">Chip select strategies</a></li>
       <li><a href="#vs">SPI vs. I2C vs. UART</a></li>
+      <li><a href="#variants">Variants: 3-wire, dual, and quad SPI</a></li>
+      <li><a href="#signal">Clock speed and signal integrity</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -130,6 +132,42 @@
     </tbody>
   </table>
   <p>See <a href="/protocols/i2c/index.html">I2C</a> and <a href="/protocols/uart/index.html">UART</a> for the full picture.</p>
+
+  <h2 id="variants">Variants: 3-wire, dual, and quad SPI</h2>
+  <p>
+    "SPI" in a datasheet doesn't always mean the classic 4-wire form:
+  </p>
+  <dl class="kv">
+    <dt>3-wire SPI</dt><dd>MOSI and MISO are combined onto a single bidirectional data line (direction switched by the transfer's read/write phase) — trades full-duplex for one fewer pin, common on small sensors where pin count matters more than throughput.</dd>
+    <dt>Dual SPI</dt><dd>Uses two data lines in parallel during the data phase (command and address are still sent on one line), roughly doubling data-phase throughput — mainly seen on flash memory read commands.</dd>
+    <dt>Quad SPI (QSPI)</dt><dd>Four data lines in parallel during the data phase — a common way to get much higher effective throughput out of external flash without raising the clock frequency itself (and the EMI/signal-integrity problems that come with it).</dd>
+  </dl>
+  <p>
+    These aren't different protocols so much as different physical
+    framings of the same controller/peripheral relationship — the
+    controller and peripheral both have to agree on which variant is in
+    use, usually configured via a specific command sequence the flash
+    chip's datasheet defines.
+  </p>
+
+  <h2 id="signal">Clock speed and signal integrity</h2>
+  <p>
+    SPI has no defined maximum clock rate in the specification — the
+    limit in practice is whatever the specific controller, peripheral, and
+    physical wiring can tolerate. A few things that actually set that
+    ceiling:
+  </p>
+  <ul>
+    <li><strong>Peripheral's maximum SCLK</strong> — stated directly in its datasheet; exceeding it produces exactly the kind of "works most of the time, glitches occasionally" failure that's miserable to debug.</li>
+    <li><strong>Trace/wire length</strong> — longer runs at high clock rates start to behave like transmission lines rather than simple wires; unterminated reflections corrupt data well before the signal looks obviously "bad" on a low-bandwidth probe.</li>
+    <li><strong>Rise/fall time vs. clock period</strong> — if edges take a meaningful fraction of a clock period to settle, the receiving side can sample before the line has actually reached a valid logic level.</li>
+  </ul>
+  <p>
+    The practical debugging move when a fast SPI link is unreliable:
+    lower the clock rate first and confirm the logic is correct, then
+    raise it back up while watching for where it actually breaks — that
+    tells you whether it's a protocol bug or a signal-integrity one.
+  </p>
 
   <h2 id="gotchas">Gotchas</h2>
   <div class="callout callout--warn">

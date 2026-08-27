@@ -30,6 +30,8 @@
       <li><a href="#addressing">Addressing</a></li>
       <li><a href="#speed">Speed grades</a></li>
       <li><a href="#stretch">Clock stretching and arbitration</a></li>
+      <li><a href="#mux">Beyond 127 addresses: muxes and expanders</a></li>
+      <li><a href="#smbus">SMBus: I2C's stricter cousin</a></li>
       <li><a href="#gotchas">Gotchas</a></li>
     </ul>
   </nav>
@@ -67,7 +69,13 @@
     Most parts use 7-bit addresses (0x08–0x77 usable; some ranges reserved).
     Datasheets sometimes list an 8-bit "write address" that already includes
     the R/W bit shifted in — a frequent source of off-by-one-bit confusion
-    when porting code between platforms.
+    when porting code between platforms. A less common
+    <strong>10-bit addressing</strong> mode exists for when 7 bits' worth
+    of address space genuinely isn't enough — it spends part of the first
+    address byte as an escape sequence (<code>1111 0XX</code>) signaling
+    "the real address continues in the next byte," which is why a 10-bit
+    device is invisible to a controller that only knows how to send 7-bit
+    addresses.
   </p>
 
   <h2 id="speed">Speed grades</h2>
@@ -90,6 +98,33 @@
     works because a master monitors SDA while transmitting and backs off if
     it sees a bit it didn't drive — no separate bus-grant mechanism is
     needed.
+  </p>
+
+  <h2 id="mux">Beyond 127 addresses: muxes and expanders</h2>
+  <p>
+    A 7-bit address space, combined with the reality that many sensor
+    families ship with only one or two selectable addresses (often just a
+    single address pin, giving two choices), runs out fast on a board with
+    several identical sensors. Two standard ways around it:
+  </p>
+  <ul>
+    <li><strong>I2C multiplexer</strong> (e.g. the PCA9548) — itself an addressed I2C device that, once configured, connects the controller to one of several independent downstream I2C buses. Each downstream bus can then reuse the same sensor address without collision, since only one is electrically connected at a time.</li>
+    <li><strong>I2C GPIO/IO expander</strong> (e.g. the PCF8575, MCP23017) — doesn't solve address collisions directly, but turns a single I2C address into many extra GPIO pins, which is often the more direct fix when the actual goal was "I need more pins," not "I need more of this exact sensor."</li>
+  </ul>
+
+  <h2 id="smbus">SMBus: I2C's stricter cousin</h2>
+  <p>
+    SMBus (System Management Bus) is a stricter subset/superset of I2C —
+    electrically and at the protocol level close enough that most SMBus
+    devices work on a general I2C bus and vice versa, but SMBus adds
+    things I2C leaves optional: a fixed timeout that forces a stuck bus to
+    reset itself, tighter voltage-level and timing specs, and standardized
+    higher-level commands (like the "read word" / "write word" transaction
+    formats Linux's <code>i2c-dev</code> exposes as
+    <code>i2c_smbus_read_word_data()</code> and friends). In practice, most
+    of what looks like "the I2C API" in Linux userspace tooling is
+    actually the SMBus subset, because it's specific enough to have
+    well-defined helper functions where raw I2C intentionally isn't.
   </p>
 
   <h2 id="gotchas">Gotchas</h2>
