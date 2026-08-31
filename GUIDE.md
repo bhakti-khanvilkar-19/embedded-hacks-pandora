@@ -1,8 +1,8 @@
 # GUIDE — how this repository is organized
 
 Embedded Pandora is a personal, long-term knowledge base for electronics,
-embedded systems, sensors, protocols, Linux, networking, bootloaders, and
-Snap packaging. It is also a static website (deployable to Vercel with
+embedded systems, sensors, protocols, automotive systems, Linux, networking,
+bootloaders, and Snap packaging. It is also a static website (deployable to Vercel with
 zero build infrastructure). This document is the single source of truth
 for how to keep it organized as it grows — read it before adding anything.
 
@@ -40,6 +40,8 @@ the content or picking a vaguer shared folder.
 │   └── <topic>/
 ├── protocols/                 wire-level buses: SPI, I2C, UART, CAN, ...
 │   └── <topic>/
+├── automotive/                 radar/LiDAR/camera sensing, ADAS, UDS, CAPL
+│   └── <topic>/
 ├── networking/                 TCP/IP stack concepts, one layer per topic
 │   └── <topic>/
 ├── linux/                     the OS side: boot, drivers, kernel, processes
@@ -70,6 +72,12 @@ Each topic is a subfolder of exactly one domain, with its own `index.html`.
 - **Protocols** — wire-level communication buses (SPI, I2C, UART, CAN, ...).
   Each protocol is always its own topic, never merged with another just
   because they're "similar" (e.g. SPI and I2C stay separate).
+- **Automotive** — the automotive sensing-and-diagnostics stack
+  specifically: radar/LiDAR/camera sensors, ADAS features and levels of
+  driving automation, and vehicle diagnostic tooling (UDS, CAPL). Kept
+  separate from Sensors (which is sensing in general) because this domain
+  is about the automotive-specific systems built on top of sensing, not
+  the sensing element in isolation.
 - **Networking** — the TCP/IP stack and related concepts. Each layer/protocol
   is its own topic (TCP, IP, and UDP are three topics, not one "sockets"
   page), even though they're often learned together.
@@ -85,7 +93,7 @@ Each topic is a subfolder of exactly one domain, with its own `index.html`.
   datasheets, curated links). If something is really about one topic, it
   belongs in that topic's own page instead, not here.
 
-If you're about to create a new *domain* (rare — the nine above should
+If you're about to create a new *domain* (rare — the ten above should
 cover almost everything for years), copy an existing domain's `index.html`
 as a starting point and add a card for it on the homepage
 (`index.html`) and a link in `assets/partials/header.html`.
