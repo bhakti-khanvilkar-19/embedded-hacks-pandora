@@ -11,6 +11,17 @@
     ]
   },
   {
+    "title": "Levels of Driving Automation — Automotive",
+    "url": "/automotive/autonomy-levels/index.html",
+    "domain": "Automotive",
+    "category": "Autonomy Levels",
+    "description": "SAE J3016's six levels of driving automation, what actually distinguishes them (who's the fallback when the system reaches its limit), and real-world examples at each level.",
+    "tags": [
+      "automotive",
+      "autonomy-levels"
+    ]
+  },
+  {
     "title": "Camera Sensors — Automotive",
     "url": "/automotive/camera-sensors/index.html",
     "domain": "Automotive",

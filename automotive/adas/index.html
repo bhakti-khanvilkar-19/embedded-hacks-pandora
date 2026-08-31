@@ -34,7 +34,7 @@
       <dt>What it is</dt><dd>Driver-assistance features (ACC, AEB, LDW/LKA, blind-spot monitoring, ...) built on fused radar/LiDAR/camera data.</dd>
       <dt>Mental model</dt><dd>A set of co-pilot features sitting on top of the same three sensors — the sensors don't change per feature, the fusion and control logic does.</dd>
       <dt>Key numbers</dt><dd>Most ADAS control loops run at 10&ndash;50 Hz; safety-rating programs (NCAP and similar) increasingly require specific ADAS features as standard equipment.</dd>
-      <dt>Reach for it when</dt><dd>Understanding or building a feature that watches the environment and warns or briefly intervenes — short of actually driving the car itself.</dd>
+      <dt>Reach for it when</dt><dd>Understanding or building a feature that watches the environment and warns or briefly intervenes — short of actually driving the car (that's <a href="/automotive/autonomy-levels/index.html">levels of driving automation</a>).</dd>
     </dl>
   </div>
 
@@ -205,14 +205,14 @@
     <li><strong>Highway driving comfort —</strong> ACC is one of the most-used ADAS features day to day, reducing constant manual speed/gap adjustment on long drives.</li>
     <li><strong>Collision mitigation —</strong> AEB is credited with measurable real-world reductions in rear-end collision rates in independent safety studies.</li>
     <li><strong>Regulatory and safety-rating pressure —</strong> AEB and LDW/LKA are increasingly mandated or required for top safety ratings in many markets, not just offered as premium options.</li>
-    <li><strong>Foundation for higher autonomy —</strong> the same fused perception stack that powers today's ADAS is the direct foundation higher levels of driving automation build on.</li>
+    <li><strong>Foundation for higher autonomy —</strong> the same fused perception stack that powers today's ADAS is the direct foundation the higher <a href="/automotive/autonomy-levels/index.html">levels of driving automation</a> build on.</li>
   </ul>
 
   <h2 id="gotchas">Gotchas</h2>
   <div class="callout callout--warn">
     <span class="callout__label">Field notes</span>
     <ul>
-      <li>ADAS is assistance, not autonomy — the driver remains fully responsible for the vehicle at every ADAS feature level. Conflating "has ADAS" with "can drive itself" is a real, dangerous, and unfortunately common misunderstanding.</li>
+      <li>ADAS is assistance, not autonomy — the driver remains fully responsible for the vehicle at every ADAS feature level. Conflating "has ADAS" with "can drive itself" is a real, dangerous, and unfortunately common misunderstanding — see <a href="/automotive/autonomy-levels/index.html">Levels of driving automation</a> for where the actual line is.</li>
       <li>Automation complacency is a documented human-factors problem: drivers who trust ADAS too much pay less attention, precisely when the system still needs them ready to take over.</li>
       <li>"Phantom braking" — AEB triggering on a false positive (a shadow, an overhead sign, debris) — is a real, ongoing tuning challenge: too sensitive causes unnecessary braking events, too conservative misses real hazards.</li>
       <li>When fused sensors disagree (radar sees an object, camera doesn't, or vice versa), the fusion and arbitration logic's behavior in that disagreement is itself a safety-critical design decision, not an edge case to shrug off.</li>
@@ -226,10 +226,12 @@
 <script type="application/json" id="page-meta">
 {
   "prev": { "href": "/automotive/camera-sensors/index.html", "title": "Camera Sensors" },
+  "next": { "href": "/automotive/autonomy-levels/index.html", "title": "Levels of Driving Automation" },
   "related": [
     { "href": "/automotive/radar/index.html", "title": "Radar" },
     { "href": "/automotive/lidar/index.html", "title": "LiDAR" },
-    { "href": "/automotive/camera-sensors/index.html", "title": "Camera Sensors" }
+    { "href": "/automotive/camera-sensors/index.html", "title": "Camera Sensors" },
+    { "href": "/automotive/autonomy-levels/index.html", "title": "Levels of Driving Automation" }
   ]
 }
 </script>

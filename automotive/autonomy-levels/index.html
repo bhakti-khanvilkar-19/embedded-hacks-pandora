@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Levels of Driving Automation — Automotive — Embedded Pandora</title>
+<meta name="description" content="SAE J3016's six levels of driving automation, what actually distinguishes them (who's the fallback when the system reaches its limit), and real-world examples at each level." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Automotive</p>
+  <h1>Levels of Driving Automation</h1>
+  <p class="lede">
+    SAE J3016 defines six levels (0&ndash;5) of driving automation — not a
+    vague "how advanced is it" scale, but a specific answer to one
+    question at each level: when the system reaches its limit, who is
+    responsible for taking over, and how much warning do they get? Most
+    of <a href="/automotive/adas/index.html">ADAS</a> lives in levels 0&ndash;2;
+    genuine automated driving starts at level 3.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>SAE J3016's six-level framework classifying who performs sustained steering/speed control, who monitors the environment, and who's the fallback when the system reaches its limit.</dd>
+      <dt>Mental model</dt><dd>Not "how good is the ADAS" — a specific legal/functional question: if the system fails or hits its limit, who is expected to take over, and how much notice do they get?</dd>
+      <dt>Key numbers</dt><dd>Levels 0&ndash;2: the human always monitors. Level 3: the system monitors, but the human is still the fallback on request. Levels 4&ndash;5: the system is its own fallback.</dd>
+      <dt>Reach for it when</dt><dd>Distinguishing marketing claims from what a vehicle is actually certified to do — level-2 systems are routinely named in ways that sound like more.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#the-real-question">What actually defines a level</a></li>
+      <li><a href="#levels">The six levels</a></li>
+      <li><a href="#level-2-vs-3">Level 2 vs. Level 3: the line that actually matters</a></li>
+      <li><a href="#applications">Real-world examples</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="the-real-question">What actually defines a level</h2>
+  <p>
+    Each level is defined by three things, not by which features are
+    present: who performs sustained steering and speed control, who
+    monitors the driving environment, and — the question that matters
+    most — who is the <strong>fallback</strong> when the system reaches a
+    situation it can't handle.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 640 160" role="img" aria-labelledby="levels-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="levels-title">Levels 0 through 2 always keep the human as fallback; level 3 shifts monitoring to the system but keeps the human as an on-call fallback; levels 4 and 5 make the system its own fallback</title>
+
+      <rect class="frame-box block-blue" x="25" y="20" width="90" height="80" rx="6" />
+      <text class="frame-label" x="70" y="60" text-anchor="middle" font-weight="700" font-size="22">0</text>
+      <text class="frame-caption" x="70" y="112" text-anchor="middle" font-size="8">No automation</text>
+      <text class="frame-caption" x="70" y="124" text-anchor="middle" font-size="8">fallback: human</text>
+
+      <rect class="frame-box block-blue" x="125" y="20" width="90" height="80" rx="6" />
+      <text class="frame-label" x="170" y="60" text-anchor="middle" font-weight="700" font-size="22">1</text>
+      <text class="frame-caption" x="170" y="112" text-anchor="middle" font-size="8">Driver assist</text>
+      <text class="frame-caption" x="170" y="124" text-anchor="middle" font-size="8">fallback: human</text>
+
+      <rect class="frame-box block-blue" x="225" y="20" width="90" height="80" rx="6" />
+      <text class="frame-label" x="270" y="60" text-anchor="middle" font-weight="700" font-size="22">2</text>
+      <text class="frame-caption" x="270" y="112" text-anchor="middle" font-size="8">Partial automation</text>
+      <text class="frame-caption" x="270" y="124" text-anchor="middle" font-size="8">fallback: human</text>
+
+      <rect class="frame-box block-amber" x="325" y="20" width="90" height="80" rx="6" />
+      <text class="frame-label" x="370" y="60" text-anchor="middle" font-weight="700" font-size="22">3</text>
+      <text class="frame-caption" x="370" y="112" text-anchor="middle" font-size="8">Conditional</text>
+      <text class="frame-caption" x="370" y="124" text-anchor="middle" font-size="8">fallback: system*</text>
+
+      <rect class="frame-box block-green" x="425" y="20" width="90" height="80" rx="6" />
+      <text class="frame-label" x="470" y="60" text-anchor="middle" font-weight="700" font-size="22">4</text>
+      <text class="frame-caption" x="470" y="112" text-anchor="middle" font-size="8">High automation</text>
+      <text class="frame-caption" x="470" y="124" text-anchor="middle" font-size="8">fallback: system</text>
+
+      <rect class="frame-box block-green" x="525" y="20" width="90" height="80" rx="6" />
+      <text class="frame-label" x="570" y="60" text-anchor="middle" font-weight="700" font-size="22">5</text>
+      <text class="frame-caption" x="570" y="112" text-anchor="middle" font-size="8">Full automation</text>
+      <text class="frame-caption" x="570" y="124" text-anchor="middle" font-size="8">fallback: system</text>
+
+      <text class="seq-sub" x="320" y="150" text-anchor="middle">increasing system responsibility &rarr;</text>
+    </svg>
+    <figcaption class="diagram__caption">* At level 3 the system drives and monitors, but the human must still be ready to retake control when asked — the fallback shifts to the system only functionally, not entirely, until level 4.</figcaption>
+  </figure>
+
+  <h2 id="levels">The six levels</h2>
+  <table>
+    <thead><tr><th>Level</th><th>Name</th><th>Steering &amp; speed</th><th>Monitors environment</th><th>Fallback</th></tr></thead>
+    <tbody>
+      <tr><td>0</td><td>No automation</td><td>Human</td><td>Human</td><td>Human</td></tr>
+      <tr><td>1</td><td>Driver assistance</td><td>Human, with help on <em>one</em> axis (steering <em>or</em> speed)</td><td>Human</td><td>Human</td></tr>
+      <tr><td>2</td><td>Partial automation</td><td>System, on <em>both</em> axes at once, under specific conditions</td><td>Human, at all times</td><td>Human</td></tr>
+      <tr><td>3</td><td>Conditional automation</td><td>System, under specific conditions</td><td>System, under those conditions</td><td>Human, when the system requests it</td></tr>
+      <tr><td>4</td><td>High automation</td><td>System, within a defined operational design domain (ODD)</td><td>System</td><td>System — no human needed inside the ODD</td></tr>
+      <tr><td>5</td><td>Full automation</td><td>System, everywhere a human could drive</td><td>System</td><td>System — no ODD restriction, no steering wheel required</td></tr>
+    </tbody>
+  </table>
+  <p>
+    A momentary warning or brief intervention — a lane-departure beep, a
+    single automatic-braking event — does not by itself make a vehicle
+    anything above <strong>Level 0</strong> under SAE's definition.
+    Automation level is about <em>sustained</em> control, not occasional
+    safety interventions.
+  </p>
+
+  <h2 id="level-2-vs-3">Level 2 vs. Level 3: the line that actually matters</h2>
+  <p>
+    Levels 0 through 2 all share one property: the human must watch the
+    road continuously, no matter how capable the system's steering and
+    speed control looks in the moment. Level 3 is the first level where
+    that changes — the system takes over environmental monitoring itself,
+    and the human is allowed to stop paying constant attention until the
+    system explicitly asks for a handback. That single shift is the
+    biggest functional (and legal) line in the entire framework — far
+    bigger than the jump from level 1 to level 2, even though "2 to 3"
+    sounds like a smaller step than it is.
+  </p>
+
+  <h2 id="applications">Real-world examples</h2>
+  <ul class="point-list">
+    <li><strong>Level 0 —</strong> vehicles without ADAS, or with only momentary warnings/interventions (AEB, blind-spot alerts) that don't provide sustained automated control.</li>
+    <li><strong>Level 1 —</strong> standalone adaptive cruise control, or standalone lane-centering, on its own — one axis of control, not both together.</li>
+    <li><strong>Level 2 —</strong> most current "hands-on" or "hands-off, eyes-on" driver-assist suites, including systems marketed with names that sound more capable than SAE Level 2 — the driver remains the fallback at all times, regardless of branding.</li>
+    <li><strong>Level 3 —</strong> Mercedes-Benz Drive Pilot, certified for specific highway, low-speed, traffic-jam conditions in select regions — one of the first production systems actually certified at this level.</li>
+    <li><strong>Level 4 —</strong> robotaxi services (Waymo and similar) operating within a defined, geofenced operational design domain.</li>
+    <li><strong>Level 5 —</strong> not yet commercially deployed anywhere — genuinely go-anywhere, no-human-needed automation remains a target, not a shipping product.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Product names do not reliably indicate SAE level — always check the vehicle's actual certified level and operational design domain, not what a feature is branded as.</li>
+      <li>A Level 4 system operating outside its certified operational design domain is not operating at Level 4 anymore — the ODD boundary is a hard requirement, not a soft suggestion.</li>
+      <li>The level-2-to-level-3 boundary is where "the driver must always watch the road" becomes "the driver may look away until asked back" — treat any system as Level 2 (constant attention required) unless you've specifically confirmed otherwise.</li>
+      <li>Level 5 doesn't exist commercially yet — treat any claim of unconditional, anywhere, no-human-needed automation with real skepticism until independently verified against SAE's actual definition.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/automotive/adas/index.html", "title": "ADAS" },
+  "related": [
+    { "href": "/automotive/adas/index.html", "title": "ADAS" },
+    { "href": "/automotive/radar/index.html", "title": "Radar" },
+    { "href": "/automotive/camera-sensors/index.html", "title": "Camera Sensors" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
