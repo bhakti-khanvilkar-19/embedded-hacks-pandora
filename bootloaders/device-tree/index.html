@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Device Tree — Bootloaders — Embedded Pandora</title>
+<meta name="description" content="DTS source, DTB blobs, and DTBO overlays — how the kernel learns what hardware a board actually has, without hardcoding it." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Bootloaders</p>
+  <h1>Device Tree</h1>
+  <p class="lede">
+    The same Linux kernel binary runs on wildly different ARM/RISC-V boards
+    without being recompiled for each one — the device tree is why. It's a
+    data structure describing a board's hardware (what's on the I2C bus,
+    which pins are GPIO, where the interrupt controller lives) that the
+    kernel reads at boot instead of having that layout hardcoded into it.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The compiled data structure describing a board's hardware, loaded alongside the kernel and parsed at boot instead of being hardcoded.</dd>
+      <dt>Mental model</dt><dd>A device tree is a hardware datasheet the kernel reads, not a program it runs — pure description, zero logic.</dd>
+      <dt>Key numbers</dt><dd><code>.dts</code> source → <code>dtc</code> compiler → <code>.dtb</code> binary blob; an add-on board's extra nodes ship as a separate <code>.dtbo</code> overlay merged in at boot.</dd>
+      <dt>Reach for it when</dt><dd>Bringing up new hardware, wiring in a new sensor board, or a correctly-wired device that Linux still refuses to see.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#what-is">What a device tree actually is</a></li>
+      <li><a href="#dts-dtb">Source, compiler, blob: .dts → .dtb</a></li>
+      <li><a href="#overlays">Overlays: .dtbo</a></li>
+      <li><a href="#boot-flow">Where the DTB fits in the boot sequence</a></li>
+      <li><a href="#inspecting">Inspecting a live system</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="what-is">What a device tree actually is</h2>
+  <p>
+    Before device trees, ARM Linux support meant hardcoding every board's
+    hardware layout directly into kernel C code — a new board revision
+    could mean a new kernel build. A device tree replaces that with a
+    <strong>data-only</strong> description: a tree of <strong>nodes</strong>
+    (representing buses, controllers, and devices), each with
+    <strong>properties</strong> — the most important being
+    <code>compatible</code>, a string the kernel matches against a
+    driver's own <code>of_device_id</code> table to decide which driver
+    binds to which node. This is exactly the "job posting and résumé"
+    match described in <a href="/linux/drivers/index.html">Linux
+    drivers</a> — the device tree posts the jobs, drivers hold the
+    résumés, and the kernel bus code does the matching.
+  </p>
+
+  <h2 id="dts-dtb">Source, compiler, blob: .dts → .dtb</h2>
+  <p>
+    Device trees are written by hand as human-readable
+    <strong><code>.dts</code></strong> (device tree source) files, then
+    compiled by <strong><code>dtc</code></strong> (the device tree
+    compiler) into a compact binary <strong><code>.dtb</code></strong>
+    (device tree blob) that the bootloader actually loads into RAM.
+  </p>
+  <pre><code>/dts-v1/;
+
+/ {
+    compatible = "raspberrypi,4-model-b";
+
+    soc {
+        i2c1: i2c@7e804000 {
+            compatible = "brcm,bcm2835-i2c";
+            reg = &lt;0x7e804000 0x1000&gt;;
+            interrupts = &lt;2 21&gt;;
+            status = "okay";
+
+            imu@68 {
+                compatible = "invensense,mpu6050";
+                reg = &lt;0x68&gt;;
+            };
+        };
+    };
+};</code></pre>
+  <p>
+    Reading this: <code>i2c@7e804000</code> is a node named for its
+    register base address; <code>reg</code> gives the actual
+    address/size the kernel maps; <code>interrupts</code> ties it to a
+    specific interrupt line; the nested <code>imu@68</code> node
+    describes a sensor at I2C address <code>0x68</code> sitting on that
+    bus — the exact device tree entry that has to exist before any code
+    on the <a href="/sensors/motion/index.html">Motion/IMU</a> page can
+    actually talk to that chip.
+  </p>
+  <pre><code># compile a .dts source file into a .dtb blob
+dtc -I dts -O dtb -o board.dtb board.dts</code></pre>
+
+  <h2 id="overlays">Overlays: .dtbo</h2>
+  <p>
+    Recompiling and replacing a board's entire base device tree just to
+    add one sensor is both wasteful and risky. A <strong>device tree
+    overlay</strong> is a small, separate tree — compiled to a
+    <strong><code>.dtbo</code></strong> — that patches specific nodes
+    into (or modifies nodes in) an already-loaded base tree, without
+    touching the rest of it. This is exactly how add-on boards (Raspberry
+    Pi HATs, BeagleBone capes) add their hardware to the tree without the
+    base board's <code>.dtb</code> ever needing to know about every
+    possible add-on in advance.
+  </p>
+  <pre><code>/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "raspberrypi,4-model-b";
+
+    fragment@0 {
+        target = &lt;&amp;i2c1&gt;;
+        __overlay__ {
+            status = "okay";
+
+            imu@68 {
+                compatible = "invensense,mpu6050";
+                reg = &lt;0x68&gt;;
+            };
+        };
+    };
+};
+
+/* compile as an overlay with -@ */
+/* dtc -@ -I dts -O dtb -o imu-overlay.dtbo imu-overlay.dts */</code></pre>
+  <p>
+    <code>target = &lt;&amp;i2c1&gt;</code> points the overlay at the
+    <code>i2c1</code> node already defined in the base tree (by its
+    <em>label</em>, the <code>i2c1:</code> from the base <code>.dts</code>
+    above) — the overlay only makes sense layered on top of a base tree
+    that actually has a node with that label.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 780 230" role="img" aria-labelledby="dtc-flow-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="dtc-flow-title">A base .dts and an overlay .dts are each compiled by dtc into a .dtb and .dtbo, which are then merged into the final device tree the kernel receives</title>
+
+      <rect class="frame-box block-blue" x="20" y="30" width="150" height="50" rx="6" />
+      <text class="frame-label" x="95" y="52" text-anchor="middle" font-weight="700" font-size="10">board.dts</text>
+      <text class="frame-caption" x="95" y="70" text-anchor="middle" font-size="8">base tree, hand-written</text>
+
+      <rect class="frame-box block-teal" x="20" y="110" width="150" height="50" rx="6" />
+      <text class="frame-label" x="95" y="132" text-anchor="middle" font-weight="700" font-size="10">overlay.dts</text>
+      <text class="frame-caption" x="95" y="150" text-anchor="middle" font-size="8">add-on board nodes</text>
+
+      <rect class="frame-box block-amber" x="210" y="70" width="120" height="50" rx="6" />
+      <text class="frame-label" x="270" y="92" text-anchor="middle" font-weight="700" font-size="10">dtc</text>
+      <text class="frame-caption" x="270" y="110" text-anchor="middle" font-size="8">compiler</text>
+
+      <rect class="frame-box block-blue" x="400" y="30" width="140" height="50" rx="6" />
+      <text class="frame-label" x="470" y="52" text-anchor="middle" font-weight="700" font-size="10">board.dtb</text>
+      <text class="frame-caption" x="470" y="70" text-anchor="middle" font-size="8">binary blob</text>
+
+      <rect class="frame-box block-teal" x="400" y="110" width="140" height="50" rx="6" />
+      <text class="frame-label" x="470" y="132" text-anchor="middle" font-weight="700" font-size="10">imu.dtbo</text>
+      <text class="frame-caption" x="470" y="150" text-anchor="middle" font-size="8">binary overlay</text>
+
+      <rect class="frame-box block-violet" x="600" y="70" width="160" height="50" rx="6" />
+      <text class="frame-label" x="680" y="92" text-anchor="middle" font-weight="700" font-size="10">Final device tree</text>
+      <text class="frame-caption" x="680" y="110" text-anchor="middle" font-size="8">merged, in RAM</text>
+
+      <line x1="170" y1="55" x2="206" y2="85" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="210,88 199,84 203,74" />
+      <line x1="170" y1="135" x2="206" y2="105" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="210,102 199,106 203,116" />
+
+      <line x1="330" y1="85" x2="396" y2="55" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="400,52 389,56 393,66" />
+      <line x1="330" y1="105" x2="396" y2="135" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="400,138 389,134 393,124" />
+
+      <line x1="540" y1="55" x2="596" y2="85" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="600,88 589,84 593,74" />
+      <line x1="540" y1="135" x2="596" y2="105" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="600,102 589,106 593,116" />
+
+      <text class="seq-note" x="390" y="195" text-anchor="middle">The overlay is merged into the base tree before the kernel ever sees it —</text>
+      <text class="seq-note" x="390" y="211" text-anchor="middle">it never exists as a standalone tree of its own.</text>
+    </svg>
+    <figcaption class="diagram__caption">The merge can happen in U-Boot (<code>fdt apply</code>) before the kernel boots, or at runtime via the kernel's configfs overlay interface.</figcaption>
+  </figure>
+
+  <h2 id="boot-flow">Where the DTB fits in the boot sequence</h2>
+  <p>
+    The bootloader is responsible for getting a valid device tree blob
+    into memory before it ever jumps to the kernel — the kernel has no
+    way to discover its own hardware without one.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 170" role="img" aria-labelledby="dtb-handoff-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="dtb-handoff-title">U-Boot loads the kernel and device tree blob into RAM, then jumps to the kernel with a pointer to the DTB; the kernel uses it to configure early hardware</title>
+
+      <rect class="frame-box block-blue" x="20" y="50" width="180" height="70" rx="6" />
+      <text class="frame-label" x="110" y="78" text-anchor="middle" font-weight="700" font-size="10">U-Boot</text>
+      <text class="frame-caption" x="110" y="96" text-anchor="middle" font-size="8">loads kernel + DTB into RAM</text>
+
+      <rect class="frame-box block-teal" x="260" y="50" width="180" height="70" rx="6" />
+      <text class="frame-label" x="350" y="78" text-anchor="middle" font-weight="700" font-size="10">Linux kernel</text>
+      <text class="frame-caption" x="350" y="96" text-anchor="middle" font-size="8">receives a pointer to the DTB</text>
+
+      <rect class="frame-box block-amber" x="500" y="50" width="180" height="70" rx="6" />
+      <text class="frame-label" x="590" y="72" text-anchor="middle" font-weight="700" font-size="9">Early hardware init</text>
+      <text class="frame-caption" x="590" y="90" text-anchor="middle" font-size="8">MMU, interrupt controller,</text>
+      <text class="frame-caption" x="590" y="102" text-anchor="middle" font-size="8">console, memory map</text>
+
+      <line x1="200" y1="85" x2="256" y2="85" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="260,85 250,80 250,90" />
+      <line x1="440" y1="85" x2="496" y2="85" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="500,85 490,80 490,90" />
+    </svg>
+    <figcaption class="diagram__caption">This is the same kernel image regardless of board — everything board-specific in that early-init step comes from parsing the DTB, not from board-specific kernel code.</figcaption>
+  </figure>
+
+  <h2 id="inspecting">Inspecting a live system</h2>
+  <p>
+    The kernel exposes the device tree it actually booted with, which is
+    invaluable for confirming an overlay applied or a node looks the way
+    you expect — independent of what the source files on disk say.
+  </p>
+  <pre><code># the live tree the running kernel actually parsed
+ls /sys/firmware/devicetree/base/
+cat /proc/device-tree/compatible
+
+# dump the live tree back into readable .dts form
+dtc -I fs -O dts /sys/firmware/devicetree/base | less
+
+# inspect a .dtb file directly, without a running kernel at all
+fdtdump board.dtb</code></pre>
+  <p>
+    This is the same "what's actually bound" instinct as
+    <a href="/linux/drivers/index.html#finding">Linux drivers</a>'
+    <code>i2cdetect</code>/<code>ls /sys/bus/platform/devices</code>
+    commands — trust what the running kernel reports, not what the
+    source file on disk says it should be.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Add-on boards (HATs, capes) —</strong> a Raspberry Pi HAT ships its own <code>.dtbo</code> so the base Pi image never needs to know about every possible add-on in advance.</li>
+    <li><strong>Vendor BSPs supporting many board revisions —</strong> one kernel image plus a directory of dozens of <code>.dtb</code> files, with U-Boot selecting the right one at boot (often by reading a board-ID EEPROM).</li>
+    <li><strong>Custom sensor bring-up —</strong> wiring a new I2C/SPI sensor onto a carrier board means writing (or extending) a device tree node before any driver or userspace code in this notebook's <a href="/sensors/index.html">Sensors</a> pages can reach it.</li>
+    <li><strong>Runtime hardware reconfiguration —</strong> the kernel's configfs overlay interface lets a running system apply a <code>.dtbo</code> without rebooting — used for FPGA-based boards that change their own peripheral set at runtime.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A <code>compatible</code> string that doesn't exactly match a driver's <code>of_device_id</code> table means the driver silently never binds — no error, the device just never appears.</li>
+      <li><code>status = "disabled"</code> on a node means the kernel deliberately skips it — a node existing in the tree is not the same as it being active.</li>
+      <li>An overlay's <code>target</code> label has to exist in the exact base tree actually loaded — vendor BSPs often ship several base <code>.dtb</code> variants, and an overlay written against the wrong one fails to apply with a vague error, not a helpful one.</li>
+      <li>Editing a <code>.dts</code> source file does nothing until it's recompiled <em>and</em> the resulting <code>.dtb</code> is actually the one the bootloader loads — a stale <code>.dtb</code> left over from a previous build is a common source of "I changed it but nothing happened."</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/bootloaders/boot-process/index.html", "title": "The Complete Boot Process" },
+  "related": [
+    { "href": "/bootloaders/u-boot/index.html", "title": "U-Boot" },
+    { "href": "/bootloaders/boot-process/index.html", "title": "The Complete Boot Process" },
+    { "href": "/linux/drivers/index.html", "title": "Linux drivers" },
+    { "href": "/sensors/motion/index.html", "title": "Motion/IMU" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

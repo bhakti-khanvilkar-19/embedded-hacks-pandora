@@ -98,6 +98,17 @@
     ]
   },
   {
+    "title": "Device Tree — Bootloaders",
+    "url": "/bootloaders/device-tree/index.html",
+    "domain": "Bootloaders",
+    "category": "Device Tree",
+    "description": "DTS source, DTB blobs, and DTBO overlays — how the kernel learns what hardware a board actually has, without hardcoding it.",
+    "tags": [
+      "bootloaders",
+      "device-tree"
+    ]
+  },
+  {
     "title": "Fundamentals — Bootloaders",
     "url": "/bootloaders/fundamentals/index.html",
     "domain": "Bootloaders",
