@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Automotive Cybersecurity (ISO/SAE 21434) — Security — Embedded Pandora</title>
+<meta name="description" content="ISO/SAE 21434: cybersecurity across a vehicle's whole lifecycle, TARA (Threat Analysis and Risk Assessment), the CSMS, risk treatment options, and how it relates to UN R155 and ISO 26262." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Security</p>
+  <h1>Automotive Cybersecurity (ISO/SAE 21434)</h1>
+  <p class="lede">
+    Modern vehicles are networked computers on wheels — dozens of
+    <a href="/automotive/index.html">ECUs</a> talking over
+    <a href="/protocols/can/index.html">CAN</a>, external connectivity
+    over cellular and Bluetooth, and firmware that gets updated in the
+    field. ISO/SAE 21434 is the automotive industry's answer to
+    engineering cybersecurity across that entire system's whole
+    lifecycle — not a checklist applied once at the end, the same
+    philosophy ISO 26262 already applies to functional safety.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>An international standard defining cybersecurity engineering requirements across a road vehicle's entire lifecycle, from concept through decommissioning.</dd>
+      <dt>Mental model</dt><dd>ISO 26262's sibling — the same "process across the whole lifecycle" philosophy, applied to threats instead of random hardware failures.</dd>
+      <dt>Key numbers</dt><dd>TARA (Threat Analysis and Risk Assessment) is the core method; risk comes from combining impact with attack feasibility, not a single severity number.</dd>
+      <dt>Reach for it when</dt><dd>Designing or assessing any vehicle E/E system, or building the cybersecurity case a regulatory type-approval like UN R155 requires.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#why-21434">Why automotive needs its own standard</a></li>
+      <li><a href="#lifecycle">Cybersecurity across the whole vehicle lifecycle</a></li>
+      <li><a href="#tara">TARA: Threat Analysis and Risk Assessment</a></li>
+      <li><a href="#csms">The CSMS: a management system, not a feature</a></li>
+      <li><a href="#risk-treatment">Risk treatment options</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="why-21434">Why automotive needs its own standard</h2>
+  <p>
+    <strong>UN Regulation No. 155 (UN R155)</strong> makes having a
+    working Cybersecurity Management System a legal requirement for
+    vehicle type approval in UNECE markets — <strong>ISO/SAE 21434</strong>
+    is the technical standard manufacturers actually use to demonstrate
+    they meet that regulatory requirement, the same relationship
+    <strong>ISO 26262</strong> has to functional-safety type approval.
+    One is the "must" (regulation), the other is the "how" (technical
+    standard) — 21434 doesn't exist in a vacuum, it exists because
+    regulators decided cybersecurity engineering process should be
+    mandatory, not optional, for vehicles on public roads.
+  </p>
+
+  <h2 id="lifecycle">Cybersecurity across the whole vehicle lifecycle</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 820 180" role="img" aria-labelledby="av-lifecycle-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="av-lifecycle-title">Cybersecurity activities are required at every stage of a vehicle's lifecycle: concept, development, production, operations and maintenance, and decommissioning</title>
+
+      <rect class="frame-box block-blue" x="15" y="60" width="150" height="60" rx="6" />
+      <text class="frame-label" x="90" y="90" text-anchor="middle" font-weight="700" font-size="11">Concept</text>
+      <text class="frame-caption" x="90" y="108" text-anchor="middle" font-size="8">TARA starts here</text>
+
+      <rect class="frame-box block-teal" x="180" y="60" width="150" height="60" rx="6" />
+      <text class="frame-label" x="255" y="90" text-anchor="middle" font-weight="700" font-size="11">Development</text>
+      <text class="frame-caption" x="255" y="108" text-anchor="middle" font-size="8">controls designed in</text>
+
+      <rect class="frame-box block-amber" x="345" y="60" width="150" height="60" rx="6" />
+      <text class="frame-label" x="420" y="90" text-anchor="middle" font-weight="700" font-size="11">Production</text>
+      <text class="frame-caption" x="420" y="108" text-anchor="middle" font-size="8">secure manufacturing</text>
+
+      <rect class="frame-box block-violet" x="510" y="60" width="170" height="60" rx="6" />
+      <text class="frame-label" x="595" y="90" text-anchor="middle" font-weight="700" font-size="10">Operations &amp; maintenance</text>
+      <text class="frame-caption" x="595" y="108" text-anchor="middle" font-size="8">monitoring, OTA response</text>
+
+      <rect class="frame-box block-green" x="700" y="60" width="105" height="60" rx="6" />
+      <text class="frame-label" x="752" y="90" text-anchor="middle" font-weight="700" font-size="10">Decommission</text>
+      <text class="frame-caption" x="752" y="108" text-anchor="middle" font-size="8">secure end-of-life</text>
+
+      <line x1="165" y1="90" x2="176" y2="90" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="180,90 170,85 170,95" />
+      <line x1="330" y1="90" x2="341" y2="90" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="345,90 335,85 335,95" />
+      <line x1="495" y1="90" x2="506" y2="90" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="510,90 500,85 500,95" />
+      <line x1="680" y1="90" x2="696" y2="90" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="700,90 690,85 690,95" />
+
+      <text class="seq-sub" x="410" y="150" text-anchor="middle">The vehicle stays "in scope" for cybersecurity monitoring for its entire time on the road, not just up to launch.</text>
+    </svg>
+    <figcaption class="diagram__caption">A vehicle already in customers' hands can still be the subject of newly discovered threats — operations &amp; maintenance is a required, ongoing stage, not an afterthought.</figcaption>
+  </figure>
+
+  <h2 id="tara">TARA: Threat Analysis and Risk Assessment</h2>
+  <p>
+    TARA is the core technical method 21434 requires — a systematic way
+    of figuring out what actually needs protecting and how much risk each
+    threat really represents, rather than reacting to whatever sounds
+    scariest:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 820 200" role="img" aria-labelledby="tara-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="tara-title">TARA identifies an asset, identifies threat scenarios against it, rates impact and attack feasibility, combines those into a risk value, and selects a risk treatment</title>
+
+      <rect class="frame-box block-blue" x="10" y="70" width="125" height="60" rx="6" />
+      <text class="frame-label" x="72" y="94" text-anchor="middle" font-weight="700" font-size="9">Asset ID</text>
+      <text class="frame-caption" x="72" y="112" text-anchor="middle" font-size="8">what needs protecting</text>
+
+      <rect class="frame-box block-teal" x="145" y="70" width="125" height="60" rx="6" />
+      <text class="frame-label" x="207" y="94" text-anchor="middle" font-weight="700" font-size="9">Threat scenario</text>
+      <text class="frame-caption" x="207" y="112" text-anchor="middle" font-size="8">how it could be attacked</text>
+
+      <rect class="frame-box block-amber" x="280" y="70" width="125" height="60" rx="6" />
+      <text class="frame-label" x="342" y="94" text-anchor="middle" font-weight="700" font-size="9">Impact rating</text>
+      <text class="frame-caption" x="342" y="112" text-anchor="middle" font-size="8">safety, financial, privacy</text>
+
+      <rect class="frame-box block-violet" x="415" y="70" width="135" height="60" rx="6" />
+      <text class="frame-label" x="482" y="94" text-anchor="middle" font-weight="700" font-size="9">Feasibility rating</text>
+      <text class="frame-caption" x="482" y="112" text-anchor="middle" font-size="8">how hard, in practice</text>
+
+      <rect class="frame-box block-green" x="560" y="70" width="115" height="60" rx="6" />
+      <text class="frame-label" x="617" y="94" text-anchor="middle" font-weight="700" font-size="9">Risk value</text>
+      <text class="frame-caption" x="617" y="112" text-anchor="middle" font-size="8">impact &times; feasibility</text>
+
+      <rect class="frame-box block-blue" x="685" y="70" width="125" height="60" rx="6" />
+      <text class="frame-label" x="747" y="94" text-anchor="middle" font-weight="700" font-size="9">Risk treatment</text>
+      <text class="frame-caption" x="747" y="112" text-anchor="middle" font-size="8">accept/reduce/avoid/transfer</text>
+
+      <line x1="135" y1="100" x2="141" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="145,100 135,95 135,105" />
+      <line x1="270" y1="100" x2="276" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="280,100 270,95 270,105" />
+      <line x1="405" y1="100" x2="411" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="415,100 405,95 405,105" />
+      <line x1="550" y1="100" x2="556" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="560,100 550,95 550,105" />
+      <line x1="675" y1="100" x2="681" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="685,100 675,95 675,105" />
+
+      <text class="seq-sub" x="410" y="165" text-anchor="middle">Attack feasibility (elapsed time, expertise, equipment, window of opportunity) plays the same role CVSS's Attack Complexity plays for CVEs.</text>
+    </svg>
+    <figcaption class="diagram__caption">A high-impact threat that's practically infeasible to pull off and a low-impact threat that's trivial to execute can land at similar risk levels — the combination is what matters, not either factor alone.</figcaption>
+  </figure>
+  <p>
+    Example asset: the firmware signing key used to authenticate an OTA
+    update (see <a href="/bootloaders/fundamentals/index.html#secure-boot">secure
+    boot</a>). Example threat scenario: extracting that key via an
+    exposed debug interface. High impact (a stolen key can sign malicious
+    firmware for an entire fleet) combined with a feasibility rating that
+    depends heavily on whether the debug interface is actually reachable
+    and protected — exactly the kind of concrete question TARA forces a
+    team to answer explicitly rather than assume.
+  </p>
+
+  <h2 id="csms">The CSMS: a management system, not a feature</h2>
+  <p>
+    A <strong>Cybersecurity Management System (CSMS)</strong> is an
+    organizational requirement, not a technical feature on any one
+    vehicle — it's the manufacturer's overall, ongoing process for
+    managing cybersecurity risk across its entire portfolio and supply
+    chain, continuously, not just at a single product's launch. UN R155
+    requires a certified CSMS as a precondition for type approval —
+    without it, individual well-secured vehicles don't satisfy the
+    regulation on their own.
+  </p>
+
+  <h2 id="risk-treatment">Risk treatment options</h2>
+  <dl class="kv">
+    <dt>Accept</dt><dd>The assessed risk is low enough to proceed without further action — a deliberate decision, not the absence of one.</dd>
+    <dt>Reduce</dt><dd>Add a countermeasure that lowers impact or feasibility — message authentication on a safety-critical CAN signal, for example.</dd>
+    <dt>Avoid</dt><dd>Remove the feature or capability that introduces the risk entirely, when no acceptable mitigation exists.</dd>
+    <dt>Transfer</dt><dd>Shift the risk contractually or through insurance — conceptually complete, though rare as the primary answer for an engineering-level threat.</dd>
+  </dl>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>UN R155 type approval —</strong> vehicles sold into UNECE markets need a demonstrated, certified CSMS, not just good engineering on paper.</li>
+    <li><strong>Supplier flow-down requirements —</strong> OEMs increasingly require Tier 1/2 suppliers to run 21434-aligned processes for the components and software they provide, not just meet a spec sheet.</li>
+    <li><strong>Post-production monitoring —</strong> 21434 explicitly requires monitoring fielded vehicles for newly discovered threats and vulnerabilities, directly connecting to <a href="/security/cve/index.html">CVE tracking</a> and <a href="/security/dependency-analysis/index.html">dependency analysis</a> for every third-party component in the vehicle's software.</li>
+    <li><strong>Incident response —</strong> a defined process for responding when a real vulnerability or attack is found in a fielded vehicle, rather than improvising under pressure.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>21434 is a <strong>process</strong> standard, not a checklist of specific technical controls — passing an assessment means demonstrating a working process, not shipping a fixed list of security features.</li>
+      <li>Cybersecurity and functional safety (ISO 26262, the standard behind safety-critical systems like <a href="/automotive/adas/index.html">ADAS</a>) can conflict in subtle ways — a security control that fails locked or closed can itself become a safety hazard, so the two disciplines need active coordination, not separate silos.</li>
+      <li>Retrofitting 21434 process onto an already-designed vehicle program is far harder and more expensive than building TARA into the concept phase from day one — the same "shift left" lesson as <a href="/security/secure-coding/index.html#gotchas">secure coding's</a> "we'll add security later."</li>
+      <li>A TARA done once at launch and never revisited misses genuinely new threats discovered after the vehicle ships — this is a lifecycle-long requirement, not a one-time gate.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/security/dependency-analysis/index.html", "title": "Dependency Analysis" },
+  "related": [
+    { "href": "/security/secure-coding/index.html", "title": "Secure Coding Principles" },
+    { "href": "/security/cve/index.html", "title": "CVEs and Vulnerability Scoring" },
+    { "href": "/automotive/uds/index.html", "title": "UDS Diagnostics" },
+    { "href": "/automotive/index.html", "title": "Automotive" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
