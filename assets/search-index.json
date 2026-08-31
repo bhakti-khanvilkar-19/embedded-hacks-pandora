@@ -292,6 +292,17 @@
     ]
   },
   {
+    "title": "Paging &amp; Context Switching — Linux",
+    "url": "/linux/paging-context-switching/index.html",
+    "domain": "Linux",
+    "category": "Paging Context Switching",
+    "description": "Virtual memory, page tables, the TLB, page faults, and what actually happens — and what it costs — when Linux switches from one process or thread to another.",
+    "tags": [
+      "linux",
+      "paging-context-switching"
+    ]
+  },
+  {
     "title": "AMQP — Networking",
     "url": "/networking/amqp/index.html",
     "domain": "Networking",
