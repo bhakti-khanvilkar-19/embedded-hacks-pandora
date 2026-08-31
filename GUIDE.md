@@ -50,6 +50,8 @@ the content or picking a vaguer shared folder.
 │   └── <topic>/
 ├── snap/                       Snap packaging, confinement, Ubuntu Core
 │   └── <topic>/
+├── security/                   cross-cutting security: secure coding, CVEs, SCA
+│   └── <topic>/
 └── references/                 material that spans multiple topics
     └── <topic>/
 ```
@@ -89,11 +91,16 @@ Each topic is a subfolder of exactly one domain, with its own `index.html`.
 - **Snap** — Ubuntu's Snap packaging format and Ubuntu Core. Kept separate
   from Linux because it's a packaging/distribution concern, not an
   OS-internals one.
+- **Security** — cross-cutting security concepts that apply regardless of
+  domain: secure coding principles, CVEs and vulnerability scoring,
+  dependency analysis/SBOMs, and automotive-specific cybersecurity
+  standards. Kept as its own domain rather than folded into wherever it's
+  first relevant, since the same concepts apply everywhere.
 - **References** — material that genuinely spans multiple topics (books,
   datasheets, curated links). If something is really about one topic, it
   belongs in that topic's own page instead, not here.
 
-If you're about to create a new *domain* (rare — the ten above should
+If you're about to create a new *domain* (rare — the eleven above should
 cover almost everything for years), copy an existing domain's `index.html`
 as a starting point and add a card for it on the homepage
 (`index.html`) and a link in `assets/partials/header.html`.

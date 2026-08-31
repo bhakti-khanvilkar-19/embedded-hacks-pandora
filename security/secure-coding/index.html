@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Secure Coding Principles — Security — Embedded Pandora</title>
+<meta name="description" content="Language-agnostic secure coding principles that apply to any codebase: least privilege, input validation, memory safety in C, secure defaults, failing securely, defense in depth, and secrets management." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Security</p>
+  <h1>Secure Coding Principles</h1>
+  <p class="lede">
+    Security isn't a feature bolted on at the end — it's a set of habits
+    applied while writing any code, in any language, for any domain. A
+    security bug is really just a specific kind of correctness bug: a
+    program that trusted input it shouldn't have, or granted more access
+    than a task needed, was always going to fail exactly where someone
+    looking for a way in would check first.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Language-agnostic habits and design principles that prevent entire classes of vulnerability, rather than reacting to specific bugs after they're found.</dd>
+      <dt>Mental model</dt><dd>Every boundary where data or control crosses from something you don't fully trust into something you do is a place a bug becomes a vulnerability.</dd>
+      <dt>Key numbers</dt><dd>The OWASP Top 10 (web) and MITRE's CWE Top 25 "Most Dangerous Software Weaknesses" both list largely the same root causes year after year — this isn't a fast-moving target.</dd>
+      <dt>Reach for it when</dt><dd>Writing anything that processes untrusted input, handles credentials, or runs with any elevated privilege — in practice, nearly all code.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#least-privilege">Principle of least privilege</a></li>
+      <li><a href="#input-validation">Input validation: never trust external data</a></li>
+      <li><a href="#memory-safety">Memory safety in C</a></li>
+      <li><a href="#secure-defaults">Secure defaults</a></li>
+      <li><a href="#fail-securely">Failing securely</a></li>
+      <li><a href="#defense-in-depth">Defense in depth</a></li>
+      <li><a href="#secrets">Secrets management</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="least-privilege">Principle of least privilege</h2>
+  <p>
+    Give every component, process, and user exactly the access it needs
+    to do its job — no more. A logging routine doesn't need database
+    write access; a sensor-reading task doesn't need network access; a
+    diagnostic service shouldn't unlock reflashing without a separate
+    <a href="/automotive/uds/index.html#security-access">security access
+    handshake</a>. The point isn't distrust of any one component — it's
+    limiting the blast radius when (not if) something eventually goes
+    wrong: a compromised component with minimal privilege can only do
+    minimal damage.
+  </p>
+
+  <h2 id="input-validation">Input validation: never trust external data</h2>
+  <p>
+    Anything crossing a trust boundary — a network packet, a file, a
+    UART byte stream, a command-line argument, even a sensor reading
+    that hasn't been range-checked — is untrusted until validated.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 260" role="img" aria-labelledby="trust-boundary-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="trust-boundary-title">Untrusted input from the network, files, users, and sensors all pass through a validation gate before reaching trusted internal logic</title>
+
+      <rect class="frame-box block-amber" x="20" y="20" width="130" height="50" rx="6" />
+      <text class="frame-label" x="85" y="50" text-anchor="middle" font-size="11">Network</text>
+      <rect class="frame-box block-amber" x="20" y="90" width="130" height="50" rx="6" />
+      <text class="frame-label" x="85" y="120" text-anchor="middle" font-size="11">Files</text>
+      <rect class="frame-box block-amber" x="20" y="160" width="130" height="50" rx="6" />
+      <text class="frame-label" x="85" y="190" text-anchor="middle" font-size="11">User input</text>
+      <rect class="frame-box block-amber" x="20" y="230" width="130" height="50" rx="6" />
+      <text class="frame-label" x="85" y="260" text-anchor="middle" font-size="10">Sensors/peripherals</text>
+      <text class="seq-note" x="85" y="12" text-anchor="middle">untrusted</text>
+
+      <line x1="150" y1="45" x2="266" y2="130" class="seq-arrow flow-path" stroke-width="2" />
+      <line x1="150" y1="115" x2="266" y2="140" class="seq-arrow flow-path" stroke-width="2" />
+      <line x1="150" y1="185" x2="266" y2="150" class="seq-arrow flow-path" stroke-width="2" />
+      <line x1="150" y1="255" x2="266" y2="160" class="seq-arrow flow-path" stroke-width="2" />
+
+      <rect class="frame-box block-violet" x="270" y="105" width="160" height="80" rx="6" />
+      <text class="frame-label" x="350" y="140" text-anchor="middle" font-weight="700" font-size="11">Validation gate</text>
+      <text class="frame-caption" x="350" y="158" text-anchor="middle" font-size="8">allow-list, bounds, type checks</text>
+      <text class="frame-caption" x="350" y="172" text-anchor="middle" font-size="8">reject anything else</text>
+
+      <line x1="430" y1="145" x2="546" y2="145" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="550,145 540,140 540,150" />
+
+      <rect class="frame-box block-green" x="550" y="105" width="130" height="80" rx="6" />
+      <text class="frame-label" x="615" y="140" text-anchor="middle" font-weight="700" font-size="11">Trusted logic</text>
+      <text class="frame-caption" x="615" y="158" text-anchor="middle" font-size="8">only ever sees data</text>
+      <text class="frame-caption" x="615" y="172" text-anchor="middle" font-size="8">that already passed</text>
+    </svg>
+    <figcaption class="diagram__caption">Everything on the left is a place an attacker gets to choose the bytes — the gate is the one place that choice gets checked before it can influence anything trusted.</figcaption>
+  </figure>
+  <p>
+    Validate against an explicit <strong>allow-list</strong> of what's
+    acceptable, not a deny-list of known-bad patterns — a deny-list is
+    always incomplete by construction (it can only reject patterns
+    someone already thought of), while an allow-list fails closed by
+    default against everything else.
+  </p>
+
+  <h2 id="memory-safety">Memory safety in C</h2>
+  <p>
+    C gives no automatic bounds checking at all, which is exactly why
+    memory-safety bugs (CWE-787, "out-of-bounds write," has topped
+    MITRE's CWE Top 25 for years) dominate real-world vulnerability
+    reports in embedded and systems code specifically:
+  </p>
+  <pre><code>// Vulnerable: strcpy has no idea how big `dest` is.
+// A long enough `src` overwrites memory past the buffer's end --
+// including, on the stack, the function's own return address.
+char dest[16];
+strcpy(dest, src);
+
+// Fixed: the copy can never write past the buffer it's given,
+// and the result is guaranteed null-terminated.
+char dest[16];
+snprintf(dest, sizeof(dest), "%s", src);</code></pre>
+  <p>
+    The same underlying problem shows up in several shapes: a classic
+    stack buffer overflow (above), an off-by-one loop bound that writes
+    one element past an array, an integer overflow that makes a
+    size-check pass when it shouldn't (allocating <code>len + 1</code>
+    bytes where <code>len</code> is attacker-controlled and near
+    <code>UINT_MAX</code> wraps to a tiny number), and use-after-free
+    (reading or writing through a pointer after its memory has already
+    been released). All of them come from the same root cause: trusting
+    a size or a lifetime that the code never actually verified.
+  </p>
+
+  <h2 id="secure-defaults">Secure defaults</h2>
+  <p>
+    A system should be secure out of the box, without anyone having to
+    configure anything extra — default-deny network rules, debug
+    interfaces disabled unless explicitly re-enabled, no blank or
+    hardcoded default password shipped in production firmware.
+    "Secure by default" beats "secure if configured correctly," because
+    most real deployments never revisit the default configuration at
+    all.
+  </p>
+
+  <h2 id="fail-securely">Failing securely</h2>
+  <p>
+    When something goes wrong — an exception, malformed input, a
+    resource running out — the failure path itself must not grant more
+    access or leak more information than the success path would. A
+    login system that returns a different error for "wrong password"
+    versus "unknown username" is failing insecurely: it leaks exactly
+    which accounts exist to anyone willing to try logging in repeatedly.
+  </p>
+
+  <h2 id="defense-in-depth">Defense in depth</h2>
+  <p>
+    No single control is assumed sufficient on its own — independent
+    layers each catch what the others miss:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 360 320" role="img" aria-labelledby="defense-layers-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="defense-layers-title">Five independent layers of defense stacked from the network perimeter down to monitoring and logging, each catching what the others miss</title>
+
+      <rect class="frame-box block-blue" x="60" y="20" width="240" height="52" />
+      <text class="frame-label" x="180" y="52" text-anchor="middle" font-weight="700" font-size="11">Network perimeter</text>
+
+      <rect class="frame-box block-teal" x="60" y="72" width="240" height="52" />
+      <text class="frame-label" x="180" y="104" text-anchor="middle" font-weight="700" font-size="11">Input validation</text>
+
+      <rect class="frame-box block-amber" x="60" y="124" width="240" height="52" />
+      <text class="frame-label" x="180" y="156" text-anchor="middle" font-weight="700" font-size="11">Least privilege</text>
+
+      <rect class="frame-box block-violet" x="60" y="176" width="240" height="52" />
+      <text class="frame-label" x="180" y="208" text-anchor="middle" font-weight="700" font-size="11">Encryption</text>
+
+      <rect class="frame-box block-green" x="60" y="228" width="240" height="52" />
+      <text class="frame-label" x="180" y="260" text-anchor="middle" font-weight="700" font-size="11">Monitoring &amp; logging</text>
+
+      <text class="seq-sub" x="180" y="298" text-anchor="middle">A gap in any one layer is still caught by the layers around it.</text>
+    </svg>
+    <figcaption class="diagram__caption">Input validation and parameterized queries and a least-privilege database account together stop SQL injection far more robustly than any one of the three alone.</figcaption>
+  </figure>
+
+  <h2 id="secrets">Secrets management</h2>
+  <p>
+    Never hardcode credentials, API keys, or private keys directly in
+    source code — they end up in version control history permanently,
+    even after being "removed" in a later commit. Use environment
+    variables, a dedicated secrets manager, or — for embedded
+    devices — hardware-backed secure storage tied to the
+    <a href="/bootloaders/fundamentals/index.html#secure-boot">chain of
+    trust</a> established at boot.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Firmware update signing —</strong> verifying a signature before flashing new firmware is input validation and least privilege applied to the update mechanism itself.</li>
+    <li><strong>Automotive ECU security —</strong> UDS's <a href="/automotive/uds/index.html#security-access">security access</a> seed-key handshake is least privilege enforced at the protocol level.</li>
+    <li><strong>IoT credential provisioning —</strong> unique per-device certificates (see <a href="/networking/iot-architecture/index.html">IoT Architecture</a>) instead of one shared secret across an entire fleet limit the blast radius of any single device's compromise.</li>
+    <li><strong>Web API authentication —</strong> proper session/token handling and consistent, non-leaking error responses are failing-securely applied to a login flow.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>"We'll add security later" almost never works out — retrofitting it after the architecture is already set is dramatically more expensive and less effective than designing it in from the start.</li>
+      <li>Rolling your own cryptography is a near-universal mistake, even for skilled engineers — use well-vetted, widely-reviewed libraries and standard algorithms, never a custom scheme.</li>
+      <li>Client-side validation is a UX nicety, never a security boundary — a client can always be bypassed, so the same checks must also happen wherever the trust boundary actually is.</li>
+      <li>Logging sensitive data (passwords, tokens, full credential values) is a common, accidental way secrets leak — logs are read by more people and stored for longer than most engineers expect.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/automotive/uds/index.html", "title": "UDS Diagnostics" },
+    { "href": "/networking/https/index.html", "title": "HTTPS & TLS" },
+    { "href": "/bootloaders/fundamentals/index.html", "title": "Bootloader fundamentals" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

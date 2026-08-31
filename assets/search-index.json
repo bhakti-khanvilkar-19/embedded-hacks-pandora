@@ -509,6 +509,27 @@
     ]
   },
   {
+    "title": "Security",
+    "url": "/security/index.html",
+    "domain": "Security",
+    "category": "Overview",
+    "description": "Cross-cutting security concepts: secure coding principles, CVEs and vulnerability scoring, dependency analysis and SBOMs, and automotive cybersecurity (ISO/SAE 21434).",
+    "tags": [
+      "security"
+    ]
+  },
+  {
+    "title": "Secure Coding Principles — Security",
+    "url": "/security/secure-coding/index.html",
+    "domain": "Security",
+    "category": "Secure Coding",
+    "description": "Language-agnostic secure coding principles that apply to any codebase: least privilege, input validation, memory safety in C, secure defaults, failing securely, defense in depth, and secrets management.",
+    "tags": [
+      "security",
+      "secure-coding"
+    ]
+  },
+  {
     "title": "Accelerometer — Sensors",
     "url": "/sensors/accelerometer/index.html",
     "domain": "Sensors",
