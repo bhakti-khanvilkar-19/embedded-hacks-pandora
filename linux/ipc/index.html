@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Inter-Process &amp; Inter-Thread Communication — Linux — Embedded Pandora</title>
+<meta name="description" content="Pipes, POSIX message queues, shared memory, semaphores, and mutexes — how Linux processes and threads actually exchange data and coordinate, with real C code." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Linux</p>
+  <h1>Inter-Process &amp; Inter-Thread Communication</h1>
+  <p class="lede">
+    The instant work is split across multiple processes or threads, they
+    need a way to actually talk to each other — share data, signal that
+    something happened, or protect a resource both are touching. Linux
+    provides several mechanisms, each shaped for a different kind of
+    problem: pipes, POSIX message queues, shared memory, semaphores, and
+    mutexes.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The mechanisms Linux/POSIX provide for separate processes or threads to exchange data and coordinate access to shared state.</dd>
+      <dt>Mental model</dt><dd>A pipe is a hose; a message queue is a mailbox for discrete letters; shared memory is a whiteboard both sides can see directly; a semaphore/mutex is the talking stick that says whose turn it is.</dd>
+      <dt>Key numbers</dt><dd>Shared memory is the fastest option — no kernel copy for the actual data — but buys none of its own synchronization; pipes and message queues are safer by default at a real throughput cost.</dd>
+      <dt>Reach for it when</dt><dd>Splitting work across processes or threads that then need to exchange data or coordinate access to something they both touch.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#processes-vs-threads">Processes vs. threads: what's actually shared</a></li>
+      <li><a href="#pipes">Pipes and named pipes (FIFOs)</a></li>
+      <li><a href="#message-queues">POSIX message queues</a></li>
+      <li><a href="#shared-memory">Shared memory</a></li>
+      <li><a href="#sync">Semaphores and mutexes</a></li>
+      <li><a href="#choosing">Choosing between them</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="processes-vs-threads">Processes vs. threads: what's actually shared</h2>
+  <p>
+    This distinction decides which tool actually applies. A
+    <strong>process</strong> has its own private address space by
+    default — one process literally cannot read another's memory without
+    an explicit IPC mechanism set up for exactly that purpose.
+    <strong>Threads</strong> within one process already share the same
+    address space — any global variable or heap allocation is directly
+    visible to every thread in that process, with no setup required at
+    all. That's why the "communication" problem is different for each:
+    processes need an explicit channel just to exchange any data, while
+    threads already share data automatically and instead need help
+    coordinating <em>safe</em> access to it.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 760 260" role="img" aria-labelledby="proc-thread-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="proc-thread-title">Two processes have entirely separate memory and need an explicit IPC channel to exchange anything; three threads inside one process already share the same memory automatically</title>
+
+      <text class="seq-note" x="190" y="18" text-anchor="middle">Processes — separate address spaces</text>
+      <rect class="frame-box block-blue" x="20" y="30" width="140" height="90" rx="6" />
+      <text class="frame-label" x="90" y="52" text-anchor="middle" font-weight="700" font-size="10">Process A</text>
+      <rect class="frame-box block-blue" x="35" y="70" width="110" height="35" />
+      <text class="frame-caption" x="90" y="92" text-anchor="middle" font-size="8">private memory</text>
+
+      <rect class="frame-box block-blue" x="220" y="30" width="140" height="90" rx="6" />
+      <text class="frame-label" x="290" y="52" text-anchor="middle" font-weight="700" font-size="10">Process B</text>
+      <rect class="frame-box block-blue" x="235" y="70" width="110" height="35" />
+      <text class="frame-caption" x="290" y="92" text-anchor="middle" font-size="8">private memory</text>
+
+      <line x1="160" y1="87" x2="216" y2="87" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="220,87 210,82 210,92" />
+      <line x1="216" y1="100" x2="160" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="160,100 170,95 170,105" />
+      <text class="seq-sub" x="190" y="145" text-anchor="middle">explicit IPC channel</text>
+      <text class="seq-sub" x="190" y="159" text-anchor="middle">(pipe, queue, shared segment)</text>
+
+      <text class="seq-note" x="570" y="18" text-anchor="middle">Threads — shared address space</text>
+      <rect x="400" y="30" width="340" height="200" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" stroke-dasharray="5 4" rx="8" />
+      <text class="frame-caption" x="570" y="46" text-anchor="middle">one process</text>
+
+      <ellipse class="frame-box block-teal" cx="460" cy="90" rx="40" ry="24" />
+      <text class="frame-label" x="460" y="94" text-anchor="middle" font-size="9">Thread 1</text>
+      <ellipse class="frame-box block-teal" cx="570" cy="90" rx="40" ry="24" />
+      <text class="frame-label" x="570" y="94" text-anchor="middle" font-size="9">Thread 2</text>
+      <ellipse class="frame-box block-teal" cx="680" cy="90" rx="40" ry="24" />
+      <text class="frame-label" x="680" y="94" text-anchor="middle" font-size="9">Thread 3</text>
+
+      <rect class="frame-box block-amber" x="460" y="160" width="220" height="55" rx="6" />
+      <text class="frame-label" x="570" y="184" text-anchor="middle" font-weight="700" font-size="10">shared memory</text>
+      <text class="frame-caption" x="570" y="200" text-anchor="middle" font-size="8">heap and globals — automatic, no setup</text>
+
+      <line x1="460" y1="114" x2="510" y2="158" class="seq-arrow" stroke-width="1.5" />
+      <line x1="570" y1="114" x2="570" y2="158" class="seq-arrow" stroke-width="1.5" />
+      <line x1="680" y1="114" x2="630" y2="158" class="seq-arrow" stroke-width="1.5" />
+    </svg>
+    <figcaption class="diagram__caption">Everything below "processes" needs a mechanism just to exchange data at all; everything below "threads" already has that — the remaining problem is purely coordination.</figcaption>
+  </figure>
+
+  <h2 id="pipes">Pipes and named pipes (FIFOs)</h2>
+  <p>
+    An anonymous <strong>pipe</strong> (the <code>pipe()</code> syscall)
+    is a unidirectional byte stream, typically shared between a parent
+    process and a child it just <code>fork()</code>ed — exactly what a
+    shell's <code>|</code> operator sets up between two commands. A
+    <strong>named pipe</strong> (FIFO, created with <code>mkfifo()</code>)
+    is the same idea with a filesystem path, so unrelated processes that
+    never shared a common ancestor can still open and use it.
+  </p>
+  <pre><code>int fds[2];
+pipe(fds);                    // fds[0] = read end, fds[1] = write end
+
+pid_t pid = fork();
+if (pid == 0) {
+    close(fds[1]);             // child only reads
+    char buf[64];
+    read(fds[0], buf, sizeof(buf));
+} else {
+    close(fds[0]);             // parent only writes
+    write(fds[1], "hello", 5);
+}</code></pre>
+
+  <h2 id="message-queues">POSIX message queues</h2>
+  <p>
+    A message queue moves discrete, labeled messages instead of a raw
+    byte stream — each <code>mq_send()</code> preserves its own boundary
+    and can carry a priority, and (unlike a pipe) the queue itself
+    persists as a kernel object even while no process currently has it
+    open.
+  </p>
+  <pre><code>mqd_t mq = mq_open("/sensor_readings", O_CREAT | O_WRONLY, 0644, NULL);
+mq_send(mq, (const char *)&reading, sizeof(reading), /*priority=*/0);
+mq_close(mq);
+
+// ... in the reading process ...
+mqd_t mq = mq_open("/sensor_readings", O_RDONLY);
+struct sensor_reading reading;
+mq_receive(mq, (char *)&reading, sizeof(reading), NULL);</code></pre>
+
+  <h2 id="shared-memory">Shared memory</h2>
+  <p>
+    Shared memory maps the same physical memory into two or more
+    processes' address spaces — once set up, reading or writing it costs
+    nothing extra beyond a normal memory access, with no data actually
+    copied through the kernel the way a pipe or message queue requires.
+    That speed is also exactly why it needs a separate synchronization
+    mechanism: shared memory alone guarantees nothing about who's
+    allowed to touch it when.
+  </p>
+  <pre><code>int fd = shm_open("/frame_buffer", O_CREAT | O_RDWR, 0644);
+ftruncate(fd, BUFFER_SIZE);
+void *addr = mmap(NULL, BUFFER_SIZE, PROT_READ | PROT_WRITE,
+                   MAP_SHARED, fd, 0);
+// `addr` now points at memory every process that mapped
+// this same shared object can read and write directly.</code></pre>
+
+  <h2 id="sync">Semaphores and mutexes</h2>
+  <p>
+    A <strong>semaphore</strong> is a counter: <code>sem_wait()</code>
+    blocks until the count is above zero then decrements it,
+    <code>sem_post()</code> increments it — usable between either
+    processes or threads, and general enough to signal an event, not
+    just protect a resource. A <strong>mutex</strong>
+    (<code>pthread_mutex_t</code>) is more specific: it protects exactly
+    one resource, has a notion of ownership, and is primarily a
+    <em>thread</em> tool (though a <code>pthread_mutex_t</code> placed in
+    shared memory with the <code>PTHREAD_PROCESS_SHARED</code> attribute
+    can protect a cross-process shared-memory region too).
+  </p>
+  <pre><code>pthread_mutex_lock(&shared_data_mutex);
+shared_data.value = new_value;      // safe: only one thread here at a time
+pthread_mutex_unlock(&shared_data_mutex);</code></pre>
+  <p>
+    This is precisely the same shared-state hazard covered in
+    <a href="/embedded/interrupts/index.html">Interrupts</a> and
+    <a href="/embedded/rtos/index.html#primitives">RTOS</a> — a mutex on
+    Linux and a mutex inside an RTOS solve the exact same problem, just
+    at a different layer of the stack.
+  </p>
+
+  <h2 id="choosing">Choosing between them</h2>
+  <table>
+    <thead><tr><th>Mechanism</th><th>Data model</th><th>Built-in sync?</th><th>Scope</th></tr></thead>
+    <tbody>
+      <tr><td>Pipe / FIFO</td><td>Byte stream, no message boundaries</td><td>Ordering only</td><td>Processes</td></tr>
+      <tr><td>Message queue</td><td>Discrete, labeled, priority-ordered messages</td><td>Message-level ordering</td><td>Processes</td></tr>
+      <tr><td>Shared memory</td><td>Raw shared bytes</td><td>None — you add it</td><td>Processes</td></tr>
+      <tr><td>Semaphore</td><td>A counter</td><td>Is itself the primitive</td><td>Processes or threads</td></tr>
+      <tr><td>Mutex</td><td>A lock with ownership</td><td>Is itself the primitive</td><td>Threads (usually)</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Sensor logging pipelines —</strong> a sensor-reading process pushing samples to a separate logging process over a message queue, decoupling the two so one can be restarted without losing the other's state.</li>
+    <li><strong>High-throughput video/audio —</strong> capture and processing running as separate processes exchange large frames over shared memory specifically to avoid copying them through the kernel on every frame.</li>
+    <li><strong>Multi-threaded embedded applications —</strong> a shared sensor-data struct protected by a mutex is the userspace-Linux version of the exact same race condition <a href="/embedded/interrupts/index.html">ISR/main-loop shared state</a> creates on bare metal.</li>
+    <li><strong>Init systems —</strong> systemd and similar use pipes to capture logging output from the child services they supervise.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Shared memory without synchronization is a race condition waiting to happen — "shared" says nothing at all about who's allowed to touch it when.</li>
+      <li>Forgetting to unlink a named pipe, message queue, or shared-memory segment leaks it as a persistent kernel object (visible under <code>/dev/mqueue</code> or <code>/dev/shm</code>) until something explicitly removes it.</li>
+      <li>A standard (non-recursive) mutex must be unlocked by the same thread that locked it — unlocking from a different thread is undefined behavior, a genuinely subtle bug class to track down.</li>
+      <li>Pipes have a limited kernel buffer size — a writer can block indefinitely if the reader isn't keeping up, which silently turns "asynchronous" code into a deadlock if both ends end up waiting on each other.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/linux/drivers/index.html", "title": "Linux drivers" },
+  "related": [
+    { "href": "/linux/drivers/index.html", "title": "Linux drivers" },
+    { "href": "/embedded/interrupts/index.html", "title": "Interrupts" },
+    { "href": "/embedded/rtos/index.html", "title": "RTOS" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
