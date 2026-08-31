@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kernel Source, Versions &amp; Patching — Linux — Embedded Pandora</title>
+<meta name="description" content="Where kernel source actually comes from, how mainline/stable/longterm versioning works, and how patches get applied and backported in real embedded projects." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Linux</p>
+  <h1>Kernel Source, Versions &amp; Patching</h1>
+  <p class="lede">
+    "Just update the kernel" hides a surprising amount of real work in
+    embedded Linux — which source tree, which version scheme, and how a
+    fix that landed in mainline actually reaches a product's kernel that's
+    years and hundreds of vendor patches away from it.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Where kernel source comes from, how its version numbers and maintenance branches work, and how fixes move between them via patches.</dd>
+      <dt>Mental model</dt><dd>Mainline is the trunk; stable and longterm (LTS) are bugfix-only branches off specific releases; a vendor BSP is a long-running fork that occasionally sends changes back upstream.</dd>
+      <dt>Key numbers</dt><dd>Mainline releases roughly every 9–10 weeks; a longterm (LTS) branch is maintained for 2–6 years of security/bugfix backports.</dd>
+      <dt>Reach for it when</dt><dd>Backporting a security fix onto a product kernel, evaluating a vendor BSP, or figuring out whether a bug is already fixed upstream.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#where-source-comes-from">Where kernel source actually comes from</a></li>
+      <li><a href="#versioning">Versioning: mainline, stable, and longterm</a></li>
+      <li><a href="#getting-source">Getting the source</a></li>
+      <li><a href="#patching">How patches are actually applied</a></li>
+      <li><a href="#build-config">Configuration and cross-compiling</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="where-source-comes-from">Where kernel source actually comes from</h2>
+  <p>
+    <strong>Mainline</strong> is Linus Torvalds' own tree at
+    <code>git.kernel.org</code> — the trunk everything else eventually
+    traces back to. Almost no embedded product ships mainline directly,
+    though: silicon vendors (Broadcom, NXP, TI, Xilinx, and others)
+    maintain their own long-running forks — <strong>vendor BSPs</strong>
+    (board support packages) — carrying the driver and platform code
+    their chips need, much of which hasn't been merged into mainline
+    (and in some cases never will be). A real embedded project is almost
+    always working from one of these vendor forks, not from
+    <code>torvalds/linux</code> directly.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 780 230" role="img" aria-labelledby="kernel-branches-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="kernel-branches-title">A mainline release branches into a short-lived stable line, a multi-year longterm (LTS) line, and separately, a long-running vendor BSP fork</title>
+
+      <text class="seq-note" x="390" y="14" text-anchor="middle">Mainline, stable, LTS, and vendor forks</text>
+
+      <line x1="40" y1="55" x2="740" y2="55" class="seq-lifeline" />
+      <circle cx="150" cy="55" r="5" fill="var(--ink-faint)" />
+      <text class="seq-sub" x="150" y="40" text-anchor="middle">v6.5</text>
+      <circle cx="390" cy="55" r="5" fill="var(--ink-faint)" />
+      <text class="seq-sub" x="390" y="40" text-anchor="middle">v6.6</text>
+      <circle cx="630" cy="55" r="5" fill="var(--ink-faint)" />
+      <text class="seq-sub" x="630" y="40" text-anchor="middle">v6.7</text>
+
+      <line x1="390" y1="60" x2="140" y2="112" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="140,120 133,110 147,110" />
+      <line x1="390" y1="60" x2="390" y2="112" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="390,120 383,110 397,110" />
+      <line x1="390" y1="60" x2="650" y2="112" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="650,120 643,110 657,110" />
+
+      <rect class="frame-box block-teal" x="60" y="120" width="160" height="55" rx="6" />
+      <text class="frame-label" x="140" y="142" text-anchor="middle" font-weight="700" font-size="10">Stable</text>
+      <text class="frame-caption" x="140" y="160" text-anchor="middle" font-size="8">bugfixes only, until v6.7</text>
+
+      <rect class="frame-box block-amber" x="310" y="120" width="160" height="55" rx="6" />
+      <text class="frame-label" x="390" y="142" text-anchor="middle" font-weight="700" font-size="10">Longterm (LTS)</text>
+      <text class="frame-caption" x="390" y="160" text-anchor="middle" font-size="8">maintained 2–6 years</text>
+
+      <rect class="frame-box block-violet" x="560" y="120" width="180" height="55" rx="6" />
+      <text class="frame-label" x="650" y="142" text-anchor="middle" font-weight="700" font-size="10">Vendor BSP fork</text>
+      <text class="frame-caption" x="650" y="160" text-anchor="middle" font-size="8">hundreds of out-of-tree patches</text>
+
+      <text class="seq-note" x="390" y="200" text-anchor="middle">Production embedded systems almost always run a longterm release, often with vendor</text>
+      <text class="seq-note" x="390" y="216" text-anchor="middle">patches layered on top — mainline itself is rarely what actually ships.</text>
+    </svg>
+    <figcaption class="diagram__caption">A vendor's patches occasionally get upstreamed back into mainline over time — but plenty never do, which is exactly why the fork keeps existing release after release.</figcaption>
+  </figure>
+
+  <h2 id="versioning">Versioning: mainline, stable, and longterm</h2>
+  <p>
+    A kernel version like <code>6.6.30</code> breaks down as
+    <strong>major.minor.patch</strong>: <code>6.6</code> is a mainline
+    release (major/minor numbers today are largely just sequential, not
+    meaningful on their own), and <code>.30</code> is the stable patch
+    level — the 30th round of bugfixes backported onto <code>6.6</code>
+    since its release.
+  </p>
+  <dl class="kv">
+    <dt>Mainline</dt><dd>Linus's tree. New features land here first, in a ~9–10 week cycle: a 2-week merge window, then 6–8 weekly release candidates (rc1…rcN) stabilizing before the final release.</dd>
+    <dt>Stable</dt><dd>Bugfix-only backports onto the most recent mainline release, maintained only until the <em>next</em> mainline release supersedes it.</dd>
+    <dt>Longterm (LTS)</dt><dd>Select releases (a few per year) chosen for extended maintenance — typically 2 years, sometimes up to 6 — receiving security and critical bugfixes long after their mainline peers have gone unmaintained. This is what almost every real embedded product is actually built on.</dd>
+    <dt>linux-next</dt><dd>An integration tree combining what's queued for the <em>next</em> merge window — used by kernel developers to catch conflicts early, not something a product ships.</dd>
+  </dl>
+
+  <h2 id="getting-source">Getting the source</h2>
+  <pre><code># mainline, directly from kernel.org
+git clone https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+cd linux
+git checkout v6.6
+
+# a vendor BSP fork instead — e.g. Raspberry Pi's kernel, carrying
+# hundreds of out-of-tree patches for the Broadcom SoC it targets
+git clone https://github.com/raspberrypi/linux.git</code></pre>
+  <p>
+    Which one is right depends entirely on the board: mainline only
+    supports hardware that's actually been upstreamed, so a board whose
+    vendor hasn't finished that work simply won't boot on a plain
+    mainline checkout — the vendor fork exists precisely to fill that gap.
+  </p>
+
+  <h2 id="patching">How patches are actually applied</h2>
+  <p>
+    A <strong>patch</strong> is a text diff describing exactly which
+    lines changed in which files — the standard way a fix moves from one
+    tree to another without needing a full merge. Two common forms show
+    up constantly in embedded work: a plain diff (applied with
+    <code>patch</code>) and a git-formatted patch that preserves the
+    original commit's author and message (applied with
+    <code>git am</code>).
+  </p>
+  <pre><code># plain diff, old-school
+patch -p1 &lt; fix-i2c-timeout.patch
+
+# a git-formatted patch — keeps the original commit's author/message
+git am 0001-i2c-fix-timeout-on-slow-bus.patch
+
+# backporting one specific upstream fix by commit hash, directly
+git cherry-pick a1b2c3d4e5f6</code></pre>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 170" role="img" aria-labelledby="patch-flow-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="patch-flow-title">An upstream fix is extracted as a patch file, then applied onto a vendor or LTS tree that never received it directly</title>
+
+      <rect class="frame-box block-blue" x="20" y="50" width="190" height="70" rx="6" />
+      <text class="frame-label" x="115" y="78" text-anchor="middle" font-weight="700" font-size="10">Upstream fix</text>
+      <text class="frame-caption" x="115" y="96" text-anchor="middle" font-size="8">one commit in mainline/stable</text>
+
+      <rect class="frame-box block-amber" x="250" y="50" width="190" height="70" rx="6" />
+      <text class="frame-label" x="345" y="78" text-anchor="middle" font-weight="700" font-size="10">Patch file</text>
+      <text class="frame-caption" x="345" y="96" text-anchor="middle" font-size="8">git format-patch -1 &lt;sha&gt;</text>
+
+      <rect class="frame-box block-teal" x="480" y="50" width="200" height="70" rx="6" />
+      <text class="frame-label" x="580" y="78" text-anchor="middle" font-weight="700" font-size="10">Vendor / LTS tree</text>
+      <text class="frame-caption" x="580" y="96" text-anchor="middle" font-size="8">git am / git cherry-pick</text>
+
+      <line x1="210" y1="85" x2="246" y2="85" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="250,85 240,80 240,90" />
+      <line x1="440" y1="85" x2="476" y2="85" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="480,85 470,80 470,90" />
+    </svg>
+    <figcaption class="diagram__caption">This is the actual daily mechanics behind a CVE-driven fix from <a href="/security/dependency-analysis/index.html">dependency analysis</a> turning into a change in a product's kernel tree.</figcaption>
+  </figure>
+
+  <h2 id="build-config">Configuration and cross-compiling</h2>
+  <p>
+    A kernel build is driven by a <strong><code>.config</code></strong>
+    file selecting which subsystems, drivers, and features to compile —
+    generated from a board-specific baseline and then adjusted.
+  </p>
+  <pre><code># cross-compiling for ARM64 from an x86_64 build host
+export ARCH=arm64
+export CROSS_COMPILE=aarch64-linux-gnu-
+
+make defconfig          # start from a board's known-good baseline .config
+make menuconfig         # interactively enable/disable subsystems
+make -j$(nproc) Image modules dtbs</code></pre>
+  <p>
+    <code>ARCH</code> and <code>CROSS_COMPILE</code> are how the same
+    kernel source tree builds for a completely different target
+    architecture than the machine doing the compiling — the toolchain
+    prefix in <code>CROSS_COMPILE</code> selects the actual
+    cross-compiler binaries (<code>aarch64-linux-gnu-gcc</code>, etc.)
+    used for every compilation step.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Security patch backporting —</strong> a CVE surfaced by <a href="/security/dependency-analysis/index.html">dependency analysis</a> against a component the kernel bundles often means manually locating and cherry-picking the fix onto a product's specific LTS-based tree.</li>
+    <li><strong>Vendor BSP evaluation —</strong> choosing a board partly means choosing how far behind mainline its BSP is, and how actively the vendor maintains it — a BSP frozen on an end-of-life LTS is a long-term liability.</li>
+    <li><strong>Bug triage —</strong> before writing a custom fix, checking whether a bug is already fixed in a newer mainline/stable release (and just needs backporting) saves reinventing a fix that already exists.</li>
+    <li><strong>Yocto kernel recipes —</strong> a Yocto <code>linux-yocto</code> (or vendor) recipe's <code>SRC_URI</code> lists a base kernel source plus an ordered list of <code>.patch</code> files applied automatically during the build — the same <code>git am</code> mechanics, just declared in a recipe instead of run by hand.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A vendor kernel can be years behind mainline with hundreds of out-of-tree patches — an upstream security fix doesn't "just arrive" on a product; someone has to find it and backport it manually.</li>
+      <li>Longterm (LTS) is a promise about backported bugfixes and security patches only, not new features — jumping between LTS versions is still a real migration, not a routine update.</li>
+      <li>A patch generated against one tree state can fail to apply cleanly (or worse, apply with silent offset) against a tree that has diverged even slightly — always check what base commit/tag a patch was generated against.</li>
+      <li>Editing a <code>.config</code> by hand and forgetting to actually rerun the build for the affected objects is a classic "I changed it but nothing happened" — the same failure mode as forgetting to rebuild a stale <a href="/bootloaders/device-tree/index.html">device tree</a> blob.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/linux/paging-context-switching/index.html", "title": "Paging & context switching" },
+  "related": [
+    { "href": "/linux/paging-context-switching/index.html", "title": "Paging & context switching" },
+    { "href": "/bootloaders/device-tree/index.html", "title": "Device Tree" },
+    { "href": "/security/dependency-analysis/index.html", "title": "Dependency Analysis" },
+    { "href": "/security/cve/index.html", "title": "CVEs and Vulnerability Scoring" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
