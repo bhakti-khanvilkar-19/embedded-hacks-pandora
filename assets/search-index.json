@@ -281,6 +281,17 @@
     ]
   },
   {
+    "title": "Inter-Process &amp; Inter-Thread Communication — Linux",
+    "url": "/linux/ipc/index.html",
+    "domain": "Linux",
+    "category": "Ipc",
+    "description": "Pipes, POSIX message queues, shared memory, semaphores, and mutexes — how Linux processes and threads actually exchange data and coordinate, with real C code.",
+    "tags": [
+      "linux",
+      "ipc"
+    ]
+  },
+  {
     "title": "AMQP — Networking",
     "url": "/networking/amqp/index.html",
     "domain": "Networking",
