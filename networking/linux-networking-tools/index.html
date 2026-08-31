@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Linux Networking Tools — Networking — Embedded Pandora</title>
+<meta name="description" content="ip addr, arp/ip neigh, ping, ss/netstat, and ethtool — the commands to actually inspect IP/MAC addresses, connectivity, and open sockets on a real Linux box." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>Linux Networking Tools</h1>
+  <p class="lede">
+    The IP/TCP/UDP pages in this notebook describe the protocols. This page
+    is the other half: the actual commands to run on a real Linux machine
+    to see your own interfaces, addresses, ARP cache, open sockets, and
+    link status — the tools you reach for the moment something isn't
+    connecting.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The everyday Linux command set for inspecting network interfaces, addresses, neighbor/ARP state, connectivity, and open sockets.</dd>
+      <dt>Mental model</dt><dd>Each command reads one layer: <code>ip link</code>/<code>ethtool</code> for the wire, <code>ip addr</code> for IP addressing, <code>ip neigh</code>/<code>arp</code> for IP↔MAC mapping, <code>ss</code>/<code>netstat</code> for what's listening or connected above that.</dd>
+      <dt>Key numbers</dt><dd><code>iproute2</code> (<code>ip</code>, <code>ss</code>) has been the standard toolset for over a decade; <code>ifconfig</code>/<code>netstat</code> (net-tools) still work on most distros but are considered legacy.</dd>
+      <dt>Reach for it when</dt><dd>A device isn't showing up on the network, a service isn't reachable, or you need to know what's actually listening on a box.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#interfaces-addresses">Interfaces and addresses</a></li>
+      <li><a href="#mac-vs-ip">MAC vs. IP: two addresses, two layers</a></li>
+      <li><a href="#arp">ARP: resolving IP to MAC on the local segment</a></li>
+      <li><a href="#connectivity">Checking connectivity: ping and traceroute</a></li>
+      <li><a href="#sockets">Open sockets: ss and netstat</a></li>
+      <li><a href="#link-layer">Link-layer details: ethtool</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="interfaces-addresses">Interfaces and addresses</h2>
+  <p>
+    <code>ip addr show</code> (short: <code>ip a</code>) is the first
+    command to run on any box — it lists every network interface and
+    every address bound to it.
+  </p>
+  <pre><code>$ ip addr show
+2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP
+    link/ether 3c:97:0e:8a:1b:44 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.1.42/24 brd 192.168.1.255 scope global dynamic eth0
+    inet6 fe80::3e97:eff:fe8a:1b44/64 scope link
+
+3: wlan0: &lt;BROADCAST,MULTICAST&gt; mtu 1500 qdisc noop state DOWN
+    link/ether 9c:5c:8e:22:04:11 brd ff:ff:ff:ff:ff:ff</code></pre>
+  <p>
+    Reading this line by line: <code>UP</code>/<code>DOWN</code> in the
+    flags is whether the interface is administratively enabled;
+    <code>LOWER_UP</code> means a physical link is actually detected
+    (cable plugged in, or associated to an AP); <code>link/ether</code> is
+    the interface's MAC address; <code>inet 192.168.1.42/24</code> is its
+    IPv4 address and subnet mask in CIDR form. The older, still-common
+    equivalent is <code>ifconfig</code> — functionally similar output,
+    considered legacy but not going anywhere.
+  </p>
+  <pre><code># bring an interface up/down, or set an address by hand
+sudo ip link set eth0 up
+sudo ip addr add 192.168.1.50/24 dev eth0
+
+# what's this box's default route, and which interface does it use?
+ip route show</code></pre>
+
+  <h2 id="mac-vs-ip">MAC vs. IP: two addresses, two layers</h2>
+  <p>
+    These get confused because every packet you send carries both, but
+    they answer different questions at different layers. A
+    <strong>MAC address</strong> (e.g. <code>3c:97:0e:8a:1b:44</code>) is a
+    link-layer identifier — it means something only on the local physical
+    segment (the same Ethernet/Wi-Fi broadcast domain) and normally never
+    changes for a given NIC. An <strong>IP address</strong> is a
+    network-layer identifier — it's what makes a device reachable across
+    routers, from anywhere on the internet, and it can change (DHCP
+    lease, moving networks) without the hardware changing at all. A frame
+    only ever needs a MAC address for its <em>next hop</em>; an IP packet
+    carries the same source/destination IP all the way to the final
+    destination, however many hops that takes.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 640 340" role="img" aria-labelledby="layer-tools-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="layer-tools-title">Each networking layer has its own Linux command for inspecting it: sockets and ports, IP addressing, the ARP/neighbor cache, and the physical link</title>
+
+      <rect class="frame-box block-blue" x="100" y="20" width="440" height="60" rx="6" />
+      <text class="frame-label" x="320" y="46" text-anchor="middle" font-weight="700" font-size="11">Sockets &amp; ports</text>
+      <text class="frame-caption" x="320" y="66" text-anchor="middle" font-size="9">ss -tunlp · netstat -tunlp</text>
+
+      <line x1="320" y1="80" x2="320" y2="98" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="320,102 315,92 325,92" />
+
+      <rect class="frame-box block-teal" x="100" y="100" width="440" height="60" rx="6" />
+      <text class="frame-label" x="320" y="126" text-anchor="middle" font-weight="700" font-size="11">IP addresses &amp; routes</text>
+      <text class="frame-caption" x="320" y="146" text-anchor="middle" font-size="9">ip addr · ip route</text>
+
+      <line x1="320" y1="160" x2="320" y2="178" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="320,182 315,172 325,172" />
+
+      <rect class="frame-box block-amber" x="100" y="180" width="440" height="60" rx="6" />
+      <text class="frame-label" x="320" y="206" text-anchor="middle" font-weight="700" font-size="11">ARP / neighbor cache</text>
+      <text class="frame-caption" x="320" y="226" text-anchor="middle" font-size="9">ip neigh · arp -a</text>
+
+      <line x1="320" y1="240" x2="320" y2="258" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="320,262 315,252 325,252" />
+
+      <rect class="frame-box block-violet" x="100" y="260" width="440" height="60" rx="6" />
+      <text class="frame-label" x="320" y="286" text-anchor="middle" font-weight="700" font-size="11">Link layer (the NIC itself)</text>
+      <text class="frame-caption" x="320" y="306" text-anchor="middle" font-size="9">ip link · ethtool eth0</text>
+    </svg>
+    <figcaption class="diagram__caption">Top to bottom is roughly "closer to the application" to "closer to the wire" — when something isn't working, checking from the bottom up (is the link even up?) usually finds the problem faster.</figcaption>
+  </figure>
+
+  <h2 id="arp">ARP: resolving IP to MAC on the local segment</h2>
+  <p>
+    Sending an IP packet to another host on the <em>same</em> subnet still
+    requires an Ethernet frame, and an Ethernet frame needs a destination
+    MAC address — but application code only ever deals in IP addresses.
+    <strong>ARP</strong> (Address Resolution Protocol) is what bridges the
+    two: to find the MAC address for an IP on the local segment, a host
+    broadcasts "who has this IP?" to everyone on the LAN, and only the
+    owner replies directly.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 195" role="img" aria-labelledby="arp-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="arp-title">Host A broadcasts an ARP request that every host on the LAN receives; only the host owning that IP address replies directly with its MAC address</title>
+
+      <rect class="seq-actor-chip" x="10" y="30" width="190" height="44" rx="8" />
+      <text class="seq-actor-text" x="105" y="56" text-anchor="middle">Host A — 192.168.1.10</text>
+
+      <rect class="seq-actor-chip" x="500" y="30" width="190" height="44" rx="8" />
+      <text class="seq-actor-text" x="595" y="56" text-anchor="middle">Host B — 192.168.1.20</text>
+
+      <line x1="200" y1="110" x2="496" y2="110" class="seq-arrow" stroke-width="2" stroke-dasharray="6 4" />
+      <polygon class="seq-arrowhead" points="500,110 490,105 490,115" />
+      <text class="seq-sub" x="350" y="96" text-anchor="middle">ARP request — "who has 192.168.1.20?" (broadcast, ff:ff:ff:ff:ff:ff)</text>
+
+      <line x1="496" y1="150" x2="200" y2="150" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="200,150 210,145 210,155" />
+      <text class="seq-sub" x="350" y="138" text-anchor="middle">ARP reply — "192.168.1.20 is at 9c:5c:8e:22:04:11" (unicast)</text>
+
+      <text class="seq-note" x="350" y="178" text-anchor="middle">Host A now caches this mapping — visible with ip neigh show</text>
+    </svg>
+    <figcaption class="diagram__caption">Every other host on the LAN also sees the broadcast request and silently ignores it — only the host whose address matches replies.</figcaption>
+  </figure>
+  <pre><code>$ ip neigh show
+192.168.1.20 dev eth0 lladdr 9c:5c:8e:22:04:11 REACHABLE
+192.168.1.1  dev eth0 lladdr aa:bb:cc:00:11:22 STALE
+
+# the older net-tools equivalent
+$ arp -a</code></pre>
+  <p>
+    <code>REACHABLE</code> means the kernel has recently confirmed this
+    entry is still good; <code>STALE</code> means it's cached but hasn't
+    been re-verified — the kernel will re-ARP before relying on it again
+    if traffic to that address resumes.
+  </p>
+
+  <h2 id="connectivity">Checking connectivity: ping and traceroute</h2>
+  <p>
+    <code>ping</code> sends ICMP echo-request packets and waits for
+    echo-reply — the simplest possible "is anyone there, and how far
+    away" check. <code>traceroute</code> (or <code>tracepath</code>,
+    which needs no special privileges) shows every router hop along the
+    way, which narrows down <em>where</em> a connection is failing rather
+    than just <em>that</em> it is.
+  </p>
+  <pre><code>$ ping -c 3 192.168.1.20
+64 bytes from 192.168.1.20: icmp_seq=1 ttl=64 time=0.412 ms
+64 bytes from 192.168.1.20: icmp_seq=2 ttl=64 time=0.389 ms
+64 bytes from 192.168.1.20: icmp_seq=3 ttl=64 time=0.401 ms
+
+$ traceroute 8.8.8.8
+ 1  192.168.1.1 (192.168.1.1)  1.203 ms
+ 2  10.20.0.1 (10.20.0.1)      8.771 ms
+ 3  8.8.8.8 (8.8.8.8)          14.902 ms</code></pre>
+  <p>
+    A shrinking <code>ttl</code> on the reply and a hop count that stops
+    increasing partway through a <code>traceroute</code> are both signs
+    of where to look next — a firewall dropping ICMP, a routing loop, or
+    the actual point of failure on a multi-hop path.
+  </p>
+
+  <h2 id="sockets">Open sockets: ss and netstat</h2>
+  <p>
+    <code>ss</code> (socket statistics) lists sockets on the box — what's
+    listening, what's connected, and to/from where — and is the modern,
+    faster replacement for <code>netstat</code>, which still works
+    identically for this purpose on most systems.
+  </p>
+  <pre><code>$ ss -tunlp
+Netid  State   Local Address:Port   Peer Address:Port  Process
+tcp    LISTEN  0.0.0.0:22           0.0.0.0:*           sshd
+tcp    LISTEN  127.0.0.1:8143       0.0.0.0:*           python3
+tcp    ESTAB   192.168.1.42:22      192.168.1.5:51422   sshd
+
+# -t = TCP, -u = UDP, -n = numeric (skip DNS lookups), -l = listening only, -p = show process</code></pre>
+  <p>
+    <code>LISTEN</code> is a socket waiting for incoming connections;
+    <code>ESTAB</code> (established) is an active, connected TCP session.
+    A service that's "not reachable" but shows nothing here is usually
+    the actual problem — it isn't running, or it bound to
+    <code>127.0.0.1</code> instead of <code>0.0.0.0</code> and so isn't
+    listening on the interface a remote client would reach it through.
+  </p>
+
+  <h2 id="link-layer">Link-layer details: ethtool</h2>
+  <p>
+    <code>ethtool</code> reaches below IP entirely, into the NIC driver
+    itself — link speed, duplex, and whether a physical link is even
+    detected, independent of anything IP-layer tools can see.
+  </p>
+  <pre><code>$ ethtool eth0
+Settings for eth0:
+        Speed: 1000Mb/s
+        Duplex: Full
+        Auto-negotiation: on
+        Link detected: yes</code></pre>
+  <p>
+    <code>Link detected: no</code> with a correct-looking
+    <code>ip addr</code> configuration is a strong sign the problem is
+    physical — a bad cable, an unplugged connector, or a switch port
+    that's down — before anything in the IP or TCP layers even gets a
+    chance to matter.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Board bring-up —</strong> confirming a new embedded Linux board's Ethernet/Wi-Fi actually works starts with exactly this sequence: <code>ethtool</code> for link, <code>ip addr</code> for an address, <code>ping</code> for reachability.</li>
+    <li><strong>"Why can't my sensor gateway reach the cloud" debugging —</strong> working through link → address → ARP → routing → sockets in order isolates the failure to one layer instead of guessing.</li>
+    <li><strong>Service deployment —</strong> confirming a newly deployed service is actually listening on the right interface and port is exactly what <code>ss -tunlp</code> answers, before blaming the network for what's really a bind-address mistake.</li>
+    <li><strong>Duplicate IP or MAC conflicts —</strong> a device intermittently dropping off a LAN often shows up as a flapping <code>ip neigh</code> entry for the same IP with two different MAC addresses.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A service bound to <code>127.0.0.1</code> instead of <code>0.0.0.0</code> will show up in <code>ss -tunlp</code> as listening — but only ever be reachable from the same machine, never over the network.</li>
+      <li>A stale ARP entry (a device replaced with new hardware at the same IP) can make a host talk to the wrong MAC address until the cache entry times out or is flushed with <code>ip neigh flush</code>.</li>
+      <li>Firewalls frequently drop ICMP specifically, so a failed <code>ping</code> does not necessarily mean a host is unreachable — a TCP-based check (<code>ss</code>, <code>curl</code>, or <code>nc</code>) can still succeed against the same host.</li>
+      <li><code>ifconfig</code> silently doesn't show interfaces that are administratively down on some distros, while <code>ip addr</code> always lists every interface — a missing interface in <code>ifconfig</code> output isn't proof it doesn't exist.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/networking/serialization/index.html", "title": "Serialization" },
+  "related": [
+    { "href": "/networking/ip/index.html", "title": "IP" },
+    { "href": "/networking/tcp/index.html", "title": "TCP" },
+    { "href": "/networking/udp/index.html", "title": "UDP" },
+    { "href": "/linux/drivers/index.html", "title": "Linux drivers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

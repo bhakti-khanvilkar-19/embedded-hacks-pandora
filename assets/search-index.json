@@ -368,6 +368,17 @@
     ]
   },
   {
+    "title": "Linux Networking Tools — Networking",
+    "url": "/networking/linux-networking-tools/index.html",
+    "domain": "Networking",
+    "category": "Linux Networking Tools",
+    "description": "ip addr, arp/ip neigh, ping, ss/netstat, and ethtool — the commands to actually inspect IP/MAC addresses, connectivity, and open sockets on a real Linux box.",
+    "tags": [
+      "networking",
+      "linux-networking-tools"
+    ]
+  },
+  {
     "title": "MQTT — Networking",
     "url": "/networking/mqtt/index.html",
     "domain": "Networking",
