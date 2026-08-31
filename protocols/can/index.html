@@ -265,6 +265,15 @@
       <tr><td>Typical use</td><td>Automotive/industrial networks of many nodes</td><td>Fast on-board peripherals (flash, displays)</td><td>Low-speed on-board sensors</td><td>Simple point-to-point links, console access</td></tr>
     </tbody>
   </table>
+  <div class="callout callout--note">
+    <span class="callout__label">Why CAN, and when</span>
+    <dl class="kv">
+      <dt>Pros</dt><dd>Deterministic priority via arbitration, built-in error detection and automatic retry, tolerates long noisy cable runs, and any number of nodes share two wires with no per-device pin cost.</dd>
+      <dt>Cons</dt><dd>Small payload (8 bytes classic CAN, still modest at 64 bytes for CAN FD), lower raw throughput than SPI, and it needs a dedicated CAN transceiver chip rather than just GPIO pins — real hardware cost <a href="/protocols/spi/index.html">SPI</a>/<a href="/protocols/i2c/index.html">I2C</a> don't have.</dd>
+      <dt>Reach for CAN when</dt><dd>Multiple independent nodes genuinely need to share one bus reliably, over meaningful distance, with guaranteed message priority — an automotive or industrial network of several ECUs/controllers, not a single microcontroller talking to a handful of on-board sensors.</dd>
+      <dt>Reach for something else when</dt><dd>You're wiring one microcontroller to nearby chips on the same board — <a href="/protocols/spi/index.html">SPI</a> for high throughput, <a href="/protocols/i2c/index.html">I2C</a> for pin-count-constrained low-speed sensors. CAN's arbitration and error handling solve a multi-node problem that doesn't exist yet on a single board with one controller.</dd>
+    </dl>
+  </div>
 
   <h2 id="applications">Real-world applications</h2>
   <ul class="point-list">
