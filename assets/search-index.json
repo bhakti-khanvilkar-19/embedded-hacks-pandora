@@ -1,5 +1,15 @@
 [
   {
+    "title": "Automotive",
+    "url": "/automotive/index.html",
+    "domain": "Automotive",
+    "category": "Overview",
+    "description": "Radar, LiDAR, and camera sensors; ADAS features and levels of driving automation; and the diagnostic tooling (UDS, CAPL) engineers use to talk to a vehicle's own computers.",
+    "tags": [
+      "automotive"
+    ]
+  },
+  {
     "title": "The Complete Boot Process — Bootloaders",
     "url": "/bootloaders/boot-process/index.html",
     "domain": "Bootloaders",
