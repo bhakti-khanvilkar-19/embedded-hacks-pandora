@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Radar — Automotive — Embedded Pandora</title>
+<meta name="description" content="How automotive radar measures range, velocity, and angle using FMCW chirps and the Doppler effect, the radar processing chain, frequency bands, and real-world ADAS use." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Automotive</p>
+  <h1>Radar</h1>
+  <p class="lede">
+    Automotive radar measures how far away something is, how fast it's
+    moving relative to you, and roughly where it is angularly — by
+    transmitting radio waves and analyzing what bounces back. Radio waves
+    shrug off rain, fog, direct sun glare, and total darkness in a way
+    cameras simply can't, which is exactly why radar has been in cars
+    since long before "ADAS" was a marketing term.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>An RF sensor that measures range, relative velocity, and angle of surrounding objects from a reflected radio signal.</dd>
+      <dt>Mental model</dt><dd>Shouting into a canyon and timing the echo — except the echo's pitch also tells you whether the canyon wall is moving toward or away from you.</dd>
+      <dt>Key numbers</dt><dd>77&ndash;81 GHz is the modern automotive band; range/velocity resolution comes down to centimeters and works identically in fog, rain, or pitch dark.</dd>
+      <dt>Reach for it when</dt><dd>You need reliable range and closing-speed data regardless of weather or lighting — adaptive cruise control, automatic emergency braking, blind-spot monitoring.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#how-it-works">How FMCW radar measures range and velocity</a></li>
+      <li><a href="#angle">Angle of arrival: knowing where, not just how far</a></li>
+      <li><a href="#bands">Frequency bands and radar classes</a></li>
+      <li><a href="#architecture">The radar processing chain</a></li>
+      <li><a href="#vs-others">Radar vs. LiDAR vs. camera, briefly</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="how-it-works">How FMCW radar measures range and velocity</h2>
+  <p>
+    Almost every automotive radar today is <strong>FMCW</strong>
+    (Frequency-Modulated Continuous Wave): instead of a single fixed
+    frequency, it transmits a <strong>chirp</strong> — a signal whose
+    frequency sweeps linearly upward over a short interval, then resets
+    and sweeps again. The reflected chirp comes back delayed by however
+    long the round trip to the object and back took.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 280" role="img" aria-labelledby="fmcw-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="fmcw-title">A transmitted frequency chirp and its delayed, reflected echo, offset in time; the constant frequency gap between them at any instant is the beat frequency used to compute range</title>
+
+      <rect x="10" y="15" width="14" height="4" style="fill:var(--blue);" /><text class="seq-note" x="30" y="22" text-anchor="start">transmitted chirp</text>
+      <rect x="180" y="15" width="14" height="4" style="fill:var(--teal);" /><text class="seq-note" x="200" y="22" text-anchor="start">received echo (delayed)</text>
+
+      <line x1="40" y1="30" x2="40" y2="220" stroke="var(--ink-faint)" stroke-width="1.5" />
+      <line x1="40" y1="220" x2="530" y2="220" stroke="var(--ink-faint)" stroke-width="1.5" />
+      <text class="frame-caption" x="25" y="45" text-anchor="end">f0+B</text>
+      <text class="frame-caption" x="25" y="224" text-anchor="end">f0</text>
+      <text class="frame-caption" x="530" y="240" text-anchor="end">time →</text>
+
+      <line x1="40" y1="220" x2="460" y2="40" stroke="var(--blue)" stroke-width="2.5" />
+      <line x1="100" y1="220" x2="520" y2="40" stroke="var(--teal)" stroke-width="2.5" class="flow-path" />
+
+      <line x1="300" y1="109" x2="300" y2="134" stroke="var(--accent)" stroke-width="2" />
+      <polygon points="300,105 295,113 305,113" style="fill:var(--accent);" />
+      <polygon points="300,138 295,130 305,130" style="fill:var(--accent);" />
+      <text class="seq-label" x="312" y="126" text-anchor="start">f_beat</text>
+
+      <line x1="40" y1="235" x2="100" y2="235" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="40,235 48,231 48,239" />
+      <polygon class="seq-arrowhead" points="100,235 92,231 92,239" />
+      <text class="seq-note" x="40" y="255" text-anchor="start">t_d — round-trip delay = 2R / c</text>
+    </svg>
+    <figcaption class="diagram__caption">Both chirps sweep at the same rate, so the frequency gap between them (f_beat) stays constant while both are ramping — that gap, not the raw time delay, is what the radar actually measures.</figcaption>
+  </figure>
+  <p>
+    The radar mixes the transmitted and received signals together, which
+    produces a much lower "beat" frequency equal to the difference between
+    them — easy to sample and process compared to the original multi-GHz
+    signal. Range and velocity fall out of two different properties of
+    that beat signal:
+  </p>
+  <dl class="kv">
+    <dt>Range</dt><dd><code>R = (c &times; T_chirp &times; f_beat) / (2 &times; B)</code> — worked example: bandwidth B = 1 GHz, chirp duration T_chirp = 40 &micro;s, measured f_beat = 2 MHz gives R = (3&times;10<sup>8</sup> &times; 40&times;10<sup>-6</sup> &times; 2&times;10<sup>6</sup>) / (2 &times; 10<sup>9</sup>) = <strong>12 meters</strong>.</dd>
+    <dt>Velocity</dt><dd>Compare the beat frequency across <em>consecutive</em> chirps rather than within one — a moving object adds a small Doppler shift chirp-to-chirp. <code>v = (&lambda; &times; f_doppler) / 2</code>, where &lambda; is the radar's wavelength (about 3.9&nbsp;mm at 77&nbsp;GHz).</dd>
+  </dl>
+  <p>
+    One chirp alone gives range; a whole sequence of chirps, compared
+    against each other, gives velocity — which is why automotive radar
+    always transmits chirps in rapid bursts ("frames") rather than one at
+    a time.
+  </p>
+
+  <h2 id="angle">Angle of arrival: knowing where, not just how far</h2>
+  <p>
+    Range and velocity alone don't say <em>where</em> an object is
+    angularly — that comes from comparing the same reflected signal
+    arriving at <strong>two or more receive antennas</strong>, spaced a
+    known distance apart. An object off to one side is very slightly
+    closer to one antenna than the other, so its reflection arrives with
+    a measurable phase difference between them.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 480 300" role="img" aria-labelledby="aoa-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="aoa-title">Two receive antennas spaced apart by distance d receive a reflection at slightly different times because of the extra path length d times the sine of the angle of arrival</title>
+
+      <line x1="150" y1="220" x2="330" y2="220" stroke="var(--ink-faint)" stroke-width="1.5" />
+      <text class="frame-caption" x="240" y="238" text-anchor="middle">d</text>
+
+      <circle cx="150" cy="220" r="6" style="fill:var(--blue);" />
+      <text class="frame-caption" x="150" y="255" text-anchor="middle">RX1</text>
+      <circle cx="330" cy="220" r="6" style="fill:var(--blue);" />
+      <text class="frame-caption" x="330" y="255" text-anchor="middle">RX2</text>
+
+      <line x1="330" y1="220" x2="330" y2="150" stroke="var(--ink-faint)" stroke-dasharray="3 3" />
+      <text class="seq-note" x="336" y="155" text-anchor="start">broadside</text>
+
+      <line x1="160" y1="122" x2="356" y2="235" stroke="var(--teal)" stroke-width="2.5" />
+      <text class="seq-note" x="250" y="105" text-anchor="middle">incoming wavefront (constant phase)</text>
+
+      <path d="M330,195 Q322,205 308,207.5" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" />
+      <text class="seq-label" x="303" y="197" text-anchor="end">&theta;</text>
+
+      <circle cx="195" cy="142" r="3" style="fill:var(--ink-faint);" />
+      <line x1="150" y1="220" x2="195" y2="142" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4 3" />
+      <text class="seq-label" x="190" y="178" text-anchor="end">d&middot;sin&theta;</text>
+      <text class="seq-sub" x="130" y="196" text-anchor="end">extra path</text>
+      <text class="seq-sub" x="130" y="210" text-anchor="end">length to RX1</text>
+    </svg>
+    <figcaption class="diagram__caption">The wave reaches RX1 after traveling an extra d&middot;sin&theta; compared to RX2 — that extra distance shows up as a phase difference &Delta;&phi; = 2&pi;&middot;d&middot;sin&theta; / &lambda;, which DSP inverts to solve for &theta;.</figcaption>
+  </figure>
+  <p>
+    Production radars use several receive antennas (and increasingly
+    several transmit antennas too, in a MIMO arrangement) specifically to
+    get a sharper angle estimate than two antennas alone could provide —
+    more antennas means more phase-difference measurements to combine.
+  </p>
+
+  <h2 id="bands">Frequency bands and radar classes</h2>
+  <table>
+    <thead><tr><th>Band</th><th>Status</th><th>Typical class</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>24 GHz</td><td>Legacy, being phased out</td><td>SRR (short-range)</td><td>Narrow allowed bandwidth limits range resolution; many regions now restrict or sunset this band.</td></tr>
+      <tr><td>76&ndash;77 GHz</td><td>Current mainstream standard</td><td>LRR (long-range)</td><td>The forward-facing radar behind the front grille/bumper for ACC and AEB.</td></tr>
+      <tr><td>77&ndash;81 GHz</td><td>Modern, wider bandwidth</td><td>SRR / MRR (corner radars)</td><td>Wider allowed bandwidth (up to ~4 GHz) gives finer range resolution — used for blind spot, cross-traffic, and newer "imaging radar."</td></tr>
+    </tbody>
+  </table>
+  <p>
+    A typical modern car carries one long-range radar facing forward plus
+    four corner (short/medium-range) radars — enough overlapping coverage
+    that there's no fully blind angle around the vehicle.
+  </p>
+
+  <h2 id="architecture">The radar processing chain</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 820 220" role="img" aria-labelledby="radar-chain-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="radar-chain-title">A radar's signal chain: a chirp is transmitted, reflects off an object, is received and mixed down, digitized, processed with an FFT into a range-Doppler map, turned into an object list, and sent to the ADAS ECU</title>
+
+      <path d="M85,70 Q150,20 215,70" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" stroke-dasharray="4 3" />
+      <polygon points="215,70 205,64 205,74" style="fill:var(--ink-faint);" />
+      <text class="seq-note" x="150" y="18" text-anchor="middle">reflects off object</text>
+
+      <rect class="frame-box block-blue" x="25" y="80" width="120" height="60" rx="6" />
+      <text class="frame-label" x="85" y="104" text-anchor="middle" font-weight="700">TX</text>
+      <text class="frame-caption" x="85" y="122" text-anchor="middle">chirp generator + antenna</text>
+
+      <rect class="frame-box block-teal" x="165" y="80" width="120" height="60" rx="6" />
+      <text class="frame-label" x="225" y="104" text-anchor="middle" font-weight="700">RX</text>
+      <text class="frame-caption" x="225" y="122" text-anchor="middle">antenna + mixer</text>
+
+      <rect class="frame-box block-amber" x="305" y="80" width="120" height="60" rx="6" />
+      <text class="frame-label" x="365" y="104" text-anchor="middle" font-weight="700">ADC</text>
+      <text class="frame-caption" x="365" y="122" text-anchor="middle">digitizes beat signal</text>
+
+      <rect class="frame-box block-violet" x="445" y="80" width="120" height="60" rx="6" />
+      <text class="frame-label" x="505" y="104" text-anchor="middle" font-weight="700">DSP</text>
+      <text class="frame-caption" x="505" y="122" text-anchor="middle">FFT &rarr; range-Doppler map</text>
+
+      <rect class="frame-box block-green" x="585" y="80" width="120" height="60" rx="6" />
+      <text class="frame-label" x="645" y="104" text-anchor="middle" font-weight="700" font-size="11">Object list</text>
+      <text class="frame-caption" x="645" y="122" text-anchor="middle">range, velocity, angle</text>
+
+      <rect class="frame-box block-blue" x="725" y="80" width="80" height="60" rx="6" />
+      <text class="frame-label" x="765" y="104" text-anchor="middle" font-weight="700" font-size="10">ADAS ECU</text>
+      <text class="frame-caption" x="765" y="122" text-anchor="middle" font-size="8">ACC, AEB, ...</text>
+
+      <line x1="145" y1="110" x2="161" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="165,110 155,105 155,115" />
+      <line x1="285" y1="110" x2="301" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="305,110 295,105 295,115" />
+      <line x1="425" y1="110" x2="441" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="445,110 435,105 435,115" />
+      <line x1="565" y1="110" x2="581" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="585,110 575,105 575,115" />
+      <line x1="705" y1="110" x2="721" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="725,110 715,105 715,115" />
+
+      <text class="seq-sub" x="410" y="180" text-anchor="middle">This whole chain repeats every frame — tens of times per second — so the ECU always has a fresh object list to act on.</text>
+    </svg>
+    <figcaption class="diagram__caption">The physical bounce off the object (top) and the electronic signal-processing chain (bottom) are two different things happening in sequence — the dashed arc is the RF path, the solid chain is what happens to the signal once it's back.</figcaption>
+  </figure>
+
+  <h2 id="vs-others">Radar vs. LiDAR vs. camera, briefly</h2>
+  <p>
+    Each sensor gets its own full page (LiDAR and camera sensors are
+    planned next), but the short version explains why cars carry all
+    three instead of picking one:
+  </p>
+  <table>
+    <thead><tr><th></th><th>Radar</th><th>LiDAR</th><th>Camera</th></tr></thead>
+    <tbody>
+      <tr><td>Best at</td><td>Range + velocity, any weather</td><td>Precise 3D shape/position</td><td>Classification (what is it?)</td></tr>
+      <tr><td>Weak in</td><td>Angular resolution, object classification</td><td>Heavy rain/fog/snow, cost</td><td>Darkness, glare, fog, rain</td></tr>
+      <tr><td>Works in the dark?</td><td>Yes, unaffected</td><td>Yes, unaffected</td><td>Degraded without added illumination</td></tr>
+    </tbody>
+  </table>
+  <p>
+    This is exactly why ADAS relies on <strong>sensor fusion</strong>
+    rather than any single sensor — radar confidently says something is
+    there and how fast it's closing; camera says what it probably is;
+    combining them covers each one's blind spot.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Adaptive Cruise Control (ACC) —</strong> the forward long-range radar's range and closing-velocity measurements are exactly what a car needs to hold a set following distance automatically.</li>
+    <li><strong>Automatic Emergency Braking (AEB) —</strong> a rapidly closing object the driver hasn't reacted to triggers braking, using the same range/velocity data at a much shorter reaction budget.</li>
+    <li><strong>Blind-spot monitoring —</strong> corner radars watch the zones a mirror can't fully cover, unaffected by darkness or a dirty mirror.</li>
+    <li><strong>Rear cross-traffic alert —</strong> rear corner radars detect approaching traffic while reversing out of a parking spot, before it's visible to the driver.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Radar has genuinely poor angular resolution compared to LiDAR or camera — it can tell you confidently that "something" is at a range and angle, but not reliably what it is. Classification is usually left to camera or fusion logic, not radar alone.</li>
+      <li>Stationary metal objects (manhole covers, overhead signs, bridge structures) can produce strong reflections that look like real obstacles — a classic source of "ghost" detections that fusion and tracking logic have to filter out.</li>
+      <li>Multiple vehicles' radars operating in the same band on a busy road can mutually interfere — interference mitigation is real, ongoing automotive radar engineering, not a solved problem.</li>
+      <li>24 GHz designs are being phased out of new vehicles in many regions as spectrum regulations tighten — a design choice worth checking before starting new automotive radar work.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/protocols/can/index.html", "title": "CAN" },
+    { "href": "/electronics/converters/index.html", "title": "Data converters (ADC & DAC)" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
