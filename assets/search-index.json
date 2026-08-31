@@ -1,5 +1,16 @@
 [
   {
+    "title": "ADAS — Automotive",
+    "url": "/automotive/adas/index.html",
+    "domain": "Automotive",
+    "category": "Adas",
+    "description": "What ADAS actually is, how sensor fusion combines radar/LiDAR/camera data, the Adaptive Cruise Control feedback loop, Lane Departure Warning vs. Lane Keep Assist, and a catalog of common ADAS features.",
+    "tags": [
+      "automotive",
+      "adas"
+    ]
+  },
+  {
     "title": "Camera Sensors — Automotive",
     "url": "/automotive/camera-sensors/index.html",
     "domain": "Automotive",

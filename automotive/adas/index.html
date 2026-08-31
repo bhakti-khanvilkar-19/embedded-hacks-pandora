@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ADAS — Automotive — Embedded Pandora</title>
+<meta name="description" content="What ADAS actually is, how sensor fusion combines radar/LiDAR/camera data, the Adaptive Cruise Control feedback loop, Lane Departure Warning vs. Lane Keep Assist, and a catalog of common ADAS features." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Automotive</p>
+  <h1>ADAS</h1>
+  <p class="lede">
+    ADAS — <strong>A</strong>dvanced <strong>D</strong>river-<strong>A</strong>ssistance
+    <strong>S</strong>ystems — is the umbrella term for features that use
+    <a href="/automotive/radar/index.html">radar</a>,
+    <a href="/automotive/lidar/index.html">LiDAR</a>, and
+    <a href="/automotive/camera-sensors/index.html">camera</a> data to warn
+    or briefly intervene, without taking over driving. Every individual
+    feature is built on the same handful of sensors — the real
+    engineering is in fusing their data and deciding what to do with it,
+    not in exotic new hardware per feature.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Driver-assistance features (ACC, AEB, LDW/LKA, blind-spot monitoring, ...) built on fused radar/LiDAR/camera data.</dd>
+      <dt>Mental model</dt><dd>A set of co-pilot features sitting on top of the same three sensors — the sensors don't change per feature, the fusion and control logic does.</dd>
+      <dt>Key numbers</dt><dd>Most ADAS control loops run at 10&ndash;50 Hz; safety-rating programs (NCAP and similar) increasingly require specific ADAS features as standard equipment.</dd>
+      <dt>Reach for it when</dt><dd>Understanding or building a feature that watches the environment and warns or briefly intervenes — short of actually driving the car itself.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#fusion">Sensor fusion: one perception, many sensors</a></li>
+      <li><a href="#acc">Adaptive Cruise Control</a></li>
+      <li><a href="#lane-monitoring">Lane Departure Warning vs. Lane Keep Assist</a></li>
+      <li><a href="#catalog">A catalog of common ADAS features</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="fusion">Sensor fusion: one perception, many sensors</h2>
+  <p>
+    No single sensor is good at everything (see each sensor's own
+    strengths/weaknesses table on the
+    <a href="/automotive/radar/index.html#vs-others">Radar page</a>), so
+    ADAS systems combine radar, LiDAR, and camera data into one shared
+    understanding of the surroundings before any individual feature acts
+    on it:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 320" role="img" aria-labelledby="fusion-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="fusion-title">Radar, camera, and LiDAR data feed into a central sensor fusion module, which produces a unified object list that multiple ADAS features draw on</title>
+
+      <rect class="frame-box block-blue" x="20" y="20" width="150" height="50" rx="6" />
+      <text class="frame-label" x="95" y="50" text-anchor="middle" font-weight="700">Radar</text>
+      <rect class="frame-box block-teal" x="270" y="20" width="160" height="50" rx="6" />
+      <text class="frame-label" x="350" y="50" text-anchor="middle" font-weight="700">Camera</text>
+      <rect class="frame-box block-amber" x="530" y="20" width="150" height="50" rx="6" />
+      <text class="frame-label" x="605" y="50" text-anchor="middle" font-weight="700">LiDAR</text>
+
+      <line x1="95" y1="70" x2="315" y2="138" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="322,142 310,140 314,130" />
+      <line x1="350" y1="70" x2="350" y2="138" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="350,142 345,132 355,132" />
+      <line x1="605" y1="70" x2="385" y2="138" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="378,142 380,130 390,140" />
+
+      <rect class="frame-box block-violet" x="270" y="140" width="160" height="55" rx="6" />
+      <text class="frame-label" x="350" y="164" text-anchor="middle" font-weight="700">Sensor Fusion</text>
+      <text class="frame-caption" x="350" y="182" text-anchor="middle">unified object list</text>
+
+      <line x1="315" y1="195" x2="95" y2="258" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="88,262 100,260 96,250" />
+      <line x1="350" y1="195" x2="350" y2="258" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="350,262 345,252 355,252" />
+      <line x1="385" y1="195" x2="605" y2="258" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="612,262 600,260 604,250" />
+
+      <rect class="frame-box block-green" x="20" y="260" width="150" height="50" rx="6" />
+      <text class="frame-label" x="95" y="290" text-anchor="middle" font-weight="700">ACC</text>
+      <rect class="frame-box block-green" x="270" y="260" width="160" height="50" rx="6" />
+      <text class="frame-label" x="350" y="290" text-anchor="middle" font-weight="700">AEB</text>
+      <rect class="frame-box block-green" x="530" y="260" width="150" height="50" rx="6" />
+      <text class="frame-label" x="605" y="290" text-anchor="middle" font-weight="700" font-size="12">LDW / LKA</text>
+    </svg>
+    <figcaption class="diagram__caption">Each feature below the fusion layer reads the same unified object list — a pedestrian detected by camera and confirmed by radar range is one fused object, not three disagreeing reports.</figcaption>
+  </figure>
+
+  <h2 id="acc">Adaptive Cruise Control</h2>
+  <p>
+    ACC is a textbook closed control loop: the driver sets a target speed
+    and following gap, and the system continuously adjusts throttle and
+    brake to hold them against a lead vehicle whose speed and distance
+    keep changing.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 300" role="img" aria-labelledby="acc-loop-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="acc-loop-title">A closed control loop: the controller commands the actuator, which changes the vehicle's speed, which the sensor measures and reports back to the controller</title>
+
+      <rect class="frame-box block-blue" x="40" y="30" width="160" height="60" rx="6" />
+      <text class="frame-label" x="120" y="52" text-anchor="middle" font-weight="700">Controller</text>
+      <text class="frame-caption" x="120" y="68" text-anchor="middle" font-size="8">driver-set target vs.</text>
+      <text class="frame-caption" x="120" y="80" text-anchor="middle" font-size="8">measured gap</text>
+
+      <rect class="frame-box block-teal" x="360" y="30" width="160" height="60" rx="6" />
+      <text class="frame-label" x="440" y="56" text-anchor="middle" font-weight="700">Actuator</text>
+      <text class="frame-caption" x="440" y="74" text-anchor="middle">throttle / brake</text>
+
+      <rect class="frame-box block-amber" x="360" y="210" width="160" height="60" rx="6" />
+      <text class="frame-label" x="440" y="236" text-anchor="middle" font-weight="700">Vehicle</text>
+      <text class="frame-caption" x="440" y="254" text-anchor="middle">actual speed changes</text>
+
+      <rect class="frame-box block-violet" x="40" y="210" width="160" height="60" rx="6" />
+      <text class="frame-label" x="120" y="236" text-anchor="middle" font-weight="700" font-size="11">Radar / camera</text>
+      <text class="frame-caption" x="120" y="254" text-anchor="middle">measures gap &amp; closing speed</text>
+
+      <line x1="200" y1="60" x2="356" y2="60" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="360,60 350,55 350,65" />
+      <text class="seq-note" x="280" y="48" text-anchor="middle">command</text>
+
+      <line x1="440" y1="90" x2="440" y2="206" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="440,210 435,200 445,200" />
+      <text class="seq-note" x="480" y="150" text-anchor="middle">accel /</text>
+      <text class="seq-note" x="480" y="164" text-anchor="middle">decel</text>
+
+      <line x1="360" y1="240" x2="204" y2="240" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="200,240 210,235 210,245" />
+      <text class="seq-note" x="280" y="228" text-anchor="middle">changes gap</text>
+
+      <line x1="120" y1="210" x2="120" y2="94" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="120,90 115,100 125,100" />
+      <text class="seq-note" x="70" y="150" text-anchor="middle">measured</text>
+      <text class="seq-note" x="70" y="164" text-anchor="middle">gap</text>
+    </svg>
+    <figcaption class="diagram__caption">This is a feedback loop, not a one-shot calculation — it runs continuously, every control cycle, for as long as ACC is engaged.</figcaption>
+  </figure>
+
+  <h2 id="lane-monitoring">Lane Departure Warning vs. Lane Keep Assist</h2>
+  <p>
+    Both features start from the same camera measurement — the vehicle's
+    lateral position relative to detected lane markings — and differ only
+    in what they do with it:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 480 260" role="img" aria-labelledby="lane-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="lane-title">A vehicle drifting left of lane center triggers either a Lane Departure Warning or, on a Lane Keep Assist system, an automatic corrective steering input</title>
+
+      <line x1="140" y1="20" x2="140" y2="200" stroke="var(--ink-faint)" stroke-dasharray="8 6" stroke-width="2" />
+      <line x1="340" y1="20" x2="340" y2="200" stroke="var(--ink-faint)" stroke-dasharray="8 6" stroke-width="2" />
+      <line x1="240" y1="20" x2="240" y2="200" stroke="var(--ink-faint)" stroke-dasharray="3 3" stroke-width="1" />
+      <text class="frame-caption" x="240" y="14" text-anchor="middle">lane center</text>
+
+      <rect class="frame-box block-blue" x="205" y="90" width="50" height="90" rx="8" />
+      <text class="frame-caption" x="195" y="139" text-anchor="end">vehicle</text>
+
+      <line x1="230" y1="135" x2="238" y2="135" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="240,135 233,131 233,139" />
+      <text class="seq-label" x="245" y="125" text-anchor="start" font-size="10">lateral offset</text>
+      <text class="seq-sub" x="245" y="150" text-anchor="start">(camera-measured)</text>
+
+      <line x1="230" y1="180" x2="230" y2="228" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="230,232 225,222 235,222" />
+
+      <rect class="frame-box block-amber" x="30" y="234" width="180" height="26" rx="6" />
+      <text class="frame-label" x="120" y="251" text-anchor="middle" font-size="10">LDW: warn the driver</text>
+      <rect class="frame-box block-green" x="250" y="234" width="200" height="26" rx="6" />
+      <text class="frame-label" x="350" y="251" text-anchor="middle" font-size="10">LKA: apply steering torque</text>
+    </svg>
+    <figcaption class="diagram__caption">LDW stops at telling the driver; LKA takes the same measurement one step further and briefly steers the car back toward center itself.</figcaption>
+  </figure>
+  <dl class="kv">
+    <dt>LDW (Lane Departure Warning)</dt><dd>Alerts the driver (sound, vibration, visual) when drifting out of the lane without signaling — it never touches the steering.</dd>
+    <dt>LKA (Lane Keep Assist)</dt><dd>Goes further: applies a corrective steering torque to nudge the vehicle back toward lane center, still expecting the driver to remain in control.</dd>
+  </dl>
+
+  <h2 id="catalog">A catalog of common ADAS features</h2>
+  <table>
+    <thead><tr><th>Feature</th><th>Primary sensors</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td>ACC</td><td>Radar, camera</td><td>Holds a set speed and following gap automatically.</td></tr>
+      <tr><td>AEB</td><td>Radar, camera</td><td>Brakes automatically for an imminent collision the driver hasn't reacted to.</td></tr>
+      <tr><td>LDW / LKA</td><td>Camera</td><td>Warns about, or corrects, unintentional lane drift.</td></tr>
+      <tr><td>Blind Spot Monitoring</td><td>Corner radar</td><td>Flags vehicles in the zones mirrors don't fully cover.</td></tr>
+      <tr><td>Rear Cross-Traffic Alert</td><td>Rear corner radar</td><td>Warns of approaching traffic while reversing out of a parking spot.</td></tr>
+      <tr><td>Traffic Sign Recognition</td><td>Camera</td><td>Reads speed-limit and regulatory signs, surfaces them to the driver.</td></tr>
+      <tr><td>Parking assist</td><td>Ultrasonic sensors, camera</td><td>Detects nearby obstacles and/or steers automatically into a parking space.</td></tr>
+      <tr><td>Driver monitoring</td><td>Inward-facing camera</td><td>Watches for drowsiness or distraction.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Highway driving comfort —</strong> ACC is one of the most-used ADAS features day to day, reducing constant manual speed/gap adjustment on long drives.</li>
+    <li><strong>Collision mitigation —</strong> AEB is credited with measurable real-world reductions in rear-end collision rates in independent safety studies.</li>
+    <li><strong>Regulatory and safety-rating pressure —</strong> AEB and LDW/LKA are increasingly mandated or required for top safety ratings in many markets, not just offered as premium options.</li>
+    <li><strong>Foundation for higher autonomy —</strong> the same fused perception stack that powers today's ADAS is the direct foundation higher levels of driving automation build on.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>ADAS is assistance, not autonomy — the driver remains fully responsible for the vehicle at every ADAS feature level. Conflating "has ADAS" with "can drive itself" is a real, dangerous, and unfortunately common misunderstanding.</li>
+      <li>Automation complacency is a documented human-factors problem: drivers who trust ADAS too much pay less attention, precisely when the system still needs them ready to take over.</li>
+      <li>"Phantom braking" — AEB triggering on a false positive (a shadow, an overhead sign, debris) — is a real, ongoing tuning challenge: too sensitive causes unnecessary braking events, too conservative misses real hazards.</li>
+      <li>When fused sensors disagree (radar sees an object, camera doesn't, or vice versa), the fusion and arbitration logic's behavior in that disagreement is itself a safety-critical design decision, not an edge case to shrug off.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/automotive/camera-sensors/index.html", "title": "Camera Sensors" },
+  "related": [
+    { "href": "/automotive/radar/index.html", "title": "Radar" },
+    { "href": "/automotive/lidar/index.html", "title": "LiDAR" },
+    { "href": "/automotive/camera-sensors/index.html", "title": "Camera Sensors" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
