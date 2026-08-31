@@ -140,6 +140,17 @@
     ]
   },
   {
+    "title": "Timers — Embedded",
+    "url": "/embedded/timers/index.html",
+    "domain": "Embedded",
+    "category": "Timers",
+    "description": "How a hardware timer peripheral actually works — clock source, prescaler, counter, auto-reload, compare/capture — and step-by-step embedded C to configure one.",
+    "tags": [
+      "embedded",
+      "timers"
+    ]
+  },
+  {
     "title": "Boot — Linux",
     "url": "/linux/boot/index.html",
     "domain": "Linux",

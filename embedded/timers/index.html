@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Timers — Embedded — Embedded Pandora</title>
+<meta name="description" content="How a hardware timer peripheral actually works — clock source, prescaler, counter, auto-reload, compare/capture — and step-by-step embedded C to configure one." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Embedded</p>
+  <h1>Timers</h1>
+  <p class="lede">
+    A hardware timer is a counter built into the chip that keeps ticking on
+    its own, independent of whatever the CPU is doing — and can take an
+    action (fire an interrupt, flip a pin, capture a value) the instant it
+    reaches a target count. It's how firmware gets precise timing without
+    burning CPU cycles in a busy-wait loop.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A hardware counter, clocked independently of the CPU, that can trigger an interrupt, toggle a pin, or capture a value when it reaches a target count.</dd>
+      <dt>Mental model</dt><dd>A stopwatch built into the chip — it keeps counting in the background and can tap the CPU on the shoulder, or wiggle a pin by itself, without anyone watching it.</dd>
+      <dt>Key numbers</dt><dd>Counter width (8/16/32-bit), a prescaler that divides the input clock, and a reload/period register (ARR) that sets where it wraps.</dd>
+      <dt>Reach for it when</dt><dd>You need a fixed-rate event, a precise delay, a PWM output, or to measure the timing of an external signal — all without polling.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#why">Why not just a software delay loop?</a></li>
+      <li><a href="#anatomy">Anatomy of a hardware timer</a></li>
+      <li><a href="#modes">Timer modes</a></li>
+      <li><a href="#pwm">Generating PWM with a timer</a></li>
+      <li><a href="#code">Step by step: configuring a timer in C</a></li>
+      <li><a href="#capture">Input capture: measuring a signal</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="why">Why not just a software delay loop?</h2>
+  <p>
+    A <code>for</code> loop that counts to some number and calls it "a
+    delay" ties up the CPU for the entire wait, can't do anything else
+    while it waits, and drifts with clock speed, compiler optimization
+    level, and whatever else changes about the build. A hardware timer
+    solves all three: it counts using dedicated silicon while the CPU is
+    completely free to do other work, it only interrupts the CPU at the
+    exact moment something needs to happen, and its timing is derived
+    directly from a known clock source instead of "however many loop
+    iterations happened to take."
+  </p>
+
+  <h2 id="anatomy">Anatomy of a hardware timer</h2>
+  <p>
+    Strip away the vendor-specific register names and every hardware timer
+    is built from the same handful of parts, chained together:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 380" role="img" aria-labelledby="timer-anatomy-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="timer-anatomy-title">A timer clock source feeds a prescaler, which feeds a counter register, which is compared against an auto-reload register — a match resets the counter, fires an interrupt, and can toggle an output pin</title>
+
+      <rect class="frame-box block-blue" x="10" y="50" width="140" height="60" rx="6" />
+      <text class="frame-label" x="80" y="76" text-anchor="middle" font-weight="700">Clock source</text>
+      <text class="frame-caption" x="80" y="94" text-anchor="middle">e.g. 84 MHz bus clock</text>
+
+      <rect class="frame-box block-teal" x="200" y="50" width="150" height="60" rx="6" />
+      <text class="frame-label" x="275" y="76" text-anchor="middle" font-weight="700">Prescaler</text>
+      <text class="frame-caption" x="275" y="94" text-anchor="middle">divide by (PSC + 1)</text>
+
+      <rect class="frame-box block-amber" x="400" y="50" width="150" height="60" rx="6" />
+      <text class="frame-label" x="475" y="76" text-anchor="middle" font-weight="700">Counter (CNT)</text>
+      <text class="frame-caption" x="475" y="94" text-anchor="middle">increments each tick</text>
+
+      <rect class="frame-box block-violet" x="600" y="50" width="90" height="60" rx="6" />
+      <text class="frame-label" x="645" y="76" text-anchor="middle" font-weight="700">Compare</text>
+      <text class="frame-caption" x="645" y="94" text-anchor="middle">vs. ARR</text>
+
+      <line x1="150" y1="80" x2="196" y2="80" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="200,80 190,75 190,85" />
+      <line x1="350" y1="80" x2="396" y2="80" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="400,80 390,75 390,85" />
+      <line x1="550" y1="80" x2="596" y2="80" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="600,80 590,75 590,85" />
+
+      <path d="M 620,110 C 620,175 500,175 500,110" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" stroke-dasharray="4 3" />
+      <polygon points="500,110 494,120 507,120" style="fill:var(--ink-faint);" />
+      <text class="seq-note" x="560" y="155" text-anchor="middle">match! reset CNT to 0, repeat</text>
+
+      <line x1="600" y1="110" x2="480" y2="230" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="472,238 476,226 486,232" />
+
+      <line x1="670" y1="110" x2="670" y2="230" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="670,238 664,226 676,226" />
+
+      <rect class="frame-box block-green" x="360" y="240" width="200" height="60" rx="6" />
+      <text class="frame-label" x="460" y="266" text-anchor="middle" font-weight="700">Interrupt fires</text>
+      <text class="frame-caption" x="460" y="284" text-anchor="middle">"update event" — runs the ISR</text>
+
+      <rect class="frame-box block-blue" x="580" y="240" width="110" height="60" rx="6" />
+      <text class="frame-label" x="635" y="266" text-anchor="middle" font-weight="700">Output pin</text>
+      <text class="frame-caption" x="635" y="284" text-anchor="middle">toggles (PWM)</text>
+
+      <text class="seq-note" x="475" y="335" text-anchor="middle">Both outcomes are optional and independently configurable — a timer can</text>
+      <text class="seq-note" x="475" y="350" text-anchor="middle">fire an interrupt, drive an output pin, both, or neither (just free-running).</text>
+    </svg>
+    <figcaption class="diagram__caption">Every hardware timer is this same pipeline under the hood, whatever the vendor calls the registers: a clock, a divider, a counter, and a comparison that resets the cycle.</figcaption>
+  </figure>
+  <dl class="kv">
+    <dt>Clock source</dt><dd>The input clock feeding the timer — often the CPU's own bus clock, sometimes a separate low-power oscillator for timers that need to keep running in sleep modes.</dd>
+    <dt>Prescaler (PSC)</dt><dd>Divides the input clock down before it reaches the counter — without it, most timers would wrap around far too fast to be useful for anything but the shortest intervals.</dd>
+    <dt>Counter (CNT)</dt><dd>The actual register that increments (or on some timers, decrements) once per prescaled tick. Reading it tells you the timer's current value at that instant.</dd>
+    <dt>Auto-reload register (ARR)</dt><dd>The "period" register — the value the counter counts up to before wrapping back to zero. This is what turns a free-running counter into a fixed-frequency generator.</dd>
+    <dt>Compare/capture register (CCR)</dt><dd>A second, independently-set value the counter is compared against mid-cycle — the basis for PWM duty cycle and for timestamping an external edge (input capture).</dd>
+  </dl>
+  <p>
+    The frequency a timer actually produces follows directly from these
+    parts:
+  </p>
+  <pre><code>f_timer = f_clk / ((PSC + 1) * (ARR + 1))</code></pre>
+  <p>
+    The <code>+1</code> on both terms trips almost everyone up at least
+    once — both the prescaler and the reload register are typically
+    zero-indexed in hardware (a PSC of 0 means "don't divide at all," not
+    "divide by zero"), so the actual divisor is always one more than the
+    register value.
+  </p>
+
+  <h2 id="modes">Timer modes</h2>
+  <dl class="kv">
+    <dt>One-shot</dt><dd>Counts once from zero to ARR, fires its event, then stops — used for a single delayed action ("do this in exactly 200&nbsp;µs, once").</dd>
+    <dt>Periodic (up-counting)</dt><dd>Counts to ARR, fires its event, automatically resets to zero, and keeps going — the default mode for anything that needs to happen at a fixed rate.</dd>
+    <dt>Output compare / PWM</dt><dd>Drives a physical output pin based on comparing CNT against a CCR value each cycle — see below.</dd>
+    <dt>Input capture</dt><dd>Instead of driving a pin, the timer <em>latches</em> its current CNT value into a CCR the instant an edge arrives on an input pin — see <a href="#capture">Input capture</a>.</dd>
+  </dl>
+
+  <h2 id="pwm">Generating PWM with a timer</h2>
+  <p>
+    PWM output is just the compare step from the anatomy diagram wired to
+    a pin instead of (or in addition to) an interrupt: the pin goes high
+    when the counter resets to zero, and drops low the instant the
+    counter reaches the compare value (CCR). Because the counter's period
+    is fixed by ARR, the fraction of each cycle spent high — the
+    <strong>duty cycle</strong> — is just <code>CCR / (ARR + 1)</code>,
+    set purely by changing one register with no CPU involvement once
+    configured.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 260" role="img" aria-labelledby="pwm-timer-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="pwm-timer-title">A sawtooth counter waveform compared against a fixed threshold produces a PWM square wave whose high portion sets the duty cycle</title>
+
+      <text class="frame-caption" x="20" y="18" text-anchor="start">counter value (CNT)</text>
+      <polyline points="40,110 200,20 200,110 360,20 360,110 520,20"
+                fill="none" stroke="var(--blue)" stroke-width="2.5" />
+      <line x1="40" y1="78" x2="520" y2="78" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="5 3" />
+      <text class="seq-note" x="524" y="82" text-anchor="start">CCR</text>
+      <text class="frame-caption" x="40" y="128" text-anchor="start">0</text>
+      <text class="frame-caption" x="40" y="24" text-anchor="start">ARR</text>
+
+      <g stroke="var(--ink-faint)" stroke-dasharray="2 3">
+        <line x1="96" y1="78" x2="96" y2="230" />
+        <line x1="200" y1="20" x2="200" y2="230" />
+        <line x1="256" y1="78" x2="256" y2="230" />
+        <line x1="360" y1="20" x2="360" y2="230" />
+        <line x1="416" y1="78" x2="416" y2="230" />
+        <line x1="520" y1="20" x2="520" y2="230" />
+      </g>
+
+      <text class="frame-caption" x="20" y="150" text-anchor="start">PWM output pin</text>
+      <polyline points="40,165 96,165 96,225 200,225 200,165 256,165 256,225 360,225 360,165 416,165 416,225 520,225"
+                fill="none" stroke="var(--green)" stroke-width="3" />
+
+      <line x1="40" y1="240" x2="520" y2="240" stroke="var(--ink-faint)" stroke-width="1.5" />
+      <text class="frame-caption" x="520" y="255" text-anchor="end">time →</text>
+
+      <text class="seq-sub" x="68" y="185" text-anchor="middle">high (CNT &lt; CCR)</text>
+      <text class="seq-sub" x="148" y="205" text-anchor="middle">low (CNT ≥ CCR)</text>
+
+      <path d="M 200,10 L 360,10" stroke="var(--ink-faint)" stroke-width="1" />
+      <text class="seq-note" x="280" y="10" text-anchor="middle" dy="-4">one full period = (ARR + 1) ticks</text>
+    </svg>
+    <figcaption class="diagram__caption">Every time the sawtooth counter resets, the output pin goes high; the instant it crosses CCR, the pin drops low. Moving CCR up or down changes the duty cycle without touching ARR (and therefore without changing the PWM frequency at all).</figcaption>
+  </figure>
+  <p>
+    This is the exact same mechanism behind
+    <a href="/electronics/converters/index.html#pwm-dac">using PWM as a poor
+    man's DAC</a> — a fixed-frequency square wave whose average voltage,
+    after filtering (or just the physical inertia of a motor or the
+    persistence of vision of an LED), tracks the duty cycle.
+  </p>
+
+  <h2 id="code">Step by step: configuring a timer in C</h2>
+  <p>
+    Exact register names differ by vendor (this reads like a generic
+    Cortex-M/STM32-style timer; an 8-bit AVR or a PIC will use different
+    register names for the same five ideas), but the sequence is always
+    the same shape:
+  </p>
+  <ol>
+    <li>
+      <strong>Decide the target frequency or period.</strong> Say we want
+      a periodic interrupt every 1&nbsp;ms (1&nbsp;kHz), and the timer's
+      input clock is 84&nbsp;MHz.
+    </li>
+    <li>
+      <strong>Solve for PSC and ARR.</strong> Pick a prescaler that gets
+      the post-divide clock to a convenient round number, then let ARR
+      set the actual period: <code>84,000,000 / (83 + 1) = 1,000,000</code>
+      ticks/second (1&nbsp;µs per tick), then <code>ARR = 999</code> gives
+      exactly 1000 ticks &rarr; 1&nbsp;ms per period.
+    </li>
+    <li>
+      <strong>Enable the timer's clock.</strong> On most MCUs the timer
+      peripheral is clock-gated off by default to save power — nothing
+      else works until this bit is set.
+    </li>
+    <li>
+      <strong>Write PSC and ARR</strong>, then enable the update interrupt
+      and unmask it in the interrupt controller (see
+      <a href="/embedded/interrupts/index.html">Interrupts</a> for what
+      that unmasking step is actually doing).
+    </li>
+    <li>
+      <strong>Start the timer</strong> by setting its enable bit — from
+      this point the CPU is completely uninvolved until the ISR fires.
+    </li>
+    <li>
+      <strong>Write the ISR</strong>: clear the interrupt flag first
+      (skipping this is the single most common timer bug — see Gotchas),
+      then do the minimum work needed and return.
+    </li>
+  </ol>
+  <pre><code>// Target: 1 kHz periodic interrupt from an 84 MHz timer clock.
+// f_timer = f_clk / ((PSC+1) * (ARR+1))
+// 1000 Hz = 84,000,000 / ((83+1) * (999+1))
+
+#define TIMER_PSC_VALUE   83     // 84 MHz / 84 = 1 MHz tick rate (1 us/tick)
+#define TIMER_ARR_VALUE   999    // 1000 ticks per period = 1 ms period
+
+void timer_init_1khz(void) {
+    TIMx_CLOCK_ENABLE();               // step 3: power the peripheral
+
+    TIMx->PSC = TIMER_PSC_VALUE;       // step 4: prescaler
+    TIMx->ARR = TIMER_ARR_VALUE;       // step 4: period
+    TIMx->CNT = 0;                     // start counting from zero
+
+    TIMx->DIER |= TIM_DIER_UIE;        // step 4: enable "update" interrupt
+    NVIC_EnableIRQ(TIMx_IRQn);         // step 4: unmask it in the NVIC
+
+    TIMx->CR1 |= TIM_CR1_CEN;          // step 5: start the timer
+}
+
+volatile uint32_t ms_ticks;
+
+void TIMx_IRQHandler(void) {
+    TIMx->SR &amp;= ~TIM_SR_UIF;          // step 6: MUST clear the flag first
+    ms_ticks++;                        // step 6: keep it short — see Interrupts
+}</code></pre>
+  <div class="callout callout--note">
+    <span class="callout__label">What I learned</span>
+    <p>
+      Most vendor HALs (STM32 HAL, NXP MCUXpresso, Microchip Harmony…) wrap
+      exactly this sequence behind a config-struct-and-init-function API —
+      learning the raw register version once makes every HAL's timer API
+      make sense immediately, instead of feeling like a pile of
+      unexplained struct fields.
+    </p>
+  </div>
+
+  <h2 id="capture">Input capture: measuring a signal</h2>
+  <p>
+    Run the same hardware in reverse: instead of the timer driving a pin,
+    an external signal edge (rising, falling, or both) tells the timer to
+    <strong>latch</strong> its current CNT value into a capture register,
+    without any CPU involvement or jitter from software reaction time.
+    Two captures on successive edges, subtracted, give the period of an
+    incoming signal directly in timer ticks — the standard way to measure
+    the frequency of an unknown signal or the pulse width of something
+    like an ultrasonic distance sensor's echo pin.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Motor control PWM —</strong> the output-compare mechanism above, typically running at several kHz, is how firmware sets motor speed or LED brightness continuously without CPU involvement per cycle.</li>
+    <li><strong>RTOS tick —</strong> a dedicated hardware timer (SysTick on Cortex-M) firing at a fixed rate is what actually drives an <a href="/embedded/rtos/index.html">RTOS</a> scheduler's time-slicing and delay/timeout accounting.</li>
+    <li><strong>Non-blocking delays —</strong> reading a free-running timer's CNT value and comparing elapsed ticks replaces <code>delay()</code>-style busy-waits with code that can do other things while "waiting."</li>
+    <li><strong>Ultrasonic/time-of-flight sensing —</strong> input capture on an echo pin is the standard way to measure a pulse's width precisely, converting it to distance.</li>
+    <li><strong>Communication baud-rate generation —</strong> UART, and often SPI/I2C clock generation internally, are built on the same divide-down-a-clock idea as a general-purpose timer.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Forgetting to clear the interrupt (update) flag inside the ISR is the single most common timer bug — depending on the core, the same interrupt can either refuse to fire again or fire continuously in a tight loop the moment it returns.</li>
+      <li>Off-by-one on ARR: the period is <code>(ARR + 1)</code> ticks, not <code>ARR</code> ticks, because the counter includes zero — a timer "set to 999" for 1000 ticks is correct, not a bug.</li>
+      <li>A prescaler/reload combination that doesn't divide the input clock evenly produces a frequency that's close but not exact — fine for a blink rate, not fine for anything timing-critical like a communication baud rate.</li>
+      <li>Two peripherals (say, a PWM channel and an application timing tick) sharing one physical timer instance will fight over ARR, since there's only one reload value per timer — use a different timer instance, or a different channel of a multi-channel timer, per independent use.</li>
+      <li>Measuring a long pulse with input capture can silently wrap the counter if the pulse outlasts one full period — either use a wider counter, or also count overflow-interrupt events and add them into the elapsed time.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/embedded/rtos/index.html", "title": "RTOS" },
+  "related": [
+    { "href": "/embedded/interrupts/index.html", "title": "Interrupts" },
+    { "href": "/embedded/gpio/index.html", "title": "GPIO" },
+    { "href": "/embedded/rtos/index.html", "title": "RTOS" },
+    { "href": "/electronics/converters/index.html", "title": "Data converters (ADC & DAC)" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
