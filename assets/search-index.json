@@ -33,6 +33,17 @@
     ]
   },
   {
+    "title": "CAPL Programming — Automotive",
+    "url": "/automotive/capl/index.html",
+    "domain": "Automotive",
+    "category": "Capl",
+    "description": "What CAPL is, its event-driven structure, a worked example implementing the UDS +0x40 rule, restbus simulation, and how CAPL is actually used for automotive test and simulation.",
+    "tags": [
+      "automotive",
+      "capl"
+    ]
+  },
+  {
     "title": "Automotive",
     "url": "/automotive/index.html",
     "domain": "Automotive",
