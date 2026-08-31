@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Paging &amp; Context Switching — Linux — Embedded Pandora</title>
+<meta name="description" content="Virtual memory, page tables, the TLB, page faults, and what actually happens — and what it costs — when Linux switches from one process or thread to another." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Linux</p>
+  <h1>Paging &amp; Context Switching</h1>
+  <p class="lede">
+    Every process on Linux believes it owns a private, contiguous chunk of
+    memory starting near address zero, and believes it has the CPU to
+    itself. Neither is true — paging is the illusion machinery for the
+    first belief, and context switching is the illusion machinery for the
+    second. Both are core kernel mechanisms with real, measurable costs.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>How Linux gives every process its own private virtual address space (paging), and how the CPU is shared between processes and threads over time (context switching).</dd>
+      <dt>Mental model</dt><dd>Virtual memory is a lookup table sitting on top of real RAM; a context switch is the kernel hitting pause on one program and resume on another, saving and restoring just enough state that neither program can tell it happened.</dd>
+      <dt>Key numbers</dt><dd>A typical Linux timer tick fires every 1–4 ms (<code>CONFIG_HZ</code> 250–1000); switching between threads in the same process skips the TLB flush a process-to-process switch has to pay.</dd>
+      <dt>Reach for it when</dt><dd>Diagnosing a high context-switch count, an unexplained first-touch latency spike, or reasoning about real-time scheduling behavior.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#virtual-memory">Why virtual memory exists</a></li>
+      <li><a href="#page-tables-tlb">Page tables and the TLB</a></li>
+      <li><a href="#page-faults">Page faults</a></li>
+      <li><a href="#context-switch">What a context switch actually does</a></li>
+      <li><a href="#triggers">What triggers a switch</a></li>
+      <li><a href="#cost">Why context switches cost what they cost</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="virtual-memory">Why virtual memory exists</h2>
+  <p>
+    Without virtual memory, every process would address physical RAM
+    directly — one stray pointer write could corrupt the kernel or another
+    program, and two programs both compiled to assume they own address
+    <code>0x400000</code> couldn't coexist. Virtual memory solves both
+    problems by giving every process its own <strong>virtual address
+    space</strong>: an address a process uses is not a physical RAM
+    address at all, but an index into a per-process translation the MMU
+    (memory management unit) resolves on every access. This buys three
+    things at once: <strong>isolation</strong> (a process literally cannot
+    form a pointer into another process's memory), the
+    <strong>illusion of contiguity</strong> (a process's memory looks flat
+    and contiguous even though the physical frames backing it are
+    scattered across RAM), and <strong>overcommit</strong> (a page of
+    virtual address space can exist before any physical RAM is actually
+    set aside for it — see <a href="#page-faults">page faults</a> below).
+  </p>
+
+  <h2 id="page-tables-tlb">Page tables and the TLB</h2>
+  <p>
+    Memory is managed in fixed-size chunks called <strong>pages</strong>
+    (4 KiB is the common default on both x86 and ARM). A virtual address
+    splits into a <strong>page number</strong> (which page) and an
+    <strong>offset</strong> (where within that page). The
+    <strong>page table</strong> is the per-process data structure mapping
+    each virtual page number to the physical frame currently backing it —
+    on real hardware this is a multi-level radix tree (4 levels on both
+    x86-64 and ARM64) rather than one flat array, so a full address
+    doesn't require one giant table per process. Each process has its own
+    page table, and the CPU register pointing at the currently-active
+    one (<code>CR3</code> on x86, <code>TTBR0/1</code> on ARM) is part of
+    what makes a process a process, from the MMU's point of view.
+  </p>
+  <p>
+    Walking four levels of page table on every single memory access would
+    be ruinously slow, so the CPU caches recent virtual→physical
+    translations in the <strong>TLB</strong> (translation lookaside
+    buffer). Most memory accesses hit the TLB and skip the table walk
+    entirely; a TLB miss falls back to walking the page table in hardware
+    (x86, ARM) to refill it.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 760 260" role="img" aria-labelledby="paging-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="paging-title">A virtual address is checked against the TLB first; a hit resolves straight to a physical frame, a miss falls back to walking the page table</title>
+
+      <text class="seq-note" x="380" y="20" text-anchor="middle">Virtual address → physical address</text>
+
+      <rect class="frame-box block-blue" x="20" y="90" width="150" height="60" rx="6" />
+      <text class="frame-label" x="95" y="114" text-anchor="middle" font-weight="700" font-size="10">Virtual address</text>
+      <text class="frame-caption" x="95" y="132" text-anchor="middle" font-size="8">page number + offset</text>
+
+      <rect class="frame-box block-violet" x="210" y="90" width="130" height="60" rx="6" />
+      <text class="frame-label" x="275" y="114" text-anchor="middle" font-weight="700" font-size="10">TLB</text>
+      <text class="frame-caption" x="275" y="132" text-anchor="middle" font-size="8">cached translations</text>
+
+      <rect class="frame-box block-amber" x="210" y="190" width="130" height="55" rx="6" />
+      <text class="frame-label" x="275" y="213" text-anchor="middle" font-weight="700" font-size="10">Page table</text>
+      <text class="frame-caption" x="275" y="230" text-anchor="middle" font-size="8">walked on miss</text>
+
+      <rect class="frame-box block-teal" x="590" y="90" width="150" height="60" rx="6" />
+      <text class="frame-label" x="665" y="114" text-anchor="middle" font-weight="700" font-size="10">Physical memory</text>
+      <text class="frame-caption" x="665" y="132" text-anchor="middle" font-size="8">RAM frame</text>
+
+      <line x1="170" y1="120" x2="206" y2="120" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="210,120 200,115 200,125" />
+
+      <line x1="340" y1="110" x2="586" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="590,110 580,105 580,115" />
+      <text class="seq-sub" x="463" y="96" text-anchor="middle">TLB hit — fast path</text>
+
+      <line x1="275" y1="150" x2="275" y2="186" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="275,190 270,180 280,180" />
+      <text class="seq-sub" x="343" y="172" text-anchor="start">miss</text>
+
+      <line x1="340" y1="205" x2="586" y2="135" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="590,131 578,132 582,142" />
+      <text class="seq-sub" x="463" y="188" text-anchor="middle">walk result refills TLB</text>
+    </svg>
+    <figcaption class="diagram__caption">The TLB is checked first because a full page-table walk is many memory accesses deep — a TLB hit turns translation into effectively free, a miss pays the walk once and caches the result.</figcaption>
+  </figure>
+
+  <h2 id="page-faults">Page faults</h2>
+  <p>
+    A <strong>page fault</strong> is the MMU telling the kernel "this
+    virtual address has no valid translation right now — you handle it."
+    That's not always an error. A <strong>minor fault</strong> means the
+    page exists but isn't mapped into this process's page table yet — the
+    common case for a freshly <code>mmap()</code>ed region, handled purely
+    in memory with no disk I/O. A <strong>major fault</strong> means the
+    data actually has to come from disk or swap, which is orders of
+    magnitude slower. This is what makes <strong>demand paging</strong>
+    possible: <code>mmap()</code> can reserve gigabytes of address space
+    instantly because no physical frame is allocated until the process
+    actually touches a given page.
+  </p>
+  <pre><code>void *p = mmap(NULL, 4096 * 1000, PROT_READ | PROT_WRITE,
+               MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+// No physical page exists yet for any of this — the call only
+// reserves virtual address space. Touching page 0 for the first
+// time triggers a minor page fault; the kernel handles it by
+// backing that one page with a real frame, then execution resumes
+// as if the fault never happened.
+p[0] = 1;
+
+// Per-process fault counts, straight from the kernel:
+// $ cat /proc/$$/stat | awk '{print "minflt="$10, "majflt="$12}'</code></pre>
+
+  <h2 id="context-switch">What a context switch actually does</h2>
+  <p>
+    A <strong>context switch</strong> is the kernel suspending one thread
+    of execution and resuming another on the same CPU core. To make the
+    interruption invisible, it has to save exactly the state that
+    execution depends on — general-purpose registers, the program
+    counter, and the stack pointer — into that thread's kernel-side
+    control block, then load the same set back in for whatever runs next.
+    Switching between two <em>threads of the same process</em> stops
+    there. Switching between two <em>processes</em> additionally means
+    pointing the CPU's page-table base register at the new process's page
+    table — which is also why a process switch is inherently more
+    expensive than a thread switch (see <a href="#cost">cost</a> below).
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 760 230" role="img" aria-labelledby="ctxsw-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="ctxsw-title">A timer interrupt causes the kernel to save process A's CPU state and load process B's, then B resumes running on the same CPU</title>
+
+      <text class="seq-note" x="380" y="18" text-anchor="middle">Anatomy of a context switch</text>
+
+      <rect class="frame-box block-blue" x="20" y="40" width="150" height="60" rx="6" />
+      <text class="frame-label" x="95" y="64" text-anchor="middle" font-weight="700" font-size="10">Process A</text>
+      <text class="frame-caption" x="95" y="82" text-anchor="middle" font-size="8">running on CPU</text>
+
+      <line x1="170" y1="70" x2="206" y2="70" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="210,70 200,65 200,75" />
+      <text class="seq-sub" x="188" y="56" text-anchor="middle">timer IRQ</text>
+
+      <rect class="frame-box block-amber" x="210" y="40" width="180" height="60" rx="6" />
+      <text class="frame-label" x="300" y="62" text-anchor="middle" font-weight="700" font-size="9">Kernel: switch_to()</text>
+      <text class="frame-caption" x="300" y="80" text-anchor="middle" font-size="8">save A, load B</text>
+
+      <line x1="390" y1="70" x2="426" y2="70" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="430,70 420,65 420,75" />
+
+      <rect class="frame-box block-teal" x="430" y="40" width="150" height="60" rx="6" />
+      <text class="frame-label" x="505" y="64" text-anchor="middle" font-weight="700" font-size="10">Process B</text>
+      <text class="frame-caption" x="505" y="82" text-anchor="middle" font-size="8">running on CPU</text>
+
+      <rect class="frame-box block-violet" x="180" y="150" width="150" height="55" rx="6" />
+      <text class="frame-label" x="255" y="172" text-anchor="middle" font-weight="700" font-size="9">PCB — Process A</text>
+      <text class="frame-caption" x="255" y="190" text-anchor="middle" font-size="8">saved CPU state</text>
+
+      <rect class="frame-box block-violet" x="430" y="150" width="150" height="55" rx="6" />
+      <text class="frame-label" x="505" y="172" text-anchor="middle" font-weight="700" font-size="9">PCB — Process B</text>
+      <text class="frame-caption" x="505" y="190" text-anchor="middle" font-size="8">restored CPU state</text>
+
+      <line x1="280" y1="100" x2="250" y2="148" class="seq-arrow" stroke-width="1.5" stroke-dasharray="4 3" />
+      <polygon class="seq-arrowhead" points="245,152 248,140 258,146" />
+      <text class="seq-sub" x="222" y="128" text-anchor="middle">save</text>
+
+      <line x1="500" y1="148" x2="335" y2="100" class="seq-arrow" stroke-width="1.5" stroke-dasharray="4 3" />
+      <polygon class="seq-arrowhead" points="330,96 342,94 338,105" />
+      <text class="seq-sub" x="440" y="128" text-anchor="middle">restore</text>
+    </svg>
+    <figcaption class="diagram__caption">Every register, the program counter, and the stack pointer round-trip through each process's control block on the way through the switch — that's the minimum state needed to make the interruption invisible.</figcaption>
+  </figure>
+
+  <h2 id="triggers">What triggers a switch</h2>
+  <ul class="point-list">
+    <li><strong>Timer interrupt —</strong> the scheduler tick, firing every <code>1/CONFIG_HZ</code> seconds, gives the kernel a chance to preempt the running task if a higher-priority one is waiting.</li>
+    <li><strong>Blocking syscall —</strong> a <code>read()</code> waiting on disk or network I/O voluntarily gives up the CPU rather than spin — this is the most common trigger in I/O-heavy code, and happens well before the next timer tick.</li>
+    <li><strong>Higher-priority task becomes runnable —</strong> an interrupt handler wakes a thread waiting on it; if that thread outranks whatever's currently running, the scheduler preempts immediately.</li>
+    <li><strong>Explicit yield —</strong> <code>sched_yield()</code> voluntarily hands the CPU to another runnable task of the same priority.</li>
+  </ul>
+
+  <h2 id="cost">Why context switches cost what they cost</h2>
+  <p>
+    The direct cost — saving and restoring registers — is genuinely cheap,
+    on the order of tens to low hundreds of nanoseconds. The expensive
+    part is indirect: switching page tables invalidates the TLB entries
+    tied to the old process's address space (an ARM/x86 core generally
+    can't tell which cached translations still apply to the new process,
+    so it has to assume none do), and every subsequent memory access pays
+    a TLB-miss walk until the cache repopulates. The CPU's data and
+    instruction caches suffer the same fate for the same reason — the new
+    process's working set has to evict the old one's cache lines one
+    access at a time. <strong>This is exactly why switching between
+    threads of the same process is cheaper than switching between
+    processes</strong>: threads share one page table, so there's no TLB
+    flush and far less cache churn to pay for.
+  </p>
+  <pre><code># system-wide context switch rate — the "cs" column
+vmstat 1
+
+# per-process breakdown: voluntary (blocked on I/O) vs.
+# involuntary (preempted by the scheduler)
+pidstat -w -p &lt;pid&gt; 1
+#   cswch/s   = voluntary
+#   nvcswch/s = involuntary
+
+# count context switches for one command's whole run
+perf stat -e context-switches ./my_program</code></pre>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Real-time scheduling —</strong> an <a href="/embedded/rtos/index.html">RTOS</a> tuning its tick rate is directly trading responsiveness against context-switch overhead; too fast a tick spends more time switching than doing useful work.</li>
+    <li><strong>Thread pools over process pools —</strong> a server choosing worker threads instead of worker processes for tightly-coupled request handling is choosing to keep switches cheap by avoiding page-table changes — the same processes-vs-threads tradeoff covered in <a href="/linux/ipc/index.html#processes-vs-threads">IPC</a>.</li>
+    <li><strong>Real-time loop warm-up —</strong> latency-sensitive embedded Linux code often pre-faults and locks its working set (<code>mlock()</code>) at startup specifically to move page faults out of the timing-critical path.</li>
+    <li><strong>Performance debugging —</strong> an unexplained latency spike that doesn't show up in CPU time often shows up in <code>vmstat</code>'s context-switch column or <code>perf</code>'s TLB-miss counters instead.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Spawning far more threads than CPU cores doesn't add parallelism past a point — it adds context-switch thrashing, and total throughput can actually drop.</li>
+      <li>A freshly <code>mmap()</code>ed buffer looks instantly allocated but isn't backed by real memory yet — the first touch of each page pays a page-fault tax, which shows up as a mysterious slow "first iteration" in latency-sensitive code.</li>
+      <li>The TLB-flush and cache-pollution cost of a context switch doesn't show up in wall-clock time you can eyeball — it only becomes visible with <code>perf</code> counters or a rising <code>vmstat cs</code> count, not by staring at CPU usage.</li>
+      <li>Not every context switch happens on the scheduler tick — a blocking syscall can trigger one at any point between ticks, so "my tick is 4ms" is not an upper bound on how often switches occur.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/linux/ipc/index.html", "title": "IPC" },
+  "related": [
+    { "href": "/linux/ipc/index.html", "title": "IPC" },
+    { "href": "/embedded/rtos/index.html", "title": "RTOS" },
+    { "href": "/embedded/interrupts/index.html", "title": "Interrupts" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
