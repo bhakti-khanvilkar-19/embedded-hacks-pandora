@@ -509,6 +509,17 @@
     ]
   },
   {
+    "title": "Automotive Cybersecurity (ISO/SAE 21434) — Security",
+    "url": "/security/automotive-cybersecurity/index.html",
+    "domain": "Security",
+    "category": "Automotive Cybersecurity",
+    "description": "ISO/SAE 21434: cybersecurity across a vehicle's whole lifecycle, TARA (Threat Analysis and Risk Assessment), the CSMS, risk treatment options, and how it relates to UN R155 and ISO 26262.",
+    "tags": [
+      "security",
+      "automotive-cybersecurity"
+    ]
+  },
+  {
     "title": "CVEs and Vulnerability Scoring — Security",
     "url": "/security/cve/index.html",
     "domain": "Security",
