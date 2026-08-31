@@ -10,6 +10,17 @@
     ]
   },
   {
+    "title": "LiDAR — Automotive",
+    "url": "/automotive/lidar/index.html",
+    "domain": "Automotive",
+    "category": "Lidar",
+    "description": "How automotive LiDAR measures distance with time-of-flight laser pulses, builds a 3D point cloud, the mechanical/MEMS/flash/OPA scanning types, and where it fits alongside radar and camera.",
+    "tags": [
+      "automotive",
+      "lidar"
+    ]
+  },
+  {
     "title": "Radar — Automotive",
     "url": "/automotive/radar/index.html",
     "domain": "Automotive",
