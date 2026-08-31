@@ -303,6 +303,17 @@
     ]
   },
   {
+    "title": "Kernel Source, Versions &amp; Patching — Linux",
+    "url": "/linux/kernel-source/index.html",
+    "domain": "Linux",
+    "category": "Kernel Source",
+    "description": "Where kernel source actually comes from, how mainline/stable/longterm versioning works, and how patches get applied and backported in real embedded projects.",
+    "tags": [
+      "linux",
+      "kernel-source"
+    ]
+  },
+  {
     "title": "Paging &amp; Context Switching — Linux",
     "url": "/linux/paging-context-switching/index.html",
     "domain": "Linux",
