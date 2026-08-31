@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UDS Diagnostics — Automotive — Embedded Pandora</title>
+<meta name="description" content="Unified Diagnostic Services (ISO 14229): the request/response pattern and the SID+0x40 positive-response rule, common services, negative response codes, security access, ISO-TP multi-frame segmentation, and the diagnostic tool ecosystem." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Automotive</p>
+  <h1>UDS Diagnostics</h1>
+  <p class="lede">
+    UDS — <strong>U</strong>nified <strong>D</strong>iagnostic
+    <strong>S</strong>ervices, ISO 14229 — is the protocol a diagnostic
+    tool speaks to an ECU: "what's your fault code?", "give me your
+    VIN", "let me reprogram you." It rides on top of
+    <a href="/protocols/can/index.html">CAN</a> as a request/response
+    protocol built on one very literal rule: a response's first byte is
+    either your request's Service ID plus <code>0x40</code> (success), or
+    <code>0x7F</code> (failure, with a specific reason attached).
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A request/response diagnostic protocol riding on CAN, letting a tool query or command an ECU — read fault codes, read live data, reprogram firmware, unlock protected functions.</dd>
+      <dt>Mental model</dt><dd>A literal question-and-answer protocol: every request is a Service ID plus parameters; every response is either "yes, and here's your answer" or "no, and here's exactly why."</dd>
+      <dt>Key numbers</dt><dd>Positive response = request SID + <code>0x40</code> (request <code>0x22</code> &rarr; positive response <code>0x62</code>); negative response is always <code>0x7F</code>.</dd>
+      <dt>Reach for it when</dt><dd>Reading/clearing fault codes, reading live ECU data, unlocking protected diagnostic or programming functions, or building any diagnostic tool integration.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#why-uds">Why a dedicated diagnostic protocol?</a></li>
+      <li><a href="#request-response">The request/response pattern and the +0x40 rule</a></li>
+      <li><a href="#services">Common UDS services</a></li>
+      <li><a href="#negative-response">Negative responses and NRCs</a></li>
+      <li><a href="#security-access">Security access: the seed-key handshake</a></li>
+      <li><a href="#isotp">Carrying UDS on CAN: ISO-TP segmentation</a></li>
+      <li><a href="#tools">Scan tools and CAN analyzers</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="why-uds">Why a dedicated diagnostic protocol?</h2>
+  <p>
+    A raw <a href="/protocols/can/index.html">CAN</a> frame's meaning is
+    fixed at design time — an identifier always means the same signal,
+    agreed on by every node ahead of time. Diagnostics needs the opposite:
+    an open-ended way for an external tool, from any vendor, to ask an
+    ECU an arbitrary question it wasn't necessarily hardwired to answer.
+    UDS solves this with a standard service catalog and message format
+    every compliant ECU and every compliant tool both understand, without
+    needing a bespoke message design per query.
+  </p>
+
+  <h2 id="request-response">The request/response pattern and the +0x40 rule</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 620 200" role="img" aria-labelledby="uds-reqresp-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="uds-reqresp-title">A diagnostic tool sends a request with a service ID; the ECU replies with the same service ID plus 0x40 to signal success</title>
+      <rect class="seq-actor-chip" x="40" y="4" width="70" height="24" rx="12" />
+      <text class="seq-actor-text" x="75" y="20" text-anchor="middle">Tool</text>
+      <rect class="seq-actor-chip" x="510" y="4" width="70" height="24" rx="12" />
+      <text class="seq-actor-text" x="545" y="20" text-anchor="middle">ECU</text>
+      <line x1="75" y1="36" x2="75" y2="180" class="seq-lifeline" />
+      <line x1="545" y1="36" x2="545" y2="180" class="seq-lifeline" />
+
+      <line x1="75" y1="64" x2="538" y2="64" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="545,64 533,59 533,69" />
+      <text class="seq-label" x="310" y="52" text-anchor="middle"><tspan class="seq-tag-con">Request: SID 0x22 + DID 0xF190</tspan></text>
+      <text class="seq-sub" x="310" y="80" text-anchor="middle">"Read Data By Identifier" — asking for the VIN</text>
+
+      <line x1="545" y1="116" x2="82" y2="116" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="75,116 87,111 87,121" />
+      <text class="seq-label" x="310" y="104" text-anchor="middle"><tspan class="seq-tag-ack">Response: 0x62 0xF1 0x90 &lt;VIN bytes&gt;</tspan></text>
+      <text class="seq-sub" x="310" y="132" text-anchor="middle">0x62 = 0x22 + 0x40 &rarr; positive response</text>
+
+      <rect x="40" y="150" width="540" height="34" class="block-green" rx="6" />
+      <text class="frame-label" x="310" y="171" text-anchor="middle" font-size="11">response[0] == requestSID + 0x40 &rarr; success. response[0] == 0x7F &rarr; failure.</text>
+    </svg>
+    <figcaption class="diagram__caption">This single rule is the whole "is it true or false" logic in UDS — check one byte against the request's own SID plus 0x40.</figcaption>
+  </figure>
+  <p>
+    Checking a response is almost embarrassingly simple once you know the
+    rule:
+  </p>
+  <pre><code>bool uds_is_positive_response(uint8_t request_sid, const uint8_t *response) {
+    return response[0] == (uint8_t)(request_sid + 0x40);
+}
+// response[0] == 0x7F means a negative response instead —
+// see "Negative responses and NRCs" below for what comes next.</code></pre>
+
+  <h2 id="services">Common UDS services</h2>
+  <table>
+    <thead><tr><th>SID</th><th>Service</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>0x10</td><td>Diagnostic Session Control</td><td>Switch sessions (default, extended, programming) — some services only work outside the default session.</td></tr>
+      <tr><td>0x11</td><td>ECU Reset</td><td>Request the ECU reset itself (soft or hard reset).</td></tr>
+      <tr><td>0x14</td><td>Clear Diagnostic Information</td><td>Clear stored fault codes.</td></tr>
+      <tr><td>0x19</td><td>Read DTC Information</td><td>Read stored/pending fault codes and their status.</td></tr>
+      <tr><td>0x22</td><td>Read Data By Identifier</td><td>Read a specific data value by its Data Identifier (DID) — VIN, live sensor values, calibration data.</td></tr>
+      <tr><td>0x27</td><td>Security Access</td><td>Seed-key handshake to unlock protected services — see below.</td></tr>
+      <tr><td>0x2E</td><td>Write Data By Identifier</td><td>Write a value by DID — calibration, configuration.</td></tr>
+      <tr><td>0x31</td><td>Routine Control</td><td>Start/stop/check a defined ECU routine (a self-test, an actuator test, an erase routine).</td></tr>
+      <tr><td>0x34 / 0x36 / 0x37</td><td>Request Download / Transfer Data / Request Transfer Exit</td><td>The three-step sequence that carries a new firmware image into the ECU during reflashing.</td></tr>
+      <tr><td>0x3E</td><td>Tester Present</td><td>A keep-alive so the ECU doesn't time out of a non-default session while the tool is momentarily idle.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="negative-response">Negative responses and NRCs</h2>
+  <p>
+    A negative response is always three bytes: <code>0x7F</code>, the
+    original request's SID (so the tool knows which request failed), and
+    a <strong>Negative Response Code (NRC)</strong> saying exactly why.
+  </p>
+  <table>
+    <thead><tr><th>NRC</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>0x11</td><td>Service not supported</td></tr>
+      <tr><td>0x12</td><td>Sub-function not supported</td></tr>
+      <tr><td>0x13</td><td>Incorrect message length or invalid format</td></tr>
+      <tr><td>0x22</td><td>Conditions not correct (e.g. wrong session, engine running when it shouldn't be)</td></tr>
+      <tr><td>0x31</td><td>Request out of range</td></tr>
+      <tr><td>0x33</td><td>Security access denied</td></tr>
+      <tr><td>0x78</td><td>Request correctly received, response pending — "still working, don't give up on me yet"</td></tr>
+    </tbody>
+  </table>
+  <p>
+    <code>0x78</code> is worth calling out specifically: it's not a
+    failure at all, it's the ECU explicitly buying itself more time on a
+    slow operation. A tool that doesn't recognize this and extend its
+    timeout will misread a perfectly successful long-running operation as
+    a failure.
+  </p>
+
+  <h2 id="security-access">Security access: the seed-key handshake</h2>
+  <p>
+    Many services (reflashing, calibration writes, certain routines) are
+    locked behind a challenge-response handshake so an arbitrary tool
+    can't invoke them without proving it knows a manufacturer secret:
+  </p>
+  <ol>
+    <li>Tool requests a seed: <code>0x27</code> with an odd sub-function (e.g. <code>0x01</code>).</li>
+    <li>ECU returns a pseudo-random seed value.</li>
+    <li>Tool computes a key from that seed using a manufacturer-specific algorithm (often involving a shared secret).</li>
+    <li>Tool sends the key back: <code>0x27</code> with the next even sub-function (e.g. <code>0x02</code>).</li>
+    <li>ECU validates the key and unlocks the protected services on success, or returns <code>securityAccessDenied</code> — and counts the failure toward a lockout, on failure.</li>
+  </ol>
+
+  <h2 id="isotp">Carrying UDS on CAN: ISO-TP segmentation</h2>
+  <p>
+    A classical CAN frame carries at most 8 data bytes, but plenty of UDS
+    messages (a VIN, a chunk of firmware) are longer than that. <strong>ISO-TP</strong>
+    (ISO 15765, the Transport Protocol layer) segments a longer message
+    across multiple CAN frames, using the first byte (or nibble) of each
+    frame's data as a <strong>PCI</strong> (Protocol Control Information)
+    field that tells the receiver which of four frame types it's looking
+    at:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 260" role="img" aria-labelledby="isotp-pci-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="isotp-pci-title">The four ISO-TP frame types, distinguished by the top nibble of the first PCI byte: Single Frame, First Frame, Consecutive Frame, and Flow Control</title>
+
+      <rect class="frame-box block-blue" x="20" y="40" width="60" height="50" />
+      <text class="frame-label" x="50" y="70" text-anchor="middle" font-size="16">0</text>
+      <rect class="frame-box block-blue" x="85" y="40" width="60" height="50" />
+      <text class="frame-label" x="115" y="70" text-anchor="middle" font-size="12">L</text>
+      <text class="frame-caption" x="82" y="108" text-anchor="middle">Single Frame</text>
+      <text class="frame-caption" x="82" y="120" text-anchor="middle">whole msg &le; 7 bytes</text>
+
+      <rect class="frame-box block-teal" x="195" y="40" width="60" height="50" />
+      <text class="frame-label" x="225" y="70" text-anchor="middle" font-size="16">1</text>
+      <rect class="frame-box block-teal" x="260" y="40" width="60" height="50" />
+      <text class="frame-label" x="290" y="70" text-anchor="middle" font-size="11">len(12b)</text>
+      <text class="frame-caption" x="257" y="108" text-anchor="middle">First Frame</text>
+      <text class="frame-caption" x="257" y="120" text-anchor="middle">starts a multi-frame msg</text>
+
+      <rect class="frame-box block-amber" x="370" y="40" width="60" height="50" />
+      <text class="frame-label" x="400" y="70" text-anchor="middle" font-size="16">2</text>
+      <rect class="frame-box block-amber" x="435" y="40" width="60" height="50" />
+      <text class="frame-label" x="465" y="70" text-anchor="middle" font-size="12">SN</text>
+      <text class="frame-caption" x="432" y="108" text-anchor="middle">Consecutive Frame</text>
+      <text class="frame-caption" x="432" y="120" text-anchor="middle">sequence number, wraps</text>
+
+      <rect class="frame-box block-violet" x="545" y="40" width="60" height="50" />
+      <text class="frame-label" x="575" y="70" text-anchor="middle" font-size="16">3</text>
+      <rect class="frame-box block-violet" x="610" y="40" width="60" height="50" />
+      <text class="frame-label" x="640" y="70" text-anchor="middle" font-size="12">FS</text>
+      <text class="frame-caption" x="607" y="108" text-anchor="middle">Flow Control</text>
+      <text class="frame-caption" x="607" y="120" text-anchor="middle">continue / wait / abort</text>
+
+      <text class="seq-note" x="350" y="160" text-anchor="middle">Every frame's first nibble is the type (0-3 above); the rest of that byte</text>
+      <text class="seq-note" x="350" y="176" text-anchor="middle">(and sometimes the next byte too) carries type-specific detail — a length,</text>
+      <text class="seq-note" x="350" y="192" text-anchor="middle">a sequence number, or a flow-control status.</text>
+
+      <text class="seq-sub" x="350" y="230" text-anchor="middle">First Frame's length field is 12 bits wide: 4 bits in this nibble, 8 more bits in the very next byte.</text>
+    </svg>
+    <figcaption class="diagram__caption">This is exactly what "standard frame vs. enhanced frame" means in the diagnostic context — a Single Frame fits everything in one go; anything longer needs the First Frame / Consecutive Frame / Flow Control dance below.</figcaption>
+  </figure>
+  <p>
+    For a message longer than one frame, the tool and ECU actually
+    coordinate the transfer:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 620 260" role="img" aria-labelledby="isotp-seq-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="isotp-seq-title">A multi-frame ISO-TP transfer: the sender's First Frame is answered with a Flow Control frame, after which the sender streams Consecutive Frames until the message is complete</title>
+      <rect class="seq-actor-chip" x="40" y="4" width="70" height="24" rx="12" />
+      <text class="seq-actor-text" x="75" y="20" text-anchor="middle">Tool</text>
+      <rect class="seq-actor-chip" x="510" y="4" width="70" height="24" rx="12" />
+      <text class="seq-actor-text" x="545" y="20" text-anchor="middle">ECU</text>
+      <line x1="75" y1="36" x2="75" y2="240" class="seq-lifeline" />
+      <line x1="545" y1="36" x2="545" y2="240" class="seq-lifeline" />
+
+      <line x1="75" y1="60" x2="538" y2="60" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="545,60 533,55 533,65" />
+      <text class="seq-label" x="310" y="50" text-anchor="middle" font-size="10">First Frame — total length 20, first 6 bytes</text>
+
+      <line x1="545" y1="104" x2="82" y2="104" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="75,104 87,99 87,109" />
+      <text class="seq-label" x="310" y="94" text-anchor="middle" font-size="10">Flow Control — continue, block size, min. gap</text>
+
+      <line x1="75" y1="148" x2="538" y2="148" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="545,148 533,143 533,153" />
+      <text class="seq-label" x="310" y="138" text-anchor="middle" font-size="10">Consecutive Frame #1 — bytes 7&ndash;13</text>
+
+      <line x1="75" y1="184" x2="538" y2="184" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="545,184 533,179 533,189" />
+      <text class="seq-label" x="310" y="174" text-anchor="middle" font-size="10">Consecutive Frame #2 — bytes 14&ndash;20</text>
+
+      <rect x="40" y="210" width="540" height="30" class="block-green" rx="6" />
+      <text class="frame-label" x="310" y="230" text-anchor="middle" font-size="11">All 20 bytes reassembled — the UDS message is now complete</text>
+    </svg>
+    <figcaption class="diagram__caption">The Flow Control frame is the receiver setting the pace — its block size and minimum separation time keep a fast sender from overrunning a slower receiver's buffer.</figcaption>
+  </figure>
+
+  <h2 id="tools">Scan tools and CAN analyzers</h2>
+  <dl class="kv">
+    <dt>OBD-II scan tool</dt><dd>A consumer/technician-level tool reading standardized emissions-related fault codes and live data — a narrower, older, legally-mandated sibling of full UDS.</dd>
+    <dt>Professional/OEM diagnostic tool</dt><dd>Full UDS access — manufacturer-specific DIDs and routines, security access, and firmware reflashing via the download/transfer service sequence.</dd>
+    <dt>CAN analyzer / bus analyzer</dt><dd>Tools like Vector CANoe/CANalyzer or PCAN-View capture and display <em>every</em> frame on the bus, not just a curated diagnostic session — used for development and debugging, not just repair. See <a href="/protocols/can/index.html#gotchas">SocketCAN</a> for the Linux-side equivalent.</dd>
+    <dt>J2534 pass-through</dt><dd>A standardized PC-to-vehicle interface API letting general-purpose PC software (not just a dedicated handheld tool) send and receive diagnostic messages — heavily used by OEM reprogramming software.</dd>
+  </dl>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Repair shop diagnostics —</strong> reading and clearing fault codes is the single most common real-world UDS interaction.</li>
+    <li><strong>ECU reflashing —</strong> the Request Download / Transfer Data / Request Transfer Exit sequence is exactly how new firmware gets into a production ECU, closely related to the staged loading ideas in <a href="/bootloaders/boot-process/index.html">the boot process</a>.</li>
+    <li><strong>End-of-line manufacturing —</strong> factory test stations use UDS routines and Write Data By Identifier to calibrate and validate every unit before it ships.</li>
+    <li><strong>Automotive security research —</strong> understanding UDS's request/response structure, security access, and session model is foundational to any legitimate automotive security assessment.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Security access lockout is deliberate anti-brute-force protection — repeated failed key attempts trigger a real, sometimes lengthy, time-delay lockout. Mashing "retry" makes it worse, not better.</li>
+      <li>A tool that doesn't specifically handle NRC <code>0x78</code> (response pending) with an extended timeout will misread a slow-but-successful operation as a failure.</li>
+      <li>Mismatched ISO-TP flow-control timing (block size, minimum separation time) between tool and ECU is a classic real-world cause of "the diagnostic tool just times out for no reason" — it's a pacing bug, not a broken ECU.</li>
+      <li>Diagnostic session state matters: a perfectly well-formed request can still fail with <code>conditionsNotCorrect</code> if the ECU isn't currently in the session (extended, programming) that service requires.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/automotive/autonomy-levels/index.html", "title": "Levels of Driving Automation" },
+  "related": [
+    { "href": "/protocols/can/index.html", "title": "CAN" },
+    { "href": "/bootloaders/boot-process/index.html", "title": "The Complete Boot Process" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
