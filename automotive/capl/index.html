@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CAPL Programming — Automotive — Embedded Pandora</title>
+<meta name="description" content="What CAPL is, its event-driven structure, a worked example implementing the UDS +0x40 rule, restbus simulation, and how CAPL is actually used for automotive test and simulation." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Automotive</p>
+  <h1>CAPL Programming</h1>
+  <p class="lede">
+    CAPL (CAN Access Programming Language) is the C-like scripting
+    language built into Vector's CANoe and CANalyzer tools — the
+    standard way to simulate ECUs that don't exist yet, automate a test
+    sequence, or script exactly the kind of
+    <a href="/protocols/can/index.html">CAN</a> and
+    <a href="/automotive/uds/index.html">UDS</a> exchanges covered
+    earlier, without writing a full standalone application.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A C-like, event-driven scripting language built into Vector CANoe/CANalyzer for simulating, testing, and analyzing automotive bus networks.</dd>
+      <dt>Mental model</dt><dd>Not a general-purpose language — its whole structure is "when this event happens, run this code," tightly bound to the bus-simulation environment it runs inside.</dd>
+      <dt>Key numbers</dt><dd>Runs only inside CANoe/CANalyzer, never standalone; event handlers, not a linear <code>main()</code>, are the fundamental unit of a CAPL program.</dd>
+      <dt>Reach for it when</dt><dd>Simulating an ECU that doesn't exist yet, automating a repeatable test sequence, or scripting a diagnostic exchange for validation.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#why-capl">Why a dedicated scripting language?</a></li>
+      <li><a href="#event-driven">Event-driven structure</a></li>
+      <li><a href="#example">A worked example: implementing the UDS +0x40 rule</a></li>
+      <li><a href="#restbus">Restbus simulation</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="why-capl">Why a dedicated scripting language?</h2>
+  <p>
+    When one ECU is under development, the rest of the vehicle's network
+    frequently doesn't exist yet — other ECUs may not be built, available
+    on the bench, or even finished being designed. CAPL lets an engineer
+    simulate the missing nodes' bus behavior — sending the messages a real
+    ECU would send, responding the way a real ECU would respond — so the
+    ECU actually under test can be exercised realistically, entirely
+    inside CANoe/CANalyzer, without every other real ECU physically
+    present.
+  </p>
+
+  <h2 id="event-driven">Event-driven structure</h2>
+  <p>
+    A CAPL program has no single linear <code>main()</code>. Instead it's
+    a collection of independent handler blocks, each triggered by
+    something happening on the bus or in the simulation environment:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 300" role="img" aria-labelledby="capl-events-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="capl-events-title">Four kinds of events — a CAN message arriving, a timer expiring, a key press, or simulation start — are all dispatched to their matching CAPL event handler</title>
+
+      <rect class="frame-box block-blue" x="20" y="20" width="140" height="50" rx="6" />
+      <text class="frame-label" x="90" y="50" text-anchor="middle" font-size="11">on message</text>
+      <rect class="frame-box block-teal" x="180" y="20" width="140" height="50" rx="6" />
+      <text class="frame-label" x="250" y="50" text-anchor="middle" font-size="11">on timer</text>
+      <rect class="frame-box block-amber" x="340" y="20" width="140" height="50" rx="6" />
+      <text class="frame-label" x="410" y="50" text-anchor="middle" font-size="11">on key</text>
+      <rect class="frame-box block-violet" x="500" y="20" width="140" height="50" rx="6" />
+      <text class="frame-label" x="570" y="50" text-anchor="middle" font-size="11">on start</text>
+
+      <line x1="90" y1="70" x2="300" y2="138" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="308,142 296,140 300,130" />
+      <line x1="250" y1="70" x2="330" y2="138" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="336,143 325,138 331,129" />
+      <line x1="410" y1="70" x2="370" y2="138" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="364,143 369,132 379,138" />
+      <line x1="570" y1="70" x2="400" y2="138" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="392,142 396,131 405,138" />
+
+      <rect class="frame-box block-green" x="250" y="140" width="200" height="55" rx="6" />
+      <text class="frame-label" x="350" y="164" text-anchor="middle" font-weight="700" font-size="11">CAPL dispatcher</text>
+      <text class="frame-caption" x="350" y="182" text-anchor="middle">routes each event to its handler</text>
+
+      <line x1="350" y1="195" x2="350" y2="226" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="350,230 345,220 355,220" />
+
+      <rect class="frame-box block-green" x="230" y="232" width="240" height="55" rx="6" />
+      <text class="frame-label" x="350" y="256" text-anchor="middle" font-weight="700" font-size="11">Matching on-handler runs</text>
+      <text class="frame-caption" x="350" y="274" text-anchor="middle">may itself call output() to send a frame</text>
+    </svg>
+    <figcaption class="diagram__caption">Whichever event fires, the block whose declared trigger matches it runs — the rest of the script stays idle until its own trigger occurs.</figcaption>
+  </figure>
+  <dl class="kv">
+    <dt><code>on message &lt;name&gt;</code></dt><dd>Runs whenever a specific CAN message is received on the bus.</dd>
+    <dt><code>on timer &lt;name&gt;</code></dt><dd>Runs when a timer expires — the standard way to send something periodically.</dd>
+    <dt><code>on key '&lt;char&gt;'</code></dt><dd>Runs when a key is pressed in the CANoe UI — handy for manually triggering a test step.</dd>
+    <dt><code>on start</code></dt><dd>Runs once when the measurement/simulation starts — the usual place to arm the first timer.</dd>
+  </dl>
+
+  <h2 id="example">A worked example: implementing the UDS +0x40 rule</h2>
+  <p>
+    This ties directly back to
+    <a href="/automotive/uds/index.html#request-response">UDS's positive
+    response rule</a> — here it is, actually implemented as a CAPL event
+    handler that answers a Read Data By Identifier request for a VIN:
+  </p>
+  <pre><code>variables
+{
+  msTimer periodicTimer;
+}
+
+on start
+{
+  setTimer(periodicTimer, 100); // fire every 100 ms
+}
+
+on timer periodicTimer
+{
+  message EngineData msg;
+  msg.RPM = 2500;
+  output(msg);
+  setTimer(periodicTimer, 100); // re-arm for the next period
+}
+
+on message DiagRequest
+{
+  // SID 0x22 (Read Data By Identifier), DID 0xF190 (VIN)
+  if (this.byte(0) == 0x22 && this.byte(1) == 0xF1 && this.byte(2) == 0x90)
+  {
+    message DiagResponse resp;
+    resp.byte(0) = 0x62;  // 0x22 + 0x40 -- the UDS positive-response rule
+    resp.byte(1) = 0xF1;
+    resp.byte(2) = 0x90;
+    // ... VIN bytes follow ...
+    output(resp);
+  }
+}</code></pre>
+  <p>
+    Nothing here is exotic — it's the exact same request/response logic
+    from the UDS page, just expressed as "when this specific message
+    arrives, check its bytes, then send this specific response back."
+  </p>
+
+  <h2 id="restbus">Restbus simulation</h2>
+  <p>
+    Simulating the "rest of the bus" around one real device under test is
+    one of CAPL's primary jobs — CANoe stands in for every other ECU on
+    the network well enough that the real hardware behaves as if it were
+    on a fully populated vehicle:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 780 220" role="img" aria-labelledby="restbus-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="restbus-title">A real ECU under test shares the CAN bus with several nodes simulated by CANoe running CAPL, standing in for hardware that isn't physically present</title>
+
+      <rect x="210" y="60" width="540" height="140" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" stroke-dasharray="6 4" rx="8" />
+      <text class="seq-note" x="480" y="50" text-anchor="middle">CANoe running CAPL (restbus simulation)</text>
+
+      <rect class="frame-box block-blue" x="40" y="80" width="160" height="60" rx="6" />
+      <text class="frame-label" x="120" y="106" text-anchor="middle" font-weight="700" font-size="11">ECU under test</text>
+      <text class="frame-caption" x="120" y="124" text-anchor="middle">real hardware</text>
+
+      <rect class="frame-box block-teal" x="220" y="80" width="160" height="60" rx="6" />
+      <text class="frame-label" x="300" y="106" text-anchor="middle" font-weight="700" font-size="11">Node B</text>
+      <text class="frame-caption" x="300" y="124" text-anchor="middle">simulated</text>
+
+      <rect class="frame-box block-teal" x="400" y="80" width="160" height="60" rx="6" />
+      <text class="frame-label" x="480" y="106" text-anchor="middle" font-weight="700" font-size="11">Node C</text>
+      <text class="frame-caption" x="480" y="124" text-anchor="middle">simulated</text>
+
+      <rect class="frame-box block-teal" x="580" y="80" width="160" height="60" rx="6" />
+      <text class="frame-label" x="660" y="106" text-anchor="middle" font-weight="700" font-size="11">Node D</text>
+      <text class="frame-caption" x="660" y="124" text-anchor="middle">simulated</text>
+
+      <line x1="40" y1="190" x2="740" y2="190" stroke="var(--ink-faint)" stroke-width="2" />
+      <text class="frame-caption" x="740" y="208" text-anchor="end">CAN bus</text>
+
+      <line x1="120" y1="140" x2="120" y2="190" stroke="var(--ink-faint)" stroke-width="1.5" />
+      <line x1="300" y1="140" x2="300" y2="190" stroke="var(--ink-faint)" stroke-width="1.5" />
+      <line x1="480" y1="140" x2="480" y2="190" stroke="var(--ink-faint)" stroke-width="1.5" />
+      <line x1="660" y1="140" x2="660" y2="190" stroke="var(--ink-faint)" stroke-width="1.5" />
+    </svg>
+    <figcaption class="diagram__caption">The ECU under test can't tell the difference between a real neighboring node and a well-written CAPL simulation of one — that indistinguishability is the entire point.</figcaption>
+  </figure>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Restbus simulation —</strong> exercising one real ECU on a bench as if the whole vehicle network were present, per the diagram above.</li>
+    <li><strong>Automated regression testing —</strong> scripting known input sequences and asserting the expected CAN/UDS responses, repeatably and without a human operator.</li>
+    <li><strong>Diagnostic test automation —</strong> scripting the exact UDS request/response sequences from the <a href="/automotive/uds/index.html">UDS page</a> for repeatable validation instead of manual tool operation.</li>
+    <li><strong>Fault injection —</strong> simulating a sensor failure, a malformed frame, or a bus-off condition to verify how the real ECU under test actually reacts.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>CAPL only runs inside CANoe/CANalyzer — it isn't a portable, standalone language, and a script can't run outside the Vector toolchain.</li>
+      <li>Event handler ordering and shared global state between handlers is a real, recurring source of subtle bugs — conceptually similar to the shared-state hazards covered in <a href="/embedded/interrupts/index.html">Interrupts</a>, just in a simulation environment instead of real hardware.</li>
+      <li>Simulation code deserves the same rigor as production code — a bug in a restbus simulation script can make a perfectly good real ECU look broken, or worse, make a broken one look fine.</li>
+      <li>CAPL scripts and the CAN database (DBC) files defining message layouts need to stay in sync — a stale DBC after a real message layout changes is a common, confusing source of simulation-vs-reality mismatches.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/automotive/uds/index.html", "title": "UDS Diagnostics" },
+  "related": [
+    { "href": "/automotive/uds/index.html", "title": "UDS Diagnostics" },
+    { "href": "/protocols/can/index.html", "title": "CAN" },
+    { "href": "/embedded/interrupts/index.html", "title": "Interrupts" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
