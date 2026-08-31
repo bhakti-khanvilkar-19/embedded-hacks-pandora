@@ -259,6 +259,17 @@
     ]
   },
   {
+    "title": "Serialization: Protobuf &amp; Base64 — Networking",
+    "url": "/networking/serialization/index.html",
+    "domain": "Networking",
+    "category": "Serialization",
+    "description": "What serialization and deserialization actually mean, how Protocol Buffers encodes data on the wire, how Base64 encoding/decoding works byte by byte, and how the two combine in a real IoT data pipeline.",
+    "tags": [
+      "networking",
+      "serialization"
+    ]
+  },
+  {
     "title": "TCP — Networking",
     "url": "/networking/tcp/index.html",
     "domain": "Networking",

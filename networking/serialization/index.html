@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Serialization: Protobuf &amp; Base64 — Networking — Embedded Pandora</title>
+<meta name="description" content="What serialization and deserialization actually mean, how Protocol Buffers encodes data on the wire, how Base64 encoding/decoding works byte by byte, and how the two combine in a real IoT data pipeline." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>Serialization: Protobuf &amp; Base64</h1>
+  <p class="lede">
+    Two ideas that get confused constantly because they're often used
+    together: <strong>serialization</strong> turns a structured, in-memory
+    object into a flat sequence of bytes (and deserialization turns it
+    back); <strong>Base64</strong> has nothing to do with that — it just
+    disguises arbitrary binary bytes as plain text so they survive
+    text-only channels. Protobuf is one specific, very common
+    serialization format; Base64 is an encoding, not a format for
+    structuring data at all.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Serialization: object &rarr; bytes (and back). Protobuf: a compact, schema-based binary serialization format. Base64: a text-safe encoding for arbitrary binary bytes.</dd>
+      <dt>Mental model</dt><dd>Serialization is packing a suitcase — structured contents into a flat, agreed-upon layout. Base64 isn't packing anything; it's writing the suitcase's contents out in a language (printable ASCII) that a text-only mail carrier is willing to transport.</dd>
+      <dt>Key numbers</dt><dd>Protobuf is typically 3&ndash;10&times; smaller than the equivalent JSON. Base64 makes data ~33% <em>larger</em>, never smaller.</dd>
+      <dt>Reach for it when</dt><dd>Protobuf — structured data crosses a process, network, or storage boundary and size/speed matter. Base64 — binary bytes must travel through something that only accepts text (a JSON string, a URL, an email body).</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#what-it-is">What serialization and deserialization actually mean</a></li>
+      <li><a href="#formats">Text vs. binary formats, at a glance</a></li>
+      <li><a href="#protobuf">Protocol Buffers (Protobuf)</a></li>
+      <li><a href="#protobuf-wire">How Protobuf actually encodes bytes</a></li>
+      <li><a href="#versioning">Schema evolution: why field numbers matter</a></li>
+      <li><a href="#base64">Base64 encoding and decoding</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="what-it-is">What serialization and deserialization actually mean</h2>
+  <p>
+    A running program keeps its data as objects, structs, or classes in
+    memory — a layout full of things that are meaningless outside that one
+    process: compiler-chosen padding between fields, pointers that are
+    just addresses valid only in this process's address space, and a byte
+    order (endianness) tied to the CPU it's running on. None of that
+    survives being sent to another machine, written to a file, or even
+    read by a different program on the same machine.
+  </p>
+  <p>
+    <strong>Serialization</strong> is the process of converting that
+    in-memory structure into a flat, well-defined sequence of bytes that
+    means the same thing to anyone who reads it, regardless of language,
+    compiler, or CPU. <strong>Deserialization</strong> is the reverse: take
+    that byte sequence and rebuild an equivalent in-memory structure on
+    the receiving end.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 640 260" role="img" aria-labelledby="roundtrip-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="roundtrip-title">An in-memory object is serialized into bytes, those bytes travel over a network or into storage, and the receiving side deserializes them back into an equivalent in-memory object</title>
+
+      <rect class="frame-box block-blue" x="20" y="30" width="200" height="50" rx="6" />
+      <text class="frame-label" x="120" y="52" text-anchor="middle" font-weight="700">In-memory object</text>
+      <text class="frame-caption" x="120" y="70" text-anchor="middle">(sender) — struct / class instance</text>
+
+      <rect class="frame-box block-teal" x="420" y="30" width="200" height="50" rx="6" />
+      <text class="frame-label" x="520" y="52" text-anchor="middle" font-weight="700">Bytes</text>
+      <text class="frame-caption" x="520" y="70" text-anchor="middle">wire format — Protobuf, JSON, ...</text>
+
+      <line x1="220" y1="55" x2="416" y2="55" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="420,55 410,50 410,60" />
+      <text class="seq-label" x="318" y="42" text-anchor="middle">serialize()</text>
+
+      <line x1="520" y1="80" x2="520" y2="146" class="seq-arrow flow-path flow-path--slow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="520,150 514,140 526,140" />
+      <text class="seq-note" x="536" y="118" text-anchor="start">network,</text>
+      <text class="seq-note" x="536" y="132" text-anchor="start">disk, or IPC</text>
+
+      <rect class="frame-box block-teal" x="420" y="150" width="200" height="50" rx="6" />
+      <text class="frame-label" x="520" y="172" text-anchor="middle" font-weight="700">Bytes</text>
+      <text class="frame-caption" x="520" y="190" text-anchor="middle">identical bytes, received intact</text>
+
+      <rect class="frame-box block-amber" x="20" y="150" width="200" height="50" rx="6" />
+      <text class="frame-label" x="120" y="172" text-anchor="middle" font-weight="700">In-memory object</text>
+      <text class="frame-caption" x="120" y="190" text-anchor="middle">(receiver) — a new, equivalent copy</text>
+
+      <line x1="420" y1="175" x2="224" y2="175" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="220,175 230,170 230,180" />
+      <text class="seq-label" x="322" y="205" text-anchor="middle">deserialize()</text>
+
+      <text class="seq-note" x="320" y="235" text-anchor="middle">The receiver never sees the sender's memory — only these bytes, and a shared understanding of what they mean.</text>
+    </svg>
+    <figcaption class="diagram__caption">Serialization and deserialization are always a matched pair: whatever rules turned the object into bytes on the way out must be the exact same rules used to interpret the bytes on the way in.</figcaption>
+  </figure>
+
+  <h2 id="formats">Text vs. binary formats, at a glance</h2>
+  <p>
+    Base64 is deliberately left out of this table on purpose — it's
+    covered later, but it is <em>not</em> a serialization format. It's an
+    encoding that can be layered on top of any of these (or any binary
+    data at all) when the transport only accepts text.
+  </p>
+  <table>
+    <thead><tr><th>Format</th><th>Encoding</th><th>Needs a schema?</th><th>Relative size</th><th>Human-readable?</th></tr></thead>
+    <tbody>
+      <tr><td>JSON</td><td>Text</td><td>No (optional, e.g. JSON Schema)</td><td>Largest</td><td>Yes</td></tr>
+      <tr><td>XML</td><td>Text</td><td>No (optional, e.g. XSD)</td><td>Largest</td><td>Yes</td></tr>
+      <tr><td>Protobuf</td><td>Binary</td><td>Yes — a <code>.proto</code> file, required</td><td>Smallest</td><td>No — needs the schema to make sense of it</td></tr>
+      <tr><td>MessagePack / CBOR</td><td>Binary</td><td>No — self-describing like JSON, just binary</td><td>Smaller than JSON</td><td>No</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="protobuf">Protocol Buffers (Protobuf)</h2>
+  <p>
+    Protobuf is a binary serialization format built around a schema you
+    write yourself in a small interface-definition language, saved as a
+    <code>.proto</code> file:
+  </p>
+  <pre><code>syntax = "proto3";
+
+message SensorReading {
+  int32  sensor_id  = 1;
+  float  temperature = 2;
+  string location    = 3;
+}</code></pre>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <p>
+      The most common thing a junior engineer misreads here: <code>= 1</code>,
+      <code>= 2</code>, <code>= 3</code> are <strong>field numbers</strong>,
+      not default values and not array indices. They're permanent
+      identifiers baked into every encoded message — see
+      <a href="#versioning">Schema evolution</a> for why that matters.
+    </p>
+  </div>
+  <p>
+    A compiler (<code>protoc</code>) reads that <code>.proto</code> file
+    and generates real code in whatever language you need — a class in
+    Python or Java, a struct in C++, or (the option most relevant on a
+    microcontroller) tiny C code via
+    <a href="https://github.com/nanopb/nanopb">nanopb</a>, a
+    Protobuf implementation built specifically for embedded targets: no
+    dynamic memory allocation, a tiny code footprint, and no C++ required.
+    Whatever language it's generated in, the generated code gives you two
+    functions that matter: one to serialize an instance into bytes, and
+    one to parse bytes back into an instance.
+  </p>
+  <pre><code># Python, using code generated from the .proto file above
+reading = SensorReading(sensor_id=300, temperature=21.5, location="A1")
+data = reading.SerializeToString()   # -&gt; bytes, ready to send/store
+
+# ... elsewhere, maybe on a different machine entirely ...
+received = SensorReading()
+received.ParseFromString(data)       # -&gt; received.sensor_id == 300</code></pre>
+
+  <h2 id="protobuf-wire">How Protobuf actually encodes bytes</h2>
+  <p>
+    Unlike JSON, a Protobuf message on the wire never contains field
+    <em>names</em> — only field <em>numbers</em>. Every field is written
+    as a small <strong>tag</strong> byte (which field, and how its value
+    is encoded) followed by the value itself:
+  </p>
+  <pre><code>tag = (field_number &lt;&lt; 3) | wire_type</code></pre>
+  <p>
+    The wire type tells the parser how many bytes to read next: <code>0</code>
+    for a variable-length integer ("varint" — used for <code>int32</code>,
+    <code>bool</code>, enums), <code>5</code> for a fixed 4 bytes
+    (<code>float</code>, <code>fixed32</code>), and <code>2</code> for
+    "length-delimited" (a varint length, then that many raw bytes — used
+    for <code>string</code>, <code>bytes</code>, and nested messages).
+    Encoding <code>SensorReading{ sensor_id: 300, temperature: 21.5,
+    location: "A1" }</code> from the schema above looks like this on the
+    wire:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 240" role="img" aria-labelledby="protobuf-wire-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="protobuf-wire-title">Three Protobuf fields encoded back to back as tag-and-value pairs: a varint field, a fixed-32-bit field, and a length-delimited string field</title>
+
+      <line x1="10" y1="40" x2="130" y2="40" class="seq-bracket" />
+      <line x1="10" y1="40" x2="10" y2="46" class="seq-bracket" />
+      <line x1="130" y1="40" x2="130" y2="46" class="seq-bracket" />
+      <text class="seq-note" x="70" y="30" text-anchor="middle">sensor_id = 1 (varint)</text>
+
+      <rect class="frame-box block-blue" x="10" y="50" width="46" height="50" />
+      <text class="frame-label" x="33" y="72" text-anchor="middle" font-size="11">0x08</text>
+      <text class="frame-caption" x="33" y="88" text-anchor="middle">tag</text>
+
+      <rect class="frame-box block-blue" x="60" y="50" width="70" height="50" />
+      <text class="frame-label" x="95" y="72" text-anchor="middle" font-size="11">AC 02</text>
+      <text class="frame-caption" x="95" y="88" text-anchor="middle">varint 300</text>
+
+      <line x1="146" y1="40" x2="316" y2="40" class="seq-bracket" />
+      <line x1="146" y1="40" x2="146" y2="46" class="seq-bracket" />
+      <line x1="316" y1="40" x2="316" y2="46" class="seq-bracket" />
+      <text class="seq-note" x="231" y="30" text-anchor="middle">temperature = 2 (32-bit)</text>
+
+      <rect class="frame-box block-teal" x="146" y="50" width="46" height="50" />
+      <text class="frame-label" x="169" y="72" text-anchor="middle" font-size="11">0x15</text>
+      <text class="frame-caption" x="169" y="88" text-anchor="middle">tag</text>
+
+      <rect class="frame-box block-teal" x="196" y="50" width="120" height="50" />
+      <text class="frame-label" x="256" y="72" text-anchor="middle" font-size="10">4 bytes</text>
+      <text class="frame-caption" x="256" y="88" text-anchor="middle">IEEE-754 float 21.5</text>
+
+      <line x1="332" y1="40" x2="502" y2="40" class="seq-bracket" />
+      <line x1="332" y1="40" x2="332" y2="46" class="seq-bracket" />
+      <line x1="502" y1="40" x2="502" y2="46" class="seq-bracket" />
+      <text class="seq-note" x="417" y="30" text-anchor="middle">location = 3 (string)</text>
+
+      <rect class="frame-box block-amber" x="332" y="50" width="46" height="50" />
+      <text class="frame-label" x="355" y="72" text-anchor="middle" font-size="11">0x1A</text>
+      <text class="frame-caption" x="355" y="88" text-anchor="middle">tag</text>
+
+      <rect class="frame-box block-amber" x="378" y="50" width="46" height="50" />
+      <text class="frame-label" x="401" y="72" text-anchor="middle" font-size="11">0x02</text>
+      <text class="frame-caption" x="401" y="88" text-anchor="middle">length</text>
+
+      <rect class="frame-box block-amber" x="424" y="50" width="70" height="50" />
+      <text class="frame-label" x="459" y="72" text-anchor="middle" font-size="11">"A1"</text>
+      <text class="frame-caption" x="459" y="88" text-anchor="middle">bytes</text>
+
+      <text class="seq-sub" x="252" y="140" text-anchor="middle">12 bytes total on the wire —</text>
+      <text class="seq-sub" x="252" y="156" text-anchor="middle">the equivalent JSON is about 47 bytes</text>
+
+      <text class="seq-note" x="252" y="190" text-anchor="middle" font-style="italic">Nothing here says "sensor_id" or "temperature" — a parser</text>
+      <text class="seq-note" x="252" y="206" text-anchor="middle" font-style="italic">without the .proto schema can see the tags but not their meaning.</text>
+    </svg>
+    <figcaption class="diagram__caption">Each field is just tag-then-value, back to back, with no delimiters between fields and no field names anywhere in the stream.</figcaption>
+  </figure>
+  <p>
+    The varint for 300 (<code>AC 02</code>) is worth unpacking once: a
+    varint spends 7 bits of each byte on the actual number and reserves
+    the top bit to mean "another byte follows." 300 in binary is
+    <code>1 00101100</code>; split into 7-bit chunks from the low end that's
+    <code>0101100</code> and <code>10</code>. The first byte becomes
+    <code>1_0101100</code> (continuation bit set) = <code>0xAC</code>; the
+    second becomes <code>0_0000010</code> (no more bytes) = <code>0x02</code>.
+    Small numbers (the overwhelmingly common case) fit in a single byte
+    this way instead of always spending 4 bytes like a fixed-width int.
+  </p>
+
+  <h2 id="versioning">Schema evolution: why field numbers matter</h2>
+  <p>
+    In an IoT fleet, the firmware on a device and the schema the cloud
+    expects are rarely upgraded in lockstep — some devices in the field
+    may run firmware from years ago (see
+    <a href="/networking/iot-architecture/index.html#ota">OTA at fleet
+    scale</a>). Protobuf is designed around that reality:
+  </p>
+  <ul class="point-list">
+    <li><strong>Adding a new field is always safe —</strong> give it a new, never-used field number; old code that doesn't know about it simply skips those bytes, new code sees it normally.</li>
+    <li><strong>Removing a field means retiring its number —</strong> mark it <code>reserved</code> in the <code>.proto</code> file so it can never accidentally be reused for something unrelated later, which would make old encoded data misinterpreted as the new field.</li>
+    <li><strong>Never change a field's number once shipped —</strong> the number, not the name, is what's on the wire; renaming a field in the <code>.proto</code> file is free, renumbering it silently breaks every message already encoded with the old number.</li>
+    <li><strong>Never change a field's wire type</strong> (e.g. <code>int32</code> to <code>string</code>) without a new field number — old and new wire types aren't generally interchangeable at the byte level.</li>
+  </ul>
+
+  <h2 id="base64">Base64 encoding and decoding</h2>
+  <p>
+    Plenty of systems are only willing to carry <em>text</em> — a JSON
+    string value, a URL, an email body, an XML document. Raw binary bytes
+    can contain values that those formats treat as control characters,
+    delimiters, or just invalid — so they can't be dropped in directly.
+    Base64 solves this by re-representing any sequence of bytes using
+    only 64 characters that are always safe in text:
+    <code>A&ndash;Z</code>, <code>a&ndash;z</code>, <code>0&ndash;9</code>,
+    <code>+</code>, and <code>/</code>.
+  </p>
+  <p>
+    The trick is a mismatch of sizes: a byte is 8 bits, but Base64 maps
+    <em>6</em> bits at a time to one character (2<sup>6</sup> = 64
+    possible values, exactly the alphabet size). So 3 bytes (24 bits)
+    divide evenly into 4 groups of 6 bits — 3 bytes in, 4 text characters
+    out, which is why Base64-encoded data is always about
+    <strong>4/3 (~33%) larger</strong> than the original.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 260" role="img" aria-labelledby="base64-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="base64-title">The three ASCII bytes of the string Hi! are regrouped from three 8-bit bytes into four 6-bit groups, each mapped to a Base64 character, producing the string SGkh</title>
+
+      <text class="seq-note" x="280" y="16" text-anchor="middle">Original bytes — 8 bits each</text>
+      <rect class="frame-box block-blue" x="40" y="24" width="160" height="50" />
+      <text class="frame-label" x="120" y="46" text-anchor="middle" font-size="12">01001000</text>
+      <text class="frame-caption" x="120" y="64" text-anchor="middle">'H' (72)</text>
+
+      <rect class="frame-box block-teal" x="200" y="24" width="160" height="50" />
+      <text class="frame-label" x="280" y="46" text-anchor="middle" font-size="12">01101001</text>
+      <text class="frame-caption" x="280" y="64" text-anchor="middle">'i' (105)</text>
+
+      <rect class="frame-box block-amber" x="360" y="24" width="160" height="50" />
+      <text class="frame-label" x="440" y="46" text-anchor="middle" font-size="12">00100001</text>
+      <text class="frame-caption" x="440" y="64" text-anchor="middle">'!' (33)</text>
+
+      <g stroke="var(--ink-faint)" stroke-dasharray="4 3">
+        <line x1="160" y1="24" x2="160" y2="170" />
+        <line x1="280" y1="24" x2="280" y2="170" />
+        <line x1="400" y1="24" x2="400" y2="170" />
+      </g>
+
+      <text class="seq-note" x="280" y="96" text-anchor="middle">Regrouped into four 6-bit chunks (crossing byte boundaries)</text>
+
+      <rect class="frame-box block-violet" x="40" y="104" width="120" height="50" />
+      <text class="frame-label" x="100" y="126" text-anchor="middle" font-size="12">010010</text>
+      <text class="frame-caption" x="100" y="144" text-anchor="middle">= 18</text>
+
+      <rect class="frame-box block-violet" x="160" y="104" width="120" height="50" />
+      <text class="frame-label" x="220" y="126" text-anchor="middle" font-size="12">000110</text>
+      <text class="frame-caption" x="220" y="144" text-anchor="middle">= 6</text>
+
+      <rect class="frame-box block-violet" x="280" y="104" width="120" height="50" />
+      <text class="frame-label" x="340" y="126" text-anchor="middle" font-size="12">100100</text>
+      <text class="frame-caption" x="340" y="144" text-anchor="middle">= 36</text>
+
+      <rect class="frame-box block-violet" x="400" y="104" width="120" height="50" />
+      <text class="frame-label" x="460" y="126" text-anchor="middle" font-size="12">100001</text>
+      <text class="frame-caption" x="460" y="144" text-anchor="middle">= 33</text>
+
+      <text class="seq-note" x="280" y="180" text-anchor="middle">Each 6-bit value looked up in the Base64 alphabet table</text>
+
+      <rect class="frame-box block-green" x="40" y="188" width="120" height="44" />
+      <text class="frame-label" x="100" y="216" text-anchor="middle" font-weight="700" font-size="16">S</text>
+      <rect class="frame-box block-green" x="160" y="188" width="120" height="44" />
+      <text class="frame-label" x="220" y="216" text-anchor="middle" font-weight="700" font-size="16">G</text>
+      <rect class="frame-box block-green" x="280" y="188" width="120" height="44" />
+      <text class="frame-label" x="340" y="216" text-anchor="middle" font-weight="700" font-size="16">k</text>
+      <rect class="frame-box block-green" x="400" y="188" width="120" height="44" />
+      <text class="frame-label" x="460" y="216" text-anchor="middle" font-weight="700" font-size="16">h</text>
+
+      <text class="seq-sub" x="280" y="250" text-anchor="middle">Base64("Hi!") = "SGkh"</text>
+    </svg>
+    <figcaption class="diagram__caption">The dashed lines mark 6-bit Base64 boundaries against the solid 8-bit byte boxes above — they never line up, which is exactly why the bits need to be regrouped at all.</figcaption>
+  </figure>
+  <p>
+    When the input length isn't a multiple of 3 bytes, the last group is
+    padded with zero bits and the output string is padded with
+    <code>=</code> characters to keep every encoded block a multiple of
+    4 characters — e.g. <code>Base64("Hi")</code> (2 bytes) comes out as
+    <code>"SGk="</code>, one <code>=</code> short of a full 4-character
+    group. Decoding just runs the whole diagram in reverse: characters
+    back to 6-bit values, regrouped into 8-bit bytes, padding discarded.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <p>
+    These two ideas show up together constantly in IoT systems — a
+    device that measures data, serializes it compactly, then has to
+    squeeze that binary payload through a transport that only speaks
+    text (a REST/JSON API is extremely common even when the payload
+    inside it isn't JSON-native):
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 160" role="img" aria-labelledby="e2e-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="e2e-title">A sensor reading is protobuf-serialized, base64-encoded into a JSON payload, sent over HTTPS, then base64-decoded and protobuf-deserialized on the cloud side</title>
+
+      <rect class="frame-box block-blue" x="10" y="55" width="120" height="50" rx="6" />
+      <text class="frame-label" x="70" y="76" text-anchor="middle" font-size="11">Sensor struct</text>
+      <text class="frame-caption" x="70" y="92" text-anchor="middle">on the device</text>
+
+      <rect class="frame-box block-teal" x="150" y="55" width="120" height="50" rx="6" />
+      <text class="frame-label" x="210" y="76" text-anchor="middle" font-size="11">Protobuf bytes</text>
+      <text class="frame-caption" x="210" y="92" text-anchor="middle">compact, binary</text>
+
+      <rect class="frame-box block-amber" x="290" y="55" width="120" height="50" rx="6" />
+      <text class="frame-label" x="350" y="76" text-anchor="middle" font-size="11">Base64 text</text>
+      <text class="frame-caption" x="350" y="92" text-anchor="middle">inside a JSON field</text>
+
+      <rect class="frame-box block-teal" x="430" y="55" width="120" height="50" rx="6" />
+      <text class="frame-label" x="490" y="76" text-anchor="middle" font-size="11">Protobuf bytes</text>
+      <text class="frame-caption" x="490" y="92" text-anchor="middle">decoded, on the cloud</text>
+
+      <rect class="frame-box block-blue" x="570" y="55" width="120" height="50" rx="6" />
+      <text class="frame-label" x="630" y="76" text-anchor="middle" font-size="11">Sensor struct</text>
+      <text class="frame-caption" x="630" y="92" text-anchor="middle">on the server</text>
+
+      <line x1="130" y1="80" x2="146" y2="80" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="150,80 140,75 140,85" />
+      <text class="seq-note" x="140" y="40" text-anchor="middle">protobuf</text>
+      <text class="seq-note" x="140" y="54" text-anchor="middle">serialize</text>
+
+      <line x1="270" y1="80" x2="286" y2="80" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="290,80 280,75 280,85" />
+      <text class="seq-note" x="280" y="40" text-anchor="middle">base64</text>
+      <text class="seq-note" x="280" y="54" text-anchor="middle">encode</text>
+
+      <line x1="410" y1="80" x2="426" y2="80" class="seq-arrow flow-path flow-path--slow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="430,80 420,75 420,85" />
+      <text class="seq-note" x="420" y="40" text-anchor="middle">HTTPS POST +</text>
+      <text class="seq-note" x="420" y="54" text-anchor="middle">base64 decode</text>
+
+      <line x1="550" y1="80" x2="566" y2="80" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="570,80 560,75 560,85" />
+      <text class="seq-note" x="560" y="40" text-anchor="middle">protobuf</text>
+      <text class="seq-note" x="560" y="54" text-anchor="middle">deserialize</text>
+
+      <text class="seq-sub" x="350" y="135" text-anchor="middle">The device and server never touch each other's memory — only this chain of well-defined byte transformations.</text>
+    </svg>
+    <figcaption class="diagram__caption">Neither step alone would be enough: Protobuf alone can't survive a text-only field, and Base64 alone doesn't structure the data at all.</figcaption>
+  </figure>
+  <ul class="point-list">
+    <li><strong>gRPC APIs —</strong> gRPC uses Protobuf as its wire format by default, over HTTP/2, and is the standard choice for high-throughput service-to-service calls.</li>
+    <li><strong>Device telemetry —</strong> a compact Protobuf payload matters far more over a constrained link (cellular, LoRa, low-bandwidth <a href="/networking/mqtt/index.html">MQTT</a>) than it does on a typical web API.</li>
+    <li><strong>HTTP Basic Authentication —</strong> the <code>Authorization: Basic &lt;credentials&gt;</code> header is just <code>username:password</code> Base64-encoded — not encrypted at all (see Gotchas).</li>
+    <li><strong>Data URIs and small embedded assets —</strong> a small image embedded directly in HTML/CSS as <code>data:image/png;base64,...</code> avoids a separate network request.</li>
+    <li><strong>JWTs —</strong> each of a JSON Web Token's three dot-separated parts is Base64url-encoded JSON — readable by anyone with a decoder, which is exactly the point (the security comes from a separate signature, not from hiding the content).</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Base64 is <strong>not encryption and not compression</strong> — it's trivially reversible with no key at all, and it makes data larger, never smaller. Treating a Base64 string as "protected" because it looks unreadable is a real, recurring security mistake.</li>
+      <li>Protobuf bytes are meaningless without the exact <code>.proto</code> schema that produced them — unlike JSON, there are no field names on the wire to fall back on, only numbers.</li>
+      <li>Two Base64 alphabet variants exist: standard (<code>+</code> / <code>/</code>) and URL-safe (<code>-</code> / <code>_</code>). Decoding with the wrong variant silently produces garbage or an error — a frequent bug when a Base64 string ends up in a URL query parameter without using the URL-safe variant.</li>
+      <li>Changing a Protobuf field's number, or reusing a retired one, breaks compatibility with every device or file that already used the old numbering — and in a deployed fleet, that can mean firmware in the field that can't be forced to update, per <a href="#versioning">Schema evolution</a> above.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/networking/iot-architecture/index.html", "title": "IoT Architecture" },
+  "related": [
+    { "href": "/networking/iot-architecture/index.html", "title": "IoT Architecture" },
+    { "href": "/networking/https/index.html", "title": "HTTPS & TLS" },
+    { "href": "/networking/mqtt/index.html", "title": "MQTT" },
+    { "href": "/networking/coap/index.html", "title": "CoAP" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
