@@ -130,6 +130,17 @@
     ]
   },
   {
+    "title": "Analog vs. Digital Electronics — Electronics",
+    "url": "/electronics/analog-digital/index.html",
+    "domain": "Electronics",
+    "category": "Analog Digital",
+    "description": "What actually separates analog and digital signals, logic levels and noise margins, why digital wins for computation, why the physical world stays analog, and comparators as the simplest boundary between the two.",
+    "tags": [
+      "electronics",
+      "analog-digital"
+    ]
+  },
+  {
     "title": "Data Converters — Electronics",
     "url": "/electronics/converters/index.html",
     "domain": "Electronics",

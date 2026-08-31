@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Analog vs. Digital Electronics — Electronics — Embedded Pandora</title>
+<meta name="description" content="What actually separates analog and digital signals, logic levels and noise margins, why digital wins for computation, why the physical world stays analog, and comparators as the simplest boundary between the two." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Electronics</p>
+  <h1>Analog vs. Digital Electronics</h1>
+  <p class="lede">
+    Every electronic system draws a line somewhere between
+    <strong>analog</strong> (continuously variable) and
+    <strong>digital</strong> (a small number of discrete states) — and
+    almost every real device straddles that line, with components like
+    comparators, <a href="/electronics/converters/index.html">ADCs and
+    DACs</a> doing the crossing at specific, deliberate points.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The two fundamental signal domains: analog (any value in a continuous range) and digital (usually just two states, HIGH and LOW).</dd>
+      <dt>Mental model</dt><dd>Analog is a dimmer switch — any position between off and full carries meaning. Digital is a light switch — only fully on or fully off counts, and anything else is treated as noise.</dd>
+      <dt>Key numbers</dt><dd>Digital logic levels have defined HIGH and LOW voltage bands with a noise margin between them; analog signals have no such safety margin at all.</dd>
+      <dt>Reach for it when</dt><dd>Deciding whether a signal or circuit block should be analog or digital, or understanding why a "digital" system still has real analog behavior (rise times, noise, power rails) underneath it.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#analog">Analog signals</a></li>
+      <li><a href="#digital">Digital signals and logic levels</a></li>
+      <li><a href="#why-digital">Why digital wins for computation</a></li>
+      <li><a href="#why-analog">Why analog still matters</a></li>
+      <li><a href="#comparator">The boundary: comparators</a></li>
+      <li><a href="#logic-families">Logic families: why 3.3 V and 5 V don't just mix</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="analog">Analog signals</h2>
+  <p>
+    An analog signal can sit at any value within a continuous range — a
+    microphone's output voltage, a temperature sensor's voltage, the
+    position of a volume knob. It carries information directly, with
+    resolution limited only by real-world noise, not by any discrete step
+    imposed on it. That same property is also its weakness: any noise
+    picked up along the way — electrical interference, resistance drops,
+    temperature drift — permanently blends into the signal, and there's
+    no way to separate noise from signal after the fact.
+  </p>
+
+  <h2 id="digital">Digital signals and logic levels</h2>
+  <p>
+    A digital signal only takes a small number of discrete states —
+    almost always two: <strong>HIGH</strong> and <strong>LOW</strong>,
+    conventionally 1 and 0. A receiver only has to decide "is this closer
+    to HIGH or LOW," not reproduce an exact value — which is exactly why
+    digital signals tolerate real-world noise so much better than analog
+    ones.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 260" role="img" aria-labelledby="analog-digital-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="analog-digital-title">An analog waveform varies smoothly and continuously; a digital waveform only ever sits at one of two discrete levels</title>
+
+      <text class="frame-caption" x="20" y="14" text-anchor="start">analog — any voltage carries meaning</text>
+      <polyline points="40,90 80,50 120,40 160,60 200,95 240,110 280,90 320,55 360,45 400,70 440,100 480,105 520,80"
+                fill="none" stroke="var(--blue)" stroke-width="2.5" />
+      <line x1="40" y1="115" x2="520" y2="115" stroke="var(--ink-faint)" stroke-width="1" />
+
+      <text class="frame-caption" x="20" y="154" text-anchor="start">digital — only HIGH or LOW carries meaning</text>
+      <polyline points="40,230 40,170 120,170 120,230 200,230 200,170 280,170 280,230 360,230 360,170 440,170 440,230 520,230"
+                fill="none" stroke="var(--green)" stroke-width="2.5" />
+      <text class="frame-caption" x="36" y="175" text-anchor="end" font-size="9">HIGH</text>
+      <text class="frame-caption" x="36" y="235" text-anchor="end" font-size="9">LOW</text>
+    </svg>
+    <figcaption class="diagram__caption">The analog trace's exact height matters everywhere; the digital trace only ever needs to be read as one of two things, no matter how imperfect its edges look up close.</figcaption>
+  </figure>
+  <p>
+    That tolerance is formalized as a <strong>noise margin</strong>: real
+    logic families define an input HIGH threshold (V<sub>IH</sub>) and an
+    input LOW threshold (V<sub>IL</sub>), with a gap between them that no
+    valid signal should ever rest in:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 320 320" role="img" aria-labelledby="logic-levels-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="logic-levels-title">A voltage axis divided into a valid HIGH band at the top, an undefined forbidden zone in the middle, and a valid LOW band at the bottom</title>
+
+      <rect class="frame-box block-green" x="100" y="20" width="120" height="90" />
+      <text class="frame-label" x="160" y="60" text-anchor="middle" font-weight="700">HIGH</text>
+      <text class="frame-caption" x="160" y="80" text-anchor="middle">valid "1"</text>
+
+      <rect class="frame-box block-amber" x="100" y="110" width="120" height="80" />
+      <text class="frame-label" x="160" y="140" text-anchor="middle" font-size="10" font-weight="700">undefined</text>
+      <text class="frame-caption" x="160" y="158" text-anchor="middle" font-size="9">a signal should</text>
+      <text class="frame-caption" x="160" y="170" text-anchor="middle" font-size="9">never rest here</text>
+
+      <rect class="frame-box block-blue" x="100" y="190" width="120" height="90" />
+      <text class="frame-label" x="160" y="230" text-anchor="middle" font-weight="700">LOW</text>
+      <text class="frame-caption" x="160" y="250" text-anchor="middle">valid "0"</text>
+
+      <text class="seq-note" x="90" y="24" text-anchor="end">Vcc</text>
+      <text class="seq-note" x="90" y="114" text-anchor="end">V_IH</text>
+      <text class="seq-note" x="90" y="194" text-anchor="end">V_IL</text>
+      <text class="seq-note" x="90" y="284" text-anchor="end">0V</text>
+    </svg>
+    <figcaption class="diagram__caption">The gap between V_IL and V_IH is the noise margin — real noise can push a signal around within its own valid band without ever being misread as the other state.</figcaption>
+  </figure>
+
+  <h2 id="why-digital">Why digital wins for computation</h2>
+  <p>
+    Noise immunity, plus the ability to build arbitrarily complex logic
+    out of simple, cheap, mass-producible transistor switches (see
+    <a href="/electronics/semiconductors/index.html">Semiconductors</a>)
+    stacked into gates, then flip-flops, then entire CPUs, is why nearly
+    all computation happens digitally today — even though the transistors
+    themselves are fundamentally analog devices, deliberately operated in
+    a hard on/off (saturated) mode rather than their more delicate linear
+    region.
+  </p>
+
+  <h2 id="why-analog">Why analog still matters</h2>
+  <p>
+    The physical world — light, sound, temperature, pressure, radio
+    waves — is inherently continuous, not discrete. Every sensor produces
+    an analog signal at its output, every speaker or motor needs an
+    analog drive signal to do anything useful, and every power supply
+    rail is an analog quantity that has to stay within tolerance for the
+    digital logic riding on top of it to work at all. A real embedded
+    system is an analog system with a digital brain bolted on — never a
+    purely digital system end to end.
+  </p>
+
+  <h2 id="comparator">The boundary: comparators</h2>
+  <p>
+    The simplest possible analog-to-digital device asks exactly one
+    question: is this signal bigger than that reference? A
+    <strong>comparator</strong> does nothing else — no resolution, no
+    quantization levels, just a single-bit yes/no answer, output as a
+    clean digital HIGH or LOW:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 480 200" role="img" aria-labelledby="comparator-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="comparator-title">A comparator takes an analog signal and a reference voltage and outputs a digital high or low depending on which input is larger</title>
+
+      <rect class="frame-box block-blue" x="20" y="30" width="130" height="50" rx="6" />
+      <text class="frame-label" x="85" y="60" text-anchor="middle" font-weight="700" font-size="11">Signal</text>
+
+      <rect class="frame-box block-teal" x="20" y="120" width="130" height="50" rx="6" />
+      <text class="frame-label" x="85" y="150" text-anchor="middle" font-weight="700" font-size="11">Reference V_ref</text>
+
+      <polygon class="frame-box block-violet" points="180,20 180,180 320,100" />
+      <text class="frame-label" x="220" y="60" text-anchor="middle" font-size="11">+</text>
+      <text class="frame-label" x="220" y="148" text-anchor="middle" font-size="11">&minus;</text>
+
+      <line x1="150" y1="55" x2="176" y2="55" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="180,55 170,50 170,60" />
+      <line x1="150" y1="145" x2="176" y2="145" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="180,145 170,140 170,150" />
+
+      <line x1="320" y1="100" x2="336" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="340,100 330,95 330,105" />
+
+      <rect class="frame-box block-green" x="340" y="75" width="120" height="50" rx="6" />
+      <text class="frame-label" x="400" y="98" text-anchor="middle" font-weight="700" font-size="10">Digital out</text>
+      <text class="frame-caption" x="400" y="114" text-anchor="middle" font-size="8">HIGH if signal &gt; V_ref</text>
+    </svg>
+    <figcaption class="diagram__caption">No in-between: the output swings hard to one rail or the other the instant the signal crosses the reference, with no intermediate value ever produced.</figcaption>
+  </figure>
+  <p>
+    A full <a href="/electronics/converters/index.html">ADC</a> is, in a
+    sense, many comparators working together to pin a signal down to one
+    of many levels instead of just two — the comparator is the primitive
+    building block, the ADC is the fully-resolved instrument built from
+    it.
+  </p>
+
+  <h2 id="logic-families">Logic families: why 3.3 V and 5 V don't just mix</h2>
+  <p>
+    Different logic families define different HIGH/LOW voltage
+    thresholds — classic TTL, CMOS, and modern 3.3 V, 5 V, and 1.8 V logic
+    all disagree on exactly where V<sub>IH</sub> and V<sub>IL</sub> sit.
+    Connecting devices from different families directly, without a level
+    shifter, is a genuinely common embedded mistake: a 3.3 V
+    microcontroller's "HIGH" might not reliably register as HIGH to a
+    5 V-only input, and driving a 3.3 V-only input directly with true 5 V
+    logic can exceed its absolute maximum rating and damage it outright.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every microcontroller —</strong> a digital CPU core surrounded by analog realities: power supply ripple, a crystal oscillator's analog resonance, and the ADC/DAC boundary to the outside world.</li>
+    <li><strong>Audio playback —</strong> a DAC converts digital audio samples into the analog voltage that actually drives a speaker.</li>
+    <li><strong>Sensor front-ends —</strong> a sensor's raw analog output feeds an ADC before any digital processing can happen — see <a href="/sensors/index.html">Sensors</a> and <a href="/electronics/converters/index.html">Data Converters</a>.</li>
+    <li><strong>Level-shifter ICs —</strong> dedicated chips exist specifically to solve the mixed-voltage-logic problem safely, rather than connecting incompatible logic families directly.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A floating (unconnected) digital input sits in the undefined zone and can read as HIGH, LOW, or oscillate unpredictably — always terminate unused digital inputs with a pull-up or pull-down resistor.</li>
+      <li>Driving a 3.3 V-only input directly with true 5 V logic can exceed its absolute maximum rating and permanently damage it — always check level compatibility rather than assuming it.</li>
+      <li>Long analog signal wires pick up noise proportional to their length and environment — keep analog paths short, or convert to digital as early as possible if a long run is unavoidable.</li>
+      <li>"Digital" doesn't mean "immune to physics" — at high enough clock speeds, a digital signal's edges start behaving like an analog/RF signal on the wire (ringing, reflections), a real concern in high-speed digital design.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/electronics/converters/index.html", "title": "Data Converters (ADC & DAC)" },
+  "related": [
+    { "href": "/electronics/semiconductors/index.html", "title": "Semiconductors" },
+    { "href": "/electronics/converters/index.html", "title": "Data Converters (ADC & DAC)" },
+    { "href": "/sensors/index.html", "title": "Sensors" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
