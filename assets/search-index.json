@@ -1,5 +1,16 @@
 [
   {
+    "title": "Camera Sensors — Automotive",
+    "url": "/automotive/camera-sensors/index.html",
+    "domain": "Automotive",
+    "category": "Camera Sensors",
+    "description": "How automotive cameras see and classify the road: the imaging pipeline, mono vs. stereo depth, and why cameras are the classification sensor in ADAS sensor fusion.",
+    "tags": [
+      "automotive",
+      "camera-sensors"
+    ]
+  },
+  {
     "title": "Automotive",
     "url": "/automotive/index.html",
     "domain": "Automotive",
