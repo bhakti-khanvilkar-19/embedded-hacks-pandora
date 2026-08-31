@@ -509,6 +509,17 @@
     ]
   },
   {
+    "title": "CVEs and Vulnerability Scoring — Security",
+    "url": "/security/cve/index.html",
+    "domain": "Security",
+    "category": "Cve",
+    "description": "What a CVE actually is, how one gets assigned, the CVE lifecycle from discovery to disclosure, and how CVSS turns a vulnerability into a severity score.",
+    "tags": [
+      "security",
+      "cve"
+    ]
+  },
+  {
     "title": "Security",
     "url": "/security/index.html",
     "domain": "Security",

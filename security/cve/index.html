@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CVEs and Vulnerability Scoring — Security — Embedded Pandora</title>
+<meta name="description" content="What a CVE actually is, how one gets assigned, the CVE lifecycle from discovery to disclosure, and how CVSS turns a vulnerability into a severity score." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Security</p>
+  <h1>CVEs and Vulnerability Scoring</h1>
+  <p class="lede">
+    A <strong>CVE</strong> (Common Vulnerabilities and Exposures) is a
+    standardized ID assigned to one specific, publicly known security
+    vulnerability — nothing more. "CVE-2021-44228" means exactly one
+    thing to every security team, vendor, and tool on the planet, which
+    is the entire point: before CVEs existed, everyone described the
+    same vulnerability differently, making it genuinely hard to know if
+    two reports were even talking about the same bug.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A unique identifier (CVE-YYYY-NNNNN) for one specific vulnerability, plus a separate CVSS score describing how severe it is.</dd>
+      <dt>Mental model</dt><dd>A CVE ID is a case number — it identifies which vulnerability everyone is discussing, but says nothing about severity on its own. CVSS is the separate scoring system for that.</dd>
+      <dt>Key numbers</dt><dd>CVSS scores run 0.0&ndash;10.0 across None/Low/Medium/High/Critical bands; tens of thousands of new CVEs are published every year.</dd>
+      <dt>Reach for it when</dt><dd>Evaluating whether a dependency, library, or device is affected by a known vulnerability, or deciding which of several known issues to fix first.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#what-is-a-cve">What a CVE actually identifies</a></li>
+      <li><a href="#lifecycle">The CVE lifecycle</a></li>
+      <li><a href="#cvss">CVSS: turning a vulnerability into a score</a></li>
+      <li><a href="#severity-bands">Severity bands</a></li>
+      <li><a href="#where-to-look">Where to actually look them up</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="what-is-a-cve">What a CVE actually identifies</h2>
+  <p>
+    A CVE ID has the format <code>CVE-YYYY-NNNNN</code> — the year it was
+    <em>assigned</em> (not necessarily the year it was found or
+    disclosed), and a sequence number. IDs are issued by
+    <strong>CNAs</strong> (CVE Numbering Authorities) — MITRE itself, plus
+    hundreds of software vendors, security researchers, and open-source
+    projects authorized to assign IDs directly for their own products.
+    A CVE record itself is deliberately minimal: a description of the
+    vulnerability, the affected product(s) and version range, and
+    references to advisories or patches — it's an index entry, not the
+    full technical writeup.
+  </p>
+
+  <h2 id="lifecycle">The CVE lifecycle</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 820 200" role="img" aria-labelledby="cve-lifecycle-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="cve-lifecycle-title">A vulnerability is found, reported to a CNA, reserved with an ID, fixed by the vendor, publicly disclosed, and published to vulnerability databases</title>
+
+      <rect class="frame-box block-blue" x="10" y="70" width="120" height="60" rx="6" />
+      <text class="frame-label" x="70" y="94" text-anchor="middle" font-weight="700" font-size="10">Found</text>
+      <text class="frame-caption" x="70" y="112" text-anchor="middle" font-size="8">researcher or vendor</text>
+
+      <rect class="frame-box block-teal" x="150" y="70" width="120" height="60" rx="6" />
+      <text class="frame-label" x="210" y="94" text-anchor="middle" font-weight="700" font-size="10">Reported</text>
+      <text class="frame-caption" x="210" y="112" text-anchor="middle" font-size="8">sent to a CNA</text>
+
+      <rect class="frame-box block-amber" x="290" y="70" width="120" height="60" rx="6" />
+      <text class="frame-label" x="350" y="94" text-anchor="middle" font-weight="700" font-size="10">Reserved</text>
+      <text class="frame-caption" x="350" y="112" text-anchor="middle" font-size="8">ID assigned, not yet public</text>
+
+      <rect class="frame-box block-violet" x="430" y="70" width="120" height="60" rx="6" />
+      <text class="frame-label" x="490" y="94" text-anchor="middle" font-weight="700" font-size="10">Fix developed</text>
+      <text class="frame-caption" x="490" y="112" text-anchor="middle" font-size="8">vendor works privately</text>
+
+      <rect class="frame-box block-green" x="570" y="70" width="120" height="60" rx="6" />
+      <text class="frame-label" x="630" y="94" text-anchor="middle" font-weight="700" font-size="10">Disclosed</text>
+      <text class="frame-caption" x="630" y="112" text-anchor="middle" font-size="8">details made public</text>
+
+      <rect class="frame-box block-blue" x="700" y="70" width="110" height="60" rx="6" />
+      <text class="frame-label" x="755" y="94" text-anchor="middle" font-weight="700" font-size="10">Published</text>
+      <text class="frame-caption" x="755" y="112" text-anchor="middle" font-size="8">NVD, advisories</text>
+
+      <line x1="130" y1="100" x2="146" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="150,100 140,95 140,105" />
+      <line x1="270" y1="100" x2="286" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="290,100 280,95 280,105" />
+      <line x1="410" y1="100" x2="426" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="430,100 420,95 420,105" />
+      <line x1="550" y1="100" x2="566" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="570,100 560,95 560,105" />
+      <line x1="690" y1="100" x2="696" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="700,100 690,95 690,105" />
+
+      <text class="seq-sub" x="410" y="165" text-anchor="middle">Reserved IDs exist specifically so a vendor can coordinate a fix before attackers learn a vulnerability exists at all.</text>
+    </svg>
+    <figcaption class="diagram__caption">A "reserved" CVE with no public details yet is normal, deliberate practice — not a sign anything is being hidden improperly.</figcaption>
+  </figure>
+
+  <h2 id="cvss">CVSS: turning a vulnerability into a score</h2>
+  <p>
+    A bare CVE ID says nothing about severity — that's CVSS's (Common
+    Vulnerability Scoring System) job, built from several independent
+    metrics describing how the vulnerability can actually be exploited:
+  </p>
+  <table>
+    <thead><tr><th>Metric</th><th>Question it answers</th></tr></thead>
+    <tbody>
+      <tr><td>Attack Vector</td><td>How is it reached — over the network, only from an adjacent network, only locally, or only with physical access?</td></tr>
+      <tr><td>Attack Complexity</td><td>How hard is reliable exploitation — low effort, or does it depend on conditions outside the attacker's control?</td></tr>
+      <tr><td>Privileges Required</td><td>Does the attacker need to already be authenticated, and at what level?</td></tr>
+      <tr><td>User Interaction</td><td>Does a victim have to do something (open a file, click a link) for it to work?</td></tr>
+      <tr><td>Confidentiality / Integrity / Availability impact</td><td>If exploited, how badly is each of these three properties affected — none, low, or high?</td></tr>
+    </tbody>
+  </table>
+  <p>
+    These combine into a single base score from 0.0 to 10.0. A
+    network-reachable vulnerability needing no authentication and no
+    user interaction, with high impact on all three of confidentiality,
+    integrity, and availability, scores at the very top of that range —
+    exactly the shape of a handful of infamous real-world vulnerabilities
+    (the 2021 Log4Shell vulnerability in the widely-used Log4j logging
+    library is a commonly cited example: remotely triggerable, no
+    authentication needed, full system compromise).
+  </p>
+
+  <h2 id="severity-bands">Severity bands</h2>
+  <table>
+    <thead><tr><th>Score range</th><th>Severity</th></tr></thead>
+    <tbody>
+      <tr><td>0.0</td><td>None</td></tr>
+      <tr><td>0.1 &ndash; 3.9</td><td>Low</td></tr>
+      <tr><td>4.0 &ndash; 6.9</td><td>Medium</td></tr>
+      <tr><td>7.0 &ndash; 8.9</td><td>High</td></tr>
+      <tr><td>9.0 &ndash; 10.0</td><td>Critical</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="where-to-look">Where to actually look them up</h2>
+  <dl class="kv">
+    <dt>NVD (National Vulnerability Database)</dt><dd>The U.S. government-run database that enriches raw CVE records with CVSS scores, affected-product data, and references — usually the first stop for looking up a specific CVE ID.</dd>
+    <dt>Vendor security advisories</dt><dd>Often published alongside or ahead of the CVE record itself, with vendor-specific remediation guidance the generic CVE record won't have.</dd>
+    <dt>GitHub Security Advisories</dt><dd>Ecosystem-specific advisories (npm, PyPI, and others) frequently linked to a CVE, surfaced directly in a repository's own dependency graph.</dd>
+  </dl>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Patch prioritization —</strong> CVSS scores let a team triage a backlog of known issues by actual exploitability and impact rather than by however loud each report sounds.</li>
+    <li><strong>Vendor/procurement risk assessment —</strong> a vendor's CVE history and typical time-to-patch is real, checkable due-diligence data before adopting their component.</li>
+    <li><strong>Embedded device long-tail support —</strong> a device shipped years ago can still be affected by a CVE published against a library it embeds, long after anyone remembers that library is even in there.</li>
+    <li><strong>Automotive and IoT fleet risk —</strong> a CVE in a component used across an entire deployed fleet (see <a href="/networking/iot-architecture/index.html">IoT Architecture</a>) can mean a coordinated OTA response, not just a single device fix.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A CVE existing doesn't mean a working exploit is public, and a high CVSS score doesn't automatically mean <em>your specific deployment</em> is exposed — the score assumes a generic worst-case configuration, not your actual network topology or mitigations.</li>
+      <li>"CVE assigned" and "patch available" are two different milestones — a reserved or recently disclosed CVE can sit unpatched for a real, sometimes long, window.</li>
+      <li>Embedded devices with multi-year field lifespans and no active CVE-monitoring process are a genuinely common blind spot — a library baked into firmware years ago doesn't stop being a target just because nobody's watching its CVE feed anymore.</li>
+      <li>A CVE's year prefix is when the <em>ID</em> was assigned, not necessarily when the vulnerability was introduced or even discovered — don't assume a "CVE-2015-..." only affects old software.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/security/secure-coding/index.html", "title": "Secure Coding Principles" },
+  "related": [
+    { "href": "/security/secure-coding/index.html", "title": "Secure Coding Principles" },
+    { "href": "/networking/iot-architecture/index.html", "title": "IoT Architecture" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
