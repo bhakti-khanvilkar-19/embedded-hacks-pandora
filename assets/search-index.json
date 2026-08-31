@@ -10,6 +10,17 @@
     ]
   },
   {
+    "title": "Radar — Automotive",
+    "url": "/automotive/radar/index.html",
+    "domain": "Automotive",
+    "category": "Radar",
+    "description": "How automotive radar measures range, velocity, and angle using FMCW chirps and the Doppler effect, the radar processing chain, frequency bands, and real-world ADAS use.",
+    "tags": [
+      "automotive",
+      "radar"
+    ]
+  },
+  {
     "title": "The Complete Boot Process — Bootloaders",
     "url": "/bootloaders/boot-process/index.html",
     "domain": "Bootloaders",
