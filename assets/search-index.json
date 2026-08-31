@@ -520,6 +520,17 @@
     ]
   },
   {
+    "title": "Dependency Analysis — Security",
+    "url": "/security/dependency-analysis/index.html",
+    "domain": "Security",
+    "category": "Dependency Analysis",
+    "description": "Software Composition Analysis: direct vs. transitive dependencies, SBOMs, how vulnerability scanning actually works, real tools, and why it's genuinely harder in embedded.",
+    "tags": [
+      "security",
+      "dependency-analysis"
+    ]
+  },
+  {
     "title": "Security",
     "url": "/security/index.html",
     "domain": "Security",

@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dependency Analysis — Security — Embedded Pandora</title>
+<meta name="description" content="Software Composition Analysis: direct vs. transitive dependencies, SBOMs, how vulnerability scanning actually works, real tools, and why it's genuinely harder in embedded." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Security</p>
+  <h1>Dependency Analysis</h1>
+  <p class="lede">
+    Modern software is mostly other people's code — a typical application
+    pulls in dozens or hundreds of third-party libraries, and each one is
+    a potential vector for a known vulnerability the application team
+    never wrote and might not even know is there. <strong>Dependency
+    analysis</strong> (often called Software Composition Analysis, SCA)
+    is the practice of systematically finding out exactly what's in a
+    codebase and checking each piece against known-vulnerability
+    databases.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Identifying every third-party component — direct and transitive — in a codebase and cross-referencing each one against known <a href="/security/cve/index.html">CVEs</a>.</dd>
+      <dt>Mental model</dt><dd>An ingredient list for software — you can't know if something contains a recalled ingredient until you know exactly what's in it, including ingredients your ingredients brought along.</dd>
+      <dt>Key numbers</dt><dd>A typical application has far more transitive (indirect) dependencies than direct ones — one direct dependency can pull in dozens more nobody on the team ever explicitly chose.</dd>
+      <dt>Reach for it when</dt><dd>Before shipping anything with third-party dependencies — virtually all software — and continuously afterward as new CVEs get published against components already in production.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#why-it-matters">Why it matters: a known, unpatched CVE</a></li>
+      <li><a href="#direct-vs-transitive">Direct vs. transitive dependencies</a></li>
+      <li><a href="#sbom">SBOM: the Software Bill of Materials</a></li>
+      <li><a href="#how-scanning-works">How scanning actually works</a></li>
+      <li><a href="#tools">Real tools</a></li>
+      <li><a href="#embedded">Why this is harder in embedded</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="why-it-matters">Why it matters: a known, unpatched CVE</h2>
+  <p>
+    The 2017 Equifax breach is the standard example cited across the
+    security industry precisely because it wasn't a zero-day at all — it
+    exploited a vulnerability in Apache Struts that already had a public
+    CVE and an available patch for months before the breach happened.
+    The failure wasn't a lack of security research; it was that nobody's
+    dependency-tracking process caught that a known-vulnerable version
+    was still running in production.
+  </p>
+
+  <h2 id="direct-vs-transitive">Direct vs. transitive dependencies</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 280" role="img" aria-labelledby="dep-tree-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="dep-tree-title">An application depends directly on three libraries, and each of those pulls in its own further dependencies that the application team never explicitly chose</title>
+
+      <rect class="frame-box block-blue" x="270" y="20" width="160" height="50" rx="6" />
+      <text class="frame-label" x="350" y="50" text-anchor="middle" font-weight="700" font-size="11">Your application</text>
+
+      <rect class="frame-box block-teal" x="40" y="110" width="140" height="50" rx="6" />
+      <text class="frame-label" x="110" y="140" text-anchor="middle" font-size="10">Direct dep A</text>
+      <rect class="frame-box block-teal" x="280" y="110" width="140" height="50" rx="6" />
+      <text class="frame-label" x="350" y="140" text-anchor="middle" font-size="10">Direct dep B</text>
+      <rect class="frame-box block-teal" x="520" y="110" width="140" height="50" rx="6" />
+      <text class="frame-label" x="590" y="140" text-anchor="middle" font-size="10">Direct dep C</text>
+
+      <line x1="350" y1="70" x2="130" y2="106" class="seq-arrow flow-path" stroke-width="2" />
+      <line x1="350" y1="70" x2="350" y2="106" class="seq-arrow flow-path" stroke-width="2" />
+      <line x1="350" y1="70" x2="570" y2="106" class="seq-arrow flow-path" stroke-width="2" />
+
+      <rect class="frame-box block-amber" x="40" y="210" width="620" height="50" rx="6" />
+      <text class="frame-label" x="350" y="232" text-anchor="middle" font-weight="700" font-size="10">...and every dependency's own dependencies (transitive)</text>
+      <text class="frame-caption" x="350" y="250" text-anchor="middle" font-size="8">often dozens more per direct dependency, chosen by no one on your team</text>
+
+      <line x1="110" y1="160" x2="200" y2="206" class="seq-arrow flow-path" stroke-width="2" />
+      <line x1="350" y1="160" x2="350" y2="206" class="seq-arrow flow-path" stroke-width="2" />
+      <line x1="590" y1="160" x2="500" y2="206" class="seq-arrow flow-path" stroke-width="2" />
+    </svg>
+    <figcaption class="diagram__caption">A vulnerability three layers deep in a transitive dependency is exactly as real a risk to the running application as one in a dependency the team picked directly.</figcaption>
+  </figure>
+
+  <h2 id="sbom">SBOM: the Software Bill of Materials</h2>
+  <p>
+    An <strong>SBOM</strong> is a formal, machine-readable inventory of
+    every component (and typically every specific version) that makes up
+    a piece of software — increasingly a regulatory and contractual
+    requirement, not just an internal nicety. Two formats dominate:
+    <strong>SPDX</strong> and <strong>CycloneDX</strong>, both designed
+    to be generated automatically from a build rather than maintained by
+    hand.
+  </p>
+
+  <h2 id="how-scanning-works">How scanning actually works</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 820 200" role="img" aria-labelledby="sca-pipeline-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="sca-pipeline-title">A build manifest is resolved into a full dependency tree, turned into a component list with exact versions, cross-referenced against a vulnerability database, and reported</title>
+
+      <rect class="frame-box block-blue" x="15" y="70" width="150" height="60" rx="6" />
+      <text class="frame-label" x="90" y="94" text-anchor="middle" font-weight="700" font-size="10">Build manifest</text>
+      <text class="frame-caption" x="90" y="112" text-anchor="middle" font-size="8">package.json, requirements.txt, ...</text>
+
+      <rect class="frame-box block-teal" x="185" y="70" width="150" height="60" rx="6" />
+      <text class="frame-label" x="260" y="94" text-anchor="middle" font-weight="700" font-size="10">Resolver</text>
+      <text class="frame-caption" x="260" y="112" text-anchor="middle" font-size="8">builds the full tree, transitive included</text>
+
+      <rect class="frame-box block-amber" x="355" y="70" width="150" height="60" rx="6" />
+      <text class="frame-label" x="430" y="94" text-anchor="middle" font-weight="700" font-size="10">Component list</text>
+      <text class="frame-caption" x="430" y="112" text-anchor="middle" font-size="8">exact versions, the SBOM</text>
+
+      <rect class="frame-box block-violet" x="525" y="70" width="150" height="60" rx="6" />
+      <text class="frame-label" x="600" y="94" text-anchor="middle" font-weight="700" font-size="9">Vulnerability DB</text>
+      <text class="frame-caption" x="600" y="112" text-anchor="middle" font-size="8">NVD, OSV, advisories</text>
+
+      <rect class="frame-box block-green" x="695" y="70" width="115" height="60" rx="6" />
+      <text class="frame-label" x="752" y="94" text-anchor="middle" font-weight="700" font-size="10">Report</text>
+      <text class="frame-caption" x="752" y="112" text-anchor="middle" font-size="8">flagged CVEs</text>
+
+      <line x1="165" y1="100" x2="181" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="185,100 175,95 175,105" />
+      <line x1="335" y1="100" x2="351" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="355,100 345,95 345,105" />
+      <line x1="505" y1="100" x2="521" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="525,100 515,95 515,105" />
+      <line x1="675" y1="100" x2="691" y2="100" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="695,100 685,95 685,105" />
+
+      <text class="seq-sub" x="410" y="170" text-anchor="middle">This pipeline runs on every build in a mature setup, not as a one-time audit.</text>
+    </svg>
+    <figcaption class="diagram__caption">The component list produced here is exactly the SBOM — the vulnerability report is what you get once you cross-reference it against what's currently known.</figcaption>
+  </figure>
+
+  <h2 id="tools">Real tools</h2>
+  <table>
+    <thead><tr><th>Tool</th><th>Ecosystem</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td>npm audit / yarn audit</td><td>JavaScript/Node</td><td>Built into the package manager itself — flags known vulnerabilities in the resolved dependency tree.</td></tr>
+      <tr><td>pip-audit, safety</td><td>Python</td><td>Scan installed or declared packages against known Python-ecosystem vulnerabilities.</td></tr>
+      <tr><td>OWASP Dependency-Check</td><td>Java and others</td><td>A long-standing, general-purpose open-source SCA tool covering multiple language ecosystems.</td></tr>
+      <tr><td>Snyk, GitHub Dependabot</td><td>Multi-ecosystem</td><td>Commercial/hosted scanning, often with automated pull requests bumping a vulnerable dependency to a fixed version.</td></tr>
+      <tr><td>Syft + Grype</td><td>Multi-ecosystem, containers</td><td>Generate an SBOM from a filesystem/container image (Syft) and scan it for known vulnerabilities (Grype).</td></tr>
+      <tr><td>Yocto's cve-check class</td><td>Embedded Linux</td><td>Cross-references every build recipe's declared version against the NVD feed at build time — see <a href="#embedded">below</a>.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="embedded">Why this is harder in embedded</h2>
+  <p>
+    Dependency analysis in embedded systems runs into real constraints
+    web and application development mostly don't have:
+  </p>
+  <ul class="point-list">
+    <li><strong>No package manager, often —</strong> vendored or copy-pasted source (a vendor's HAL, a driver copied from a reference project) doesn't appear in any manifest a scanner can automatically read.</li>
+    <li><strong>Cross-compiled binaries obscure contents —</strong> a scanner looking at a compiled firmware image can't easily tell which library versions were statically linked into it.</li>
+    <li><strong>Long field lifespans —</strong> a device shipped years ago keeps running whatever library versions it shipped with, quietly accumulating new CVEs against those versions with no manifest-driven alert to notice.</li>
+    <li><strong>Yocto's <code>cve-check</code> class</strong> is a real, concrete answer built for exactly this: it checks every recipe's declared version against the NVD feed during the build itself, specific to the embedded Linux build-system constraints above.</li>
+  </ul>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>CI/CD gating —</strong> automatically failing a build when a new critical CVE is found in a dependency, before it ever reaches production.</li>
+    <li><strong>Contractual/regulatory SBOM delivery —</strong> increasingly required for software sold into regulated industries or to government customers.</li>
+    <li><strong>Embedded firmware build-time scanning —</strong> Yocto's <code>cve-check</code> class catching a known-vulnerable library version before an image ships.</li>
+    <li><strong>Incident response —</strong> when a new CVE breaks, an existing SBOM lets a team instantly know which products are affected, instead of re-auditing everything from scratch under time pressure.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A clean scan today doesn't mean clean tomorrow — new CVEs get published against old, unchanged code constantly, so scanning has to be continuous, not a one-time gate at release.</li>
+      <li>Vendored or copy-pasted source code with no formal dependency manifest is functionally invisible to most automated scanners — a real, common blind spot in embedded specifically.</li>
+      <li>A flagged CVE doesn't automatically mean a given application's specific usage is actually exposed — the vulnerable code path might not be reachable the way the library is actually used, though proving that takes real analysis, not just assumption.</li>
+      <li>Pinning dependency versions without a process to periodically revisit those pins quietly turns "we controlled our versions" into "we're stuck on old, increasingly vulnerable versions."</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/security/cve/index.html", "title": "CVEs and Vulnerability Scoring" },
+  "related": [
+    { "href": "/security/cve/index.html", "title": "CVEs and Vulnerability Scoring" },
+    { "href": "/security/secure-coding/index.html", "title": "Secure Coding Principles" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
