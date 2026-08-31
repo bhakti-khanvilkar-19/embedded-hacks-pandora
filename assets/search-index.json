@@ -65,6 +65,17 @@
     ]
   },
   {
+    "title": "UDS Diagnostics — Automotive",
+    "url": "/automotive/uds/index.html",
+    "domain": "Automotive",
+    "category": "Uds",
+    "description": "Unified Diagnostic Services (ISO 14229): the request/response pattern and the SID+0x40 positive-response rule, common services, negative response codes, security access, ISO-TP multi-frame segmentation, and the diagnostic tool ecosystem.",
+    "tags": [
+      "automotive",
+      "uds"
+    ]
+  },
+  {
     "title": "The Complete Boot Process — Bootloaders",
     "url": "/bootloaders/boot-process/index.html",
     "domain": "Bootloaders",
