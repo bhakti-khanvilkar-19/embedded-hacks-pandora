@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LiDAR — Automotive — Embedded Pandora</title>
+<meta name="description" content="How automotive LiDAR measures distance with time-of-flight laser pulses, builds a 3D point cloud, the mechanical/MEMS/flash/OPA scanning types, and where it fits alongside radar and camera." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Automotive</p>
+  <h1>LiDAR</h1>
+  <p class="lede">
+    LiDAR — <strong>Li</strong>ght <strong>D</strong>etection <strong>a</strong>nd
+    <strong>R</strong>anging — measures distance the same conceptual way
+    as <a href="/automotive/radar/index.html">radar</a>, timing a round
+    trip, but with laser light instead of radio waves. The much shorter
+    wavelength buys far higher precision and spatial resolution, at the
+    cost of light being far more easily blocked by fog, heavy rain, or a
+    dirty lens than radio ever is.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>An optical sensor that measures distance by timing how long a laser pulse takes to reflect back, building a precise 3D point cloud of the surroundings.</dd>
+      <dt>Mental model</dt><dd>Radar's cousin, but using light — much finer "ruler" for distance and angle, much more easily blocked by anything the light can't pass through.</dd>
+      <dt>Key numbers</dt><dd>Automotive LiDAR typically ranges 100&ndash;250 m, with angular resolution down to a fraction of a degree and hundreds of thousands of points measured per second.</dd>
+      <dt>Reach for it when</dt><dd>You need precise 3D shape and position — not just "something is there" — for mapping or a high-resolution perception stack.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#how-it-works">Time-of-flight: the core measurement</a></li>
+      <li><a href="#point-cloud">Scanning and the point cloud</a></li>
+      <li><a href="#types">Mechanical, MEMS, flash, and OPA LiDAR</a></li>
+      <li><a href="#architecture">The LiDAR processing chain</a></li>
+      <li><a href="#vs-others">LiDAR vs. radar vs. camera</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="how-it-works">Time-of-flight: the core measurement</h2>
+  <p>
+    A LiDAR emits a very short laser pulse and starts a timer. The instant
+    that pulse reflects off something and comes back, the timer stops.
+    Distance is just the classic <code>distance = speed &times; time</code>
+    relationship, halved because the light makes a round trip:
+  </p>
+  <pre><code>d = (c &times; t) / 2</code></pre>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 200" role="img" aria-labelledby="tof-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="tof-title">A laser pulse is emitted, travels to an object and back, and the elapsed time between emission and the returning echo gives the distance</title>
+
+      <line x1="40" y1="70" x2="520" y2="70" stroke="var(--ink-faint)" stroke-width="1.5" />
+      <text class="frame-caption" x="20" y="74" text-anchor="end">TX</text>
+      <line x1="40" y1="150" x2="520" y2="150" stroke="var(--ink-faint)" stroke-width="1.5" />
+      <text class="frame-caption" x="20" y="154" text-anchor="end">RX</text>
+
+      <rect x="76" y="50" width="8" height="40" style="fill:var(--blue);" />
+      <text class="seq-note" x="80" y="40" text-anchor="middle">pulse emitted (t0)</text>
+
+      <rect x="356" y="130" width="8" height="40" style="fill:var(--teal);" />
+      <text class="seq-note" x="360" y="120" text-anchor="middle">echo received (t1)</text>
+
+      <line x1="80" y1="110" x2="360" y2="110" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="80,110 88,106 88,114" />
+      <polygon class="seq-arrowhead" points="360,110 352,106 352,114" />
+      <text class="seq-label" x="220" y="100" text-anchor="middle">t = t1 &minus; t0 = 2d / c</text>
+    </svg>
+    <figcaption class="diagram__caption">For an object 30 m away, t &asymp; 200 ns — LiDAR timing electronics need sub-nanosecond precision to turn that into useful centimeter-scale range resolution.</figcaption>
+  </figure>
+  <p>
+    Some LiDAR designs measure phase shift of a continuously modulated
+    beam instead of timing discrete pulses (conceptually closer to how
+    <a href="/automotive/radar/index.html#how-it-works">FMCW radar</a>
+    works), trading some peak range for better resolution at short range
+    — but pulsed time-of-flight is by far the dominant approach in
+    automotive LiDAR today.
+  </p>
+
+  <h2 id="point-cloud">Scanning and the point cloud</h2>
+  <p>
+    One pulse gives one distance measurement in one direction. To build
+    up a useful picture of the surroundings, a LiDAR rapidly repeats this
+    across many different angles — steering the beam mechanically, with a
+    tiny mirror, or by other means — producing a dense set of 3D points,
+    each with its own measured distance:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 260" role="img" aria-labelledby="pointcloud-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="pointcloud-title">A LiDAR unit sweeps several laser beams across an object's surface, and each reflection becomes one point in a 3D point cloud</title>
+
+      <circle cx="60" cy="130" r="14" style="fill:var(--blue);" />
+      <text class="frame-caption" x="60" y="160" text-anchor="middle">LiDAR unit</text>
+
+      <line x1="60" y1="130" x2="350" y2="90" stroke="var(--accent)" stroke-width="1.5" class="flow-path" />
+      <line x1="60" y1="130" x2="350" y2="110" stroke="var(--accent)" stroke-width="1.5" class="flow-path" />
+      <line x1="60" y1="130" x2="350" y2="130" stroke="var(--accent)" stroke-width="1.5" class="flow-path" />
+      <line x1="60" y1="130" x2="350" y2="150" stroke="var(--accent)" stroke-width="1.5" class="flow-path" />
+      <line x1="60" y1="130" x2="350" y2="170" stroke="var(--accent)" stroke-width="1.5" class="flow-path" />
+
+      <circle cx="350" cy="90" r="4" style="fill:var(--accent);" />
+      <circle cx="350" cy="110" r="4" style="fill:var(--accent);" />
+      <circle cx="350" cy="130" r="4" style="fill:var(--accent);" />
+      <circle cx="350" cy="150" r="4" style="fill:var(--accent);" />
+      <circle cx="350" cy="170" r="4" style="fill:var(--accent);" />
+
+      <rect class="frame-box" x="350" y="75" width="140" height="110" rx="8" />
+      <text class="frame-caption" x="420" y="205" text-anchor="middle">object surface</text>
+
+      <text class="seq-sub" x="280" y="230" text-anchor="middle">Each reflection becomes one point in the "point cloud" — a real scan sweeps far more than 5 beams, in more than one plane.</text>
+    </svg>
+    <figcaption class="diagram__caption">A production automotive LiDAR measures hundreds of thousands of these points per second, across a wide field of view — dense enough to reconstruct the 3D shape of nearby objects, not just their existence.</figcaption>
+  </figure>
+
+  <h2 id="types">Mechanical, MEMS, flash, and OPA LiDAR</h2>
+  <table>
+    <thead><tr><th>Type</th><th>How it scans</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Mechanical (spinning)</td><td>The entire laser/detector assembly physically rotates</td><td>Mature, wide (often 360&deg;) field of view; moving parts are a cost and long-term reliability concern in a vehicle.</td></tr>
+      <tr><td>MEMS</td><td>A tiny mirror steers the beam electronically</td><td>No large rotating assembly — smaller, more automotive-friendly packaging than mechanical units.</td></tr>
+      <tr><td>Flash</td><td>Illuminates the whole scene at once, like a camera flash</td><td>No moving parts and no scanning at all; trades range for solid-state simplicity and a fully "instant" full-frame capture.</td></tr>
+      <tr><td>OPA (optical phased array)</td><td>Steers the beam electronically by controlling light phase across an array</td><td>Fully solid-state beam steering — the direction furthest from a spinning mechanical unit, still maturing for automotive volume production.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="architecture">The LiDAR processing chain</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 820 220" role="img" aria-labelledby="lidar-chain-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="lidar-chain-title">A LiDAR's signal chain: a laser is emitted, steered across the scene, reflects off the environment, is captured by a photodetector, timed, assembled into a point cloud, and handed to a perception stack</title>
+
+      <path d="M215,70 Q280,20 345,70" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" stroke-dasharray="4 3" />
+      <polygon points="345,70 335,64 335,74" style="fill:var(--ink-faint);" />
+      <text class="seq-note" x="280" y="18" text-anchor="middle">reflects off environment</text>
+
+      <rect class="frame-box block-blue" x="25" y="80" width="120" height="60" rx="6" />
+      <text class="frame-label" x="85" y="104" text-anchor="middle" font-weight="700" font-size="11">Laser source</text>
+      <text class="frame-caption" x="85" y="122" text-anchor="middle">pulsed emitter</text>
+
+      <rect class="frame-box block-teal" x="165" y="80" width="120" height="60" rx="6" />
+      <text class="frame-label" x="225" y="104" text-anchor="middle" font-weight="700" font-size="10">Beam steering</text>
+      <text class="frame-caption" x="225" y="122" text-anchor="middle">scanner / MEMS mirror</text>
+
+      <rect class="frame-box block-amber" x="305" y="80" width="120" height="60" rx="6" />
+      <text class="frame-label" x="365" y="104" text-anchor="middle" font-weight="700" font-size="10">Photodetector</text>
+      <text class="frame-caption" x="365" y="122" text-anchor="middle">captures the echo</text>
+
+      <rect class="frame-box block-violet" x="445" y="80" width="120" height="60" rx="6" />
+      <text class="frame-label" x="505" y="104" text-anchor="middle" font-weight="700" font-size="10">TOF timing</text>
+      <text class="frame-caption" x="505" y="122" text-anchor="middle">sub-ns precision clock</text>
+
+      <rect class="frame-box block-green" x="585" y="80" width="120" height="60" rx="6" />
+      <text class="frame-label" x="645" y="104" text-anchor="middle" font-weight="700" font-size="11">Point cloud</text>
+      <text class="frame-caption" x="645" y="122" text-anchor="middle">x, y, z per point</text>
+
+      <rect class="frame-box block-blue" x="725" y="80" width="80" height="60" rx="6" />
+      <text class="frame-label" x="765" y="104" text-anchor="middle" font-weight="700" font-size="9">Perception</text>
+      <text class="frame-caption" x="765" y="122" text-anchor="middle" font-size="8">detection, tracking</text>
+
+      <line x1="145" y1="110" x2="161" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="165,110 155,105 155,115" />
+      <line x1="285" y1="110" x2="301" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="305,110 295,105 295,115" />
+      <line x1="425" y1="110" x2="441" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="445,110 435,105 435,115" />
+      <line x1="565" y1="110" x2="581" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="585,110 575,105 575,115" />
+      <line x1="705" y1="110" x2="721" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="725,110 715,105 715,115" />
+
+      <text class="seq-sub" x="410" y="180" text-anchor="middle">This chain repeats per point, then per full scan — many times a second — to keep the point cloud current.</text>
+    </svg>
+    <figcaption class="diagram__caption">Structurally almost identical to the <a href="/automotive/radar/index.html#architecture">radar processing chain</a> — emit, bounce, receive, measure, hand off to the ECU — just with light instead of radio.</figcaption>
+  </figure>
+
+  <h2 id="vs-others">LiDAR vs. radar vs. camera</h2>
+  <p>
+    See the full comparison table on the
+    <a href="/automotive/radar/index.html#vs-others">Radar page</a> rather
+    than repeating it here — the short version is that LiDAR's strength is
+    precise 3D shape and position, at a cost premium and a real weakness
+    in heavy rain, fog, or snow that radio-based radar doesn't share.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>High-definition mapping —</strong> survey vehicles use LiDAR to build the centimeter-accurate 3D maps some autonomous driving stacks localize against.</li>
+    <li><strong>Autonomous vehicle perception —</strong> many robotaxi and higher-autonomy programs rely on LiDAR as a primary sensor precisely for its precise 3D shape data, fused with radar and camera.</li>
+    <li><strong>Curb and terrain detection —</strong> LiDAR's precise height data helps distinguish a curb, a speed bump, or an actual obstacle far more reliably than camera alone.</li>
+    <li><strong>3D scene reconstruction —</strong> the dense point cloud is directly useful for building a geometric model of the environment, not just detecting that objects exist.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Heavy rain, fog, snow, or a dirty lens genuinely degrade LiDAR performance — near-infrared light scatters off airborne water and dirt far more than radio waves do, unlike radar.</li>
+      <li>Very dark, light-absorbing surfaces (matte black paint, for instance) return a much weaker signal — a real, counterintuitive limitation, not just a hypothetical edge case.</li>
+      <li>Eye-safety regulations cap how much laser power a LiDAR can emit, which directly caps achievable range and return-signal strength — this isn't just an engineering choice, it's a hard regulatory constraint.</li>
+      <li>Cost remains the biggest adoption barrier relative to radar and camera — a major reason many production ADAS systems still rely on radar+camera fusion alone without LiDAR at all.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/automotive/radar/index.html", "title": "Radar" },
+  "related": [
+    { "href": "/automotive/radar/index.html", "title": "Radar" },
+    { "href": "/electronics/converters/index.html", "title": "Data converters (ADC & DAC)" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
