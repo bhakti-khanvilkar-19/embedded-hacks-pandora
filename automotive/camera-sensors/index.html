@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Camera Sensors — Automotive — Embedded Pandora</title>
+<meta name="description" content="How automotive cameras see and classify the road: the imaging pipeline, mono vs. stereo depth, and why cameras are the classification sensor in ADAS sensor fusion." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Automotive</p>
+  <h1>Camera Sensors</h1>
+  <p class="lede">
+    Of the three main ADAS sensors, the camera is the only one that
+    "reads" a scene the way a human driver does — recognizing a lane
+    marking as a lane marking, a stop sign as a stop sign, a pedestrian
+    as a pedestrian. <a href="/automotive/radar/index.html">Radar</a> and
+    <a href="/automotive/lidar/index.html">LiDAR</a> confidently say
+    <em>something</em> is there; the camera is what usually says
+    <em>what</em>.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>An image sensor and lens feeding a computer-vision pipeline that detects and classifies lane markings, signs, pedestrians, and vehicles.</dd>
+      <dt>Mental model</dt><dd>The one ADAS sensor built to recognize <em>what</em> something is, not just that something is there.</dd>
+      <dt>Key numbers</dt><dd>Typically 1&ndash;8 MP at 30&ndash;60 fps; dynamic range (handling sun glare, headlights, tunnel entrances) matters more day-to-day than raw resolution.</dd>
+      <dt>Reach for it when</dt><dd>Classification matters — telling a pedestrian from a shopping cart, or reading a lane marking or a speed-limit sign — not just detecting that an object exists.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#how-it-works">From photons to pixels</a></li>
+      <li><a href="#mono-vs-stereo">Mono vs. stereo: getting depth from a 2D image</a></li>
+      <li><a href="#pipeline">The camera processing pipeline</a></li>
+      <li><a href="#applications-detail">What cameras actually detect</a></li>
+      <li><a href="#vs-others">Camera vs. radar vs. LiDAR</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="how-it-works">From photons to pixels</h2>
+  <p>
+    An automotive camera's image sensor is a grid of photodiodes, each
+    one counting how many photons hit it during the exposure — the same
+    basic photodiode principle behind
+    <a href="/electronics/semiconductors/index.html">semiconductor
+    photodetection</a> in general. A color filter over each photodiode
+    (almost always a Bayer pattern of red/green/blue filters) lets the
+    sensor infer color, and an <strong>ISP</strong> (Image Signal
+    Processor) reconstructs a full-color image from that raw,
+    per-photodiode data before any computer-vision algorithm ever sees
+    it.
+  </p>
+
+  <h2 id="mono-vs-stereo">Mono vs. stereo: getting depth from a 2D image</h2>
+  <p>
+    A single camera captures a flat, 2D projection — depth isn't directly
+    measured, only inferred (from known object sizes, the ground plane,
+    or a trained model's learned priors). A <strong>stereo</strong> pair —
+    two cameras a known distance apart — recovers real depth by
+    triangulation, the same baseline-and-angle idea behind
+    <a href="/automotive/radar/index.html#angle">radar's angle of
+    arrival</a>, just applied to light instead of radio:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 480 260" role="img" aria-labelledby="stereo-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="stereo-title">Two cameras separated by a known baseline both image the same object; the horizontal difference between where it appears in each image (disparity) gives its depth</title>
+
+      <line x1="150" y1="220" x2="330" y2="220" stroke="var(--ink-faint)" stroke-width="1.5" />
+      <text class="frame-caption" x="240" y="238" text-anchor="middle">baseline b</text>
+
+      <circle cx="150" cy="220" r="8" style="fill:var(--blue);" />
+      <text class="frame-caption" x="150" y="250" text-anchor="middle">CAM L</text>
+      <circle cx="330" cy="220" r="8" style="fill:var(--blue);" />
+      <text class="frame-caption" x="330" y="250" text-anchor="middle">CAM R</text>
+
+      <circle cx="240" cy="70" r="5" style="fill:var(--accent);" />
+      <text class="seq-note" x="240" y="55" text-anchor="middle">object</text>
+
+      <line x1="150" y1="220" x2="240" y2="70" stroke="var(--teal)" stroke-width="2" />
+      <line x1="330" y1="220" x2="240" y2="70" stroke="var(--teal)" stroke-width="2" />
+
+      <line x1="240" y1="220" x2="240" y2="70" stroke="var(--ink-faint)" stroke-dasharray="4 3" />
+      <text class="seq-label" x="248" y="150" text-anchor="start">Z (depth)</text>
+
+      <text class="seq-sub" x="240" y="18" text-anchor="middle">Z = (f &times; b) / disparity</text>
+    </svg>
+    <figcaption class="diagram__caption">The object lands at a slightly different horizontal pixel position in each camera's image — that pixel difference (disparity) is inversely proportional to depth: nearby objects shift a lot between the two images, distant ones barely shift at all.</figcaption>
+  </figure>
+  <p>
+    That inverse relationship is also stereo's core limitation: disparity
+    shrinks fast with distance, so stereo depth accuracy is naturally best
+    up close and degrades the farther out an object is — often the exact
+    opposite of where <a href="/automotive/radar/index.html">radar</a>'s
+    range accuracy shines.
+  </p>
+
+  <h2 id="pipeline">The camera processing pipeline</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 820 220" role="img" aria-labelledby="cam-chain-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="cam-chain-title">A camera's processing chain: image sensor captures light, the ISP reconstructs a color image, a neural network extracts features, detection and classification identify objects, tracking follows them across frames, and results go to the ADAS ECU</title>
+
+      <rect class="frame-box block-blue" x="15" y="80" width="115" height="60" rx="6" />
+      <text class="frame-label" x="72" y="104" text-anchor="middle" font-weight="700" font-size="10">Image sensor</text>
+      <text class="frame-caption" x="72" y="122" text-anchor="middle" font-size="8">photodiodes + Bayer filter</text>
+
+      <rect class="frame-box block-teal" x="150" y="80" width="105" height="60" rx="6" />
+      <text class="frame-label" x="202" y="104" text-anchor="middle" font-weight="700" font-size="11">ISP</text>
+      <text class="frame-caption" x="202" y="122" text-anchor="middle" font-size="8">demosaic, HDR, denoise</text>
+
+      <rect class="frame-box block-amber" x="275" y="80" width="115" height="60" rx="6" />
+      <text class="frame-label" x="332" y="104" text-anchor="middle" font-weight="700" font-size="10">Feature extraction</text>
+      <text class="frame-caption" x="332" y="122" text-anchor="middle" font-size="8">CNN backbone</text>
+
+      <rect class="frame-box block-violet" x="410" y="80" width="130" height="60" rx="6" />
+      <text class="frame-label" x="475" y="104" text-anchor="middle" font-weight="700" font-size="11">Classification</text>
+      <text class="frame-caption" x="475" y="122" text-anchor="middle" font-size="8">lane, sign, pedestrian, vehicle</text>
+
+      <rect class="frame-box block-green" x="560" y="80" width="105" height="60" rx="6" />
+      <text class="frame-label" x="612" y="104" text-anchor="middle" font-weight="700" font-size="10">Tracking</text>
+      <text class="frame-caption" x="612" y="122" text-anchor="middle" font-size="8">across frames</text>
+
+      <rect class="frame-box block-blue" x="685" y="80" width="120" height="60" rx="6" />
+      <text class="frame-label" x="745" y="104" text-anchor="middle" font-weight="700" font-size="9">ADAS ECU</text>
+      <text class="frame-caption" x="745" y="122" text-anchor="middle" font-size="8">LDW, TSR, AEB, ...</text>
+
+      <line x1="130" y1="110" x2="146" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="150,110 140,105 140,115" />
+      <line x1="255" y1="110" x2="271" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="275,110 265,105 265,115" />
+      <line x1="390" y1="110" x2="406" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="410,110 400,105 400,115" />
+      <line x1="540" y1="110" x2="556" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="560,110 550,105 550,115" />
+      <line x1="665" y1="110" x2="681" y2="110" class="seq-arrow flow-path" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="685,110 675,105 675,115" />
+
+      <text class="seq-sub" x="410" y="180" text-anchor="middle">The heaviest compute in this chain, by far, is the CNN — automotive camera systems typically need a dedicated AI accelerator, not just a general CPU.</text>
+    </svg>
+    <figcaption class="diagram__caption">Radar and LiDAR chains are mostly signal processing; the camera chain is mostly machine learning — a genuinely different compute profile even though all three feed the same ADAS ECU.</figcaption>
+  </figure>
+
+  <h2 id="applications-detail">What cameras actually detect</h2>
+  <dl class="kv">
+    <dt>Lane markings</dt><dd>The basis for Lane Departure Warning and Lane Keep Assist — detecting painted lane lines and the vehicle's position relative to them.</dd>
+    <dt>Traffic signs and signals</dt><dd>Traffic Sign Recognition (TSR) reads speed limits, stop signs, and similar signage, often displayed back to the driver.</dd>
+    <dt>Pedestrians and cyclists</dt><dd>Classification that radar and LiDAR alone struggle to make confidently — critical input to Automatic Emergency Braking.</dd>
+    <dt>Other vehicles</dt><dd>Detecting, classifying, and often estimating the pose/orientation of surrounding vehicles for adaptive cruise control and collision-avoidance logic.</dd>
+  </dl>
+
+  <h2 id="vs-others">Camera vs. radar vs. LiDAR</h2>
+  <p>
+    See the full comparison table on the
+    <a href="/automotive/radar/index.html#vs-others">Radar page</a> rather
+    than repeating it here — the short version is that camera is the
+    classification specialist, at the cost of being the sensor most
+    degraded by darkness, glare, fog, and rain.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Lane Departure Warning / Lane Keep Assist —</strong> a forward camera watching lane markings is the primary sensor behind both features.</li>
+    <li><strong>Traffic Sign Recognition —</strong> reading speed-limit and regulatory signs and surfacing them on the dashboard.</li>
+    <li><strong>Automatic Emergency Braking —</strong> camera-based pedestrian/cyclist classification is frequently what triggers or confirms an AEB event alongside radar's range data.</li>
+    <li><strong>Driver monitoring systems —</strong> an inward-facing camera watching the driver's eyes/head pose for drowsiness or distraction, increasingly required by regulation.</li>
+    <li><strong>Surround-view / parking cameras —</strong> multiple wide-angle cameras stitched into a top-down view for low-speed maneuvering.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Camera performance drops sharply in low light, direct sun glare, fog, heavy rain, or simply a dirty or iced-over lens — the sensor most exposed to real-world weather and cleanliness problems of the three.</li>
+      <li>The CNN inference stage is genuinely compute-heavy compared to radar or LiDAR's signal processing — automotive-grade camera systems typically need a dedicated AI accelerator, not a general-purpose CPU alone.</li>
+      <li>Monocular depth estimation is inherently an inference, not a direct measurement — it can be fooled by unusual object sizes or scenes the training data didn't cover, in a way stereo triangulation or radar/LiDAR range measurement can't be.</li>
+      <li>A stereo camera's calibration (the precise baseline and alignment between the two lenses) can drift from vibration or a minor impact over a vehicle's lifetime, silently degrading depth accuracy without an obvious failure symptom — periodic recalibration is a real maintenance concern.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/automotive/lidar/index.html", "title": "LiDAR" },
+  "related": [
+    { "href": "/automotive/radar/index.html", "title": "Radar" },
+    { "href": "/automotive/lidar/index.html", "title": "LiDAR" },
+    { "href": "/electronics/semiconductors/index.html", "title": "Semiconductors" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
