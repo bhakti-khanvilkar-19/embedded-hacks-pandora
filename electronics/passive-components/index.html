@@ -44,6 +44,8 @@
       <li><a href="#rc">Charging: the RC time constant</a></li>
       <li><a href="#cap-types">Capacitor types — and the polarity trap</a></li>
       <li><a href="#inductor">Inductor</a></li>
+      <li><a href="#inductor-types">Inductor types</a></li>
+      <li><a href="#reactance">Reactance: why frequency changes everything</a></li>
       <li><a href="#flyback">Back-EMF and flyback</a></li>
       <li><a href="#compare">R vs. C vs. L at a glance</a></li>
       <li><a href="#applications">Real-world applications</a></li>
@@ -190,6 +192,21 @@
       voltage well after power is removed from the board.
     </p>
   </div>
+  <p>
+    <strong>Why 0.1 &micro;F specifically</strong> for a decoupling
+    capacitor, rather than some other round number? A real capacitor
+    isn't a pure capacitance — its leads and construction add a small
+    parasitic inductance, which means every capacitor has a
+    <strong>self-resonant frequency</strong> above which it starts
+    behaving inductively instead of capacitively and stops helping at
+    all. A small ceramic capacitor's low parasitic inductance pushes that
+    resonant point high enough to still be effective against the fast
+    switching noise ICs actually generate — a much larger capacitor
+    physically can't do the same job at those frequencies, which is
+    exactly why boards use <em>both</em> a small ceramic right at the pin
+    <em>and</em> a larger bulk capacitor nearby, rather than one
+    capacitor doing everything.
+  </p>
 
   <h2 id="inductor">Inductor</h2>
   <p>
@@ -202,6 +219,38 @@
     <dt>Unit</dt><dd>Henry (H) — practically mH or µH</dd>
     <dt>Key behavior</dt><dd>Passes DC at steady state (just the coil's wire resistance); opposes fast changes in current</dd>
   </dl>
+
+  <h2 id="inductor-types">Inductor types</h2>
+  <table>
+    <thead><tr><th>Type</th><th>Core</th><th>Why you'd choose it</th></tr></thead>
+    <tbody>
+      <tr><td>Air-core</td><td>None — just wound wire</td><td>No core to saturate at high current, and no core material losses — used in RF circuits and where linearity at high frequency matters most.</td></tr>
+      <tr><td>Ferrite-core</td><td>Ferrite ceramic</td><td>Much higher inductance for the same physical size than air-core — the default choice in switching power supplies, where board space and efficiency both matter.</td></tr>
+      <tr><td>Iron-powder-core</td><td>Compressed iron powder</td><td>Handles higher current before the core saturates than ferrite, at somewhat lower efficiency — common in higher-current power inductors.</td></tr>
+      <tr><td>Toroidal</td><td>Ring-shaped core (ferrite or iron)</td><td>The closed-loop shape confines the magnetic field almost entirely inside the core, radiating far less interference into nearby circuits than an open rod core.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="reactance">Reactance: why frequency changes everything</h2>
+  <p>
+    "Blocks DC, passes AC" for a capacitor and "passes DC, blocks AC" for
+    an inductor aren't just rules to memorize — they fall directly out of
+    one idea: both components' opposition to current (their
+    <strong>reactance</strong>, X) depends on frequency, in opposite
+    directions.
+  </p>
+  <dl class="kv">
+    <dt>Capacitive reactance</dt><dd><code>X<sub>C</sub> = 1 / (2&pi;fC)</code> — as frequency f rises, X<sub>C</sub> falls toward zero, so a capacitor looks like less and less of an obstacle to higher-frequency signals (and like an open circuit, infinite reactance, at DC where f = 0).</dd>
+    <dt>Inductive reactance</dt><dd><code>X<sub>L</sub> = 2&pi;fL</code> — the opposite shape: as frequency rises, X<sub>L</sub> grows, so an inductor looks like more and more of an obstacle to higher-frequency signals (and like a plain wire, zero reactance, at DC).</dd>
+  </dl>
+  <p>
+    This is exactly why an LC filter works at all: put a capacitor to
+    ground and an inductor in series on the same line, and low frequencies
+    sail through the inductor and ignore the capacitor, while high
+    frequencies do the opposite — sailing through the capacitor to ground
+    and getting blocked by the inductor. Choosing L and C values is
+    choosing exactly where that crossover happens.
+  </p>
 
   <h2 id="flyback">Back-EMF and flyback</h2>
   <p>
