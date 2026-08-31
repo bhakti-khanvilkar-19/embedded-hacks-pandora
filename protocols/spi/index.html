@@ -143,6 +143,15 @@
     </tbody>
   </table>
   <p>See <a href="/protocols/i2c/index.html">I2C</a> and <a href="/protocols/uart/index.html">UART</a> for the full picture.</p>
+  <div class="callout callout--note">
+    <span class="callout__label">Why SPI, and when</span>
+    <dl class="kv">
+      <dt>Pros</dt><dd>The fastest of the three at a given clock rate, genuinely full-duplex, and framing is a simple software convention rather than a protocol with fixed overhead — nothing stops a transfer but the wire itself.</dd>
+      <dt>Cons</dt><dd>Pin count grows with every device (one CS each), unlike <a href="/protocols/i2c/index.html">I2C</a>'s fixed two wires; no built-in addressing, error checking, or acknowledgment — all of that is on you to implement in software if you need it at all; and it's not naturally a multi-controller bus the way <a href="/protocols/can/index.html">CAN</a> is.</dd>
+      <dt>Reach for SPI when</dt><dd>You need real throughput to a nearby chip — flash memory, a display, a fast ADC — and can spare one GPIO pin per device for chip select.</dd>
+      <dt>Reach for something else when</dt><dd>Pin budget matters more than speed and you have several low-speed devices — <a href="/protocols/i2c/index.html">I2C</a>'s shared two wires scale better as device count grows. Need several independent nodes sharing a bus over real distance with guaranteed priority, not just several peripherals near one controller? That's <a href="/protocols/can/index.html">CAN</a>.</dd>
+    </dl>
+  </div>
 
   <h2 id="variants">Variants: 3-wire, dual, and quad SPI</h2>
   <p>

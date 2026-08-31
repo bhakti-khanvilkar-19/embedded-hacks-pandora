@@ -138,6 +138,16 @@
     well-defined helper functions where raw I2C intentionally isn't.
   </p>
 
+  <div class="callout callout--note">
+    <span class="callout__label">Why I2C, and when</span>
+    <dl class="kv">
+      <dt>Pros</dt><dd>Only two wires no matter how many devices are on the bus — adding a tenth sensor costs nothing extra in pins, unlike <a href="/protocols/spi/index.html">SPI</a>'s one-CS-per-device. Addressing is in-band, so the wiring itself never has to change as devices are added.</dd>
+      <dt>Cons</dt><dd>Half-duplex and slower than SPI at any given clock rate, a 7-bit address space that runs out fast with several identical sensors (see muxes/expanders above), and a stuck slave can hang the whole bus in a way that needs manual recovery — none of which SPI's point-to-point wiring is exposed to.</dd>
+      <dt>Reach for I2C when</dt><dd>You're wiring up several low-speed sensors/peripherals and pin count matters more than throughput — the common case on a densely packed board.</dd>
+      <dt>Reach for something else when</dt><dd>You need real throughput (a display, flash memory, an ADC streaming samples) — <a href="/protocols/spi/index.html">SPI</a>'s extra pins buy meaningfully higher speed and simpler, more robust framing. Need multiple independent controllers sharing a bus over real distance with guaranteed priority instead of just several peripherals near one controller? That's <a href="/protocols/can/index.html">CAN</a>'s job, not I2C's.</dd>
+    </dl>
+  </div>
+
   <h2 id="applications">Real-world applications</h2>
   <ul class="point-list">
     <li><strong>Environmental sensors —</strong> temperature/humidity/pressure sensors (BME280-class parts) and IMUs (MPU6050-class parts) are overwhelmingly I2C, since their data rates are modest and board space is tight.</li>
