@@ -325,6 +325,17 @@
     ]
   },
   {
+    "title": "Yocto — Linux",
+    "url": "/linux/yocto/index.html",
+    "domain": "Linux",
+    "category": "Yocto",
+    "description": "Layers, recipes, and BitBake — how the Yocto Project builds a fully custom embedded Linux distribution from source, and how that compares to Ubuntu Core.",
+    "tags": [
+      "linux",
+      "yocto"
+    ]
+  },
+  {
     "title": "AMQP — Networking",
     "url": "/networking/amqp/index.html",
     "domain": "Networking",

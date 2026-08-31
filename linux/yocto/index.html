@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Yocto — Linux — Embedded Pandora</title>
+<meta name="description" content="Layers, recipes, and BitBake — how the Yocto Project builds a fully custom embedded Linux distribution from source, and how that compares to Ubuntu Core." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Linux</p>
+  <h1>Yocto</h1>
+  <p class="lede">
+    Most embedded Linux devices don't run a stock desktop distro cut down
+    to size — they run something built specifically for that board, that
+    exact kernel config, and that exact package set. The Yocto Project is
+    the dominant framework for building exactly that: not a Linux
+    distribution itself, but a system for building your own.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A build framework (BitBake + layers of recipes) for compiling a fully custom embedded Linux distribution from source.</dd>
+      <dt>Mental model</dt><dd>Not a distro — a recipe book and a chef (BitBake) that turns layered recipes into a bootable image, entirely under your control.</dd>
+      <dt>Key numbers</dt><dd>A first full image build compiles everything from source — expect real disk space (tens of GB) and real time (hours), dramatically shortened on repeat builds by the shared cache.</dd>
+      <dt>Reach for it when</dt><dd>You need full control over the kernel, rootfs, and package set — custom silicon, tight resource budgets, or requirements a pre-built distro can't meet.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#what-is">What Yocto actually is</a></li>
+      <li><a href="#layers-recipes">Layers and recipes</a></li>
+      <li><a href="#bitbake">BitBake and the build pipeline</a></li>
+      <li><a href="#building">Building an image</a></li>
+      <li><a href="#customizing">Customizing without forking</a></li>
+      <li><a href="#vs-ubuntu-core">Yocto vs. Ubuntu Core</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="what-is">What Yocto actually is</h2>
+  <p>
+    The name causes real confusion: <strong>Yocto</strong> is the project
+    and the tooling, not a distribution you install. <strong>Poky</strong>
+    is Yocto's own reference distribution — a minimal, working example
+    built with the tools, meant as a starting point rather than a
+    finished product. What actually does the building is
+    <strong>BitBake</strong>, a task-scheduling build tool, driven by the
+    <strong>OpenEmbedded</strong> build system's metadata format —
+    together they compile a Linux kernel, bootloader, C library, and every
+    package your image needs, entirely from source, for whatever target
+    architecture you specify.
+  </p>
+
+  <h2 id="layers-recipes">Layers and recipes</h2>
+  <p>
+    A <strong>recipe</strong> (a <code>.bb</code> file) describes how to
+    fetch, patch, configure, compile, and package one piece of software —
+    a library, a kernel, an application. Recipes are grouped into
+    <strong>layers</strong> (directories conventionally named
+    <code>meta-*</code>) so that unrelated concerns — a vendor's BSP, your
+    own application recipes, a middleware stack — stay in separate,
+    independently versioned collections instead of one monolithic tree.
+  </p>
+  <pre><code># meta-mylayer/recipes-example/hello/hello_1.0.bb
+SUMMARY = "A simple hello-world example recipe"
+LICENSE = "MIT"
+LIC_FILES_CHKSUM = "file://COPYING;md5=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+SRC_URI = "file://hello.c"
+S = "${WORKDIR}"
+
+do_compile() {
+    ${CC} ${CFLAGS} hello.c -o hello
+}
+
+do_install() {
+    install -d ${D}${bindir}
+    install -m 0755 hello ${D}${bindir}
+}</code></pre>
+  <p>
+    A <strong>machine configuration</strong> (<code>conf/machine/*.conf</code>,
+    usually shipped in a vendor's BSP layer) declares board-specific
+    settings — CPU architecture, kernel provider, boot files — and a
+    <strong>distro configuration</strong> declares distribution-wide
+    policy (init system, package format, feature set). Layer priority
+    (<code>BBFILE_PRIORITY</code>) decides which layer wins when two
+    layers both touch the same recipe.
+  </p>
+
+  <h2 id="bitbake">BitBake and the build pipeline</h2>
+  <p>
+    BitBake parses every recipe visible across your configured layers,
+    resolves dependencies between them, and executes each recipe's tasks
+    in order — <code>do_fetch</code>, <code>do_patch</code>,
+    <code>do_configure</code>, <code>do_compile</code>,
+    <code>do_install</code>, <code>do_package</code> — before finally
+    assembling everything into a root filesystem with
+    <code>do_rootfs</code>.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 760 270" role="img" aria-labelledby="bitbake-flow-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="bitbake-flow-title">BitBake parses layers and recipes, builds a task dependency graph, and produces a cross-compile toolchain, a root filesystem, and a kernel plus device tree from one command</title>
+
+      <rect class="frame-box block-blue" x="20" y="90" width="190" height="70" rx="6" />
+      <text class="frame-label" x="115" y="118" text-anchor="middle" font-weight="700" font-size="10">Layers &amp; recipes</text>
+      <text class="frame-caption" x="115" y="136" text-anchor="middle" font-size="8">meta-*, .bb, .bbclass, machine.conf</text>
+
+      <rect class="frame-box block-amber" x="290" y="90" width="170" height="70" rx="6" />
+      <text class="frame-label" x="375" y="118" text-anchor="middle" font-weight="700" font-size="10">BitBake</text>
+      <text class="frame-caption" x="375" y="136" text-anchor="middle" font-size="8">resolves deps, runs the task graph</text>
+
+      <rect class="frame-box block-teal" x="540" y="20" width="200" height="50" rx="6" />
+      <text class="frame-label" x="640" y="42" text-anchor="middle" font-weight="700" font-size="9">Cross-compile toolchain</text>
+      <text class="frame-caption" x="640" y="58" text-anchor="middle" font-size="8">for the SDK, if built</text>
+
+      <rect class="frame-box block-violet" x="540" y="100" width="200" height="50" rx="6" />
+      <text class="frame-label" x="640" y="122" text-anchor="middle" font-weight="700" font-size="9">Root filesystem</text>
+      <text class="frame-caption" x="640" y="138" text-anchor="middle" font-size="8">the image's rootfs, packaged</text>
+
+      <rect class="frame-box block-green" x="540" y="180" width="200" height="50" rx="6" />
+      <text class="frame-label" x="640" y="202" text-anchor="middle" font-weight="700" font-size="9">Kernel + device tree</text>
+      <text class="frame-caption" x="640" y="218" text-anchor="middle" font-size="8">bootable kernel image, .dtb</text>
+
+      <line x1="210" y1="120" x2="286" y2="120" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="290,120 280,115 280,125" />
+
+      <line x1="460" y1="115" x2="536" y2="55" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="540,50 528,53 533,63" />
+      <line x1="460" y1="125" x2="536" y2="125" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="540,125 530,120 530,130" />
+      <line x1="460" y1="135" x2="536" y2="195" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="540,200 528,197 533,187" />
+
+      <text class="seq-note" x="380" y="250" text-anchor="middle">One command — bitbake core-image-minimal — produces all three outputs together.</text>
+    </svg>
+    <figcaption class="diagram__caption">Task outputs are cached (sstate-cache) so a later build only re-runs the tasks whose inputs actually changed — the difference between a from-scratch build and an incremental one.</figcaption>
+  </figure>
+
+  <h2 id="building">Building an image</h2>
+  <pre><code>git clone git://git.yoctoproject.org/poky
+cd poky
+source oe-init-build-env
+
+# add a vendor BSP layer and your own layer
+bitbake-layers add-layer ../meta-raspberrypi
+bitbake-layers add-layer ../meta-mylayer
+
+# select the target board in conf/local.conf
+echo 'MACHINE = "raspberrypi4-64"' &gt;&gt; conf/local.conf
+
+# build — this is the single command that runs the whole pipeline above
+bitbake core-image-minimal</code></pre>
+  <p>
+    The build produces a kernel image, a device tree blob (the same
+    <code>.dtb</code> covered in <a href="/bootloaders/device-tree/index.html">Device Tree</a>),
+    and a root filesystem image — ready to flash onto the target board's
+    storage.
+  </p>
+
+  <h2 id="customizing">Customizing without forking</h2>
+  <p>
+    A <strong><code>.bbappend</code></strong> file extends an existing
+    recipe — adding a patch, changing a config option — without editing
+    (or forking) the original recipe at all, which matters enormously
+    when the original recipe lives in a layer you don't maintain.
+  </p>
+  <pre><code># meta-mylayer/recipes-kernel/linux/linux-yocto_%.bbappend
+FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
+SRC_URI:append = " file://0001-enable-my-sensor-driver.patch"</code></pre>
+  <p>
+    This is exactly the <code>git am</code>-style patch mechanics from
+    <a href="/linux/kernel-source/index.html#patching">Kernel Source, Versions
+    &amp; Patching</a>, just declared in a recipe so it's applied
+    automatically, in order, on every build instead of run by hand.
+    Adding packages to an image is just as declarative:
+  </p>
+  <pre><code># in your image recipe or conf/local.conf
+IMAGE_INSTALL:append = " htop mosquitto python3"</code></pre>
+
+  <h2 id="vs-ubuntu-core">Yocto vs. Ubuntu Core</h2>
+  <p>
+    Both build a custom embedded Linux image, but from opposite
+    directions: Yocto compiles everything from source under your full
+    control; <a href="/snap/ubuntu-core/index.html">Ubuntu Core</a>
+    composes a device image from pre-built, atomically-updatable
+    <a href="/snap/fundamentals/index.html">snaps</a>.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 760 240" role="img" aria-labelledby="yocto-vs-core-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="yocto-vs-core-title">Yocto builds a custom image by compiling every component from source; Ubuntu Core assembles an image by composing pre-built gadget, kernel, base, and snapd snaps — both converge on a bootable device image</title>
+
+      <rect class="frame-box block-blue" x="40" y="30" width="290" height="110" rx="6" />
+      <text class="frame-label" x="185" y="54" text-anchor="middle" font-weight="700" font-size="11">Yocto</text>
+      <text class="frame-caption" x="185" y="74" text-anchor="middle" font-size="8">compiles every component from source</text>
+      <text class="frame-caption" x="185" y="90" text-anchor="middle" font-size="8">full control over kernel, rootfs, packages</text>
+      <text class="frame-caption" x="185" y="106" text-anchor="middle" font-size="8">you own the update mechanism</text>
+
+      <rect class="frame-box block-teal" x="430" y="30" width="290" height="110" rx="6" />
+      <text class="frame-label" x="575" y="54" text-anchor="middle" font-weight="700" font-size="11">Ubuntu Core</text>
+      <text class="frame-caption" x="575" y="74" text-anchor="middle" font-size="8">composes pre-built gadget/kernel/base/snapd snaps</text>
+      <text class="frame-caption" x="575" y="90" text-anchor="middle" font-size="8">atomic update and rollback built in</text>
+      <text class="frame-caption" x="575" y="106" text-anchor="middle" font-size="8">Canonical maintains the base layers</text>
+
+      <rect class="frame-box block-amber" x="270" y="190" width="220" height="40" rx="6" />
+      <text class="frame-label" x="380" y="214" text-anchor="middle" font-weight="700" font-size="9">Bootable device image</text>
+
+      <line x1="185" y1="140" x2="330" y2="192" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="335,194 323,192 326,182" />
+      <line x1="575" y1="140" x2="430" y2="192" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="425,194 434,187 437,197" />
+    </svg>
+    <figcaption class="diagram__caption">Same destination, opposite philosophies — Yocto's is "build it yourself, own every piece"; Ubuntu Core's is "assemble it from parts someone else maintains and updates."</figcaption>
+  </figure>
+  <table>
+    <thead><tr><th></th><th>Yocto</th><th>Ubuntu Core</th></tr></thead>
+    <tbody>
+      <tr><td>Build model</td><td>Compile everything from source via layers/recipes</td><td>Compose pre-built snaps</td></tr>
+      <tr><td>Update mechanism</td><td>Not included — bring your own (RAUC, SWUpdate, Mender, OSTree)</td><td>Built in — atomic, with automatic rollback</td></tr>
+      <tr><td>Flexibility</td><td>Total — any kernel, any rootfs, any package set</td><td>Constrained to what the snap packaging model supports</td></tr>
+      <tr><td>Learning curve</td><td>Steep — BitBake, layers, recipe syntax</td><td>Gentler — snapcraft.yaml, familiar packaging concepts</td></tr>
+      <tr><td>Support model</td><td>Community plus vendor BSPs; you own the integration</td><td>Commercial support available directly from Canonical</td></tr>
+      <tr><td>Best fit</td><td>Fully custom hardware, tight resource budgets, unusual requirements</td><td>Fast time-to-market, fleet management, common reference hardware</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Custom silicon bring-up —</strong> a new SoC with no off-the-shelf distro support typically starts from a vendor's <code>meta-&lt;vendor&gt;</code> BSP layer as the Yocto starting point.</li>
+    <li><strong>Resource-constrained devices —</strong> Yocto's recipe-level control lets a team strip a rootfs down to exactly what a small-flash device needs, byte by byte.</li>
+    <li><strong>Owning the update/security story —</strong> a team that can't or won't depend on a third-party store's update infrastructure builds and maintains its own OTA mechanism on top of a Yocto image.</li>
+    <li><strong>Fleet devices choosing Ubuntu Core instead —</strong> when atomic rollback and fast time-to-market matter more than absolute rootfs control, <a href="/snap/ubuntu-core/index.html">Ubuntu Core</a>'s built-in update story is often the better trade.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A first full image build compiles essentially an entire Linux distribution from source — tens of gigabytes of disk and hours of build time are normal; a shared <code>sstate-cache</code>/<code>downloads</code> directory across projects turns that into minutes on repeat builds.</li>
+      <li>Two layers that both define the same recipe (or the same <code>.bbappend</code> target) can silently resolve to the "wrong" one if <code>BBFILE_PRIORITY</code> isn't set deliberately — Yocto won't necessarily warn you.</li>
+      <li>Yocto has no built-in OTA update mechanism at all — teams sometimes only discover this after board bring-up is well underway, needing to bolt on RAUC/SWUpdate/Mender/OSTree later rather than by design from day one.</li>
+      <li>"Poky" and "Yocto" get used interchangeably in casual conversation but aren't the same thing — Poky is one specific reference distribution built with Yocto's tools, not a synonym for the project itself.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/linux/kernel-source/index.html", "title": "Kernel Source, Versions & Patching" },
+  "related": [
+    { "href": "/linux/kernel-source/index.html", "title": "Kernel Source, Versions & Patching" },
+    { "href": "/bootloaders/device-tree/index.html", "title": "Device Tree" },
+    { "href": "/snap/ubuntu-core/index.html", "title": "Snap types & Ubuntu Core" },
+    { "href": "/snap/fundamentals/index.html", "title": "Snap fundamentals" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
