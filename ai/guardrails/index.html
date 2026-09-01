@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Guardrails & Defensive UX — AI Systems — Embedded Pandora</title>
+<meta name="description" content="Input/structural/semantic guardrails and defensive UX (graceful degradation, attribution, friction by design) — the safety boundary for AI systems, including safety-critical embedded applications." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">AI Systems</p>
+  <h1>Guardrails &amp; Defensive UX — The Safety Boundary</h1>
+  <p class="lede">
+    Guardrails and Defensive UX are two layers of the same job and belong
+    in one chapter, because a strong system design never separates them.
+    Guardrails are validators that constrain the inputs a model accepts and
+    the outputs it produces, enforced automatically on every request.
+    Defensive UX is the acknowledgment that guardrails won't catch
+    everything — a design strategy for the interface, built on the
+    assumption that inaccuracies and hallucinations will still occasionally
+    reach the user. Guardrails are the system's immune system; Defensive UX
+    is what the user experiences while it's working.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Runtime validators that constrain inputs/outputs, paired with interface design that assumes those validators will still occasionally miss something.</dd>
+      <dt>Mental model</dt><dd>Guardrails are the seatbelt; Defensive UX is the crumple zone — one prevents the crash, the other limits the damage when it happens anyway.</dd>
+      <dt>Key numbers</dt><dd>A cheap deterministic check adds single-digit milliseconds; an LLM-based semantic guardrail can add hundreds of milliseconds to a second — reserve the expensive checks for high-stakes actions.</dd>
+      <dt>Reach for it when</dt><dd>Every request, without exception — this is not an optional layer you add once the demo works, it's the boundary a demo doesn't need but a production system always does.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#input">Input guardrails</a></li>
+      <li><a href="#structural">Structural and syntactic output guardrails</a></li>
+      <li><a href="#semantic">Semantic and factuality guardrails</a></li>
+      <li><a href="#degradation">Graceful degradation</a></li>
+      <li><a href="#attribution">Attribution and citation surfacing</a></li>
+      <li><a href="#friction">Friction by design</a></li>
+      <li><a href="#production">Productionizing this pattern</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#embedded">Embedded applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 780 190" role="img" aria-labelledby="guardrail-flow-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="guardrail-flow-title">User input passes through input validators before reaching the model, and the model's output passes through output validators before reaching the user — either stage can block or reject</title>
+
+      <rect class="frame-box block-amber" x="10" y="30" width="110" height="55" rx="6" />
+      <text class="frame-label" x="65" y="62" text-anchor="middle" font-weight="700" font-size="9">User Input</text>
+
+      <rect class="frame-box block-teal" x="150" y="30" width="130" height="55" rx="6" />
+      <text class="frame-label" x="215" y="62" text-anchor="middle" font-weight="700" font-size="9">Input Validators</text>
+
+      <rect class="frame-box block-violet" x="310" y="30" width="120" height="55" rx="6" />
+      <text class="frame-label" x="370" y="62" text-anchor="middle" font-weight="700" font-size="10">LLM</text>
+
+      <rect class="frame-box block-teal" x="460" y="30" width="130" height="55" rx="6" />
+      <text class="frame-label" x="525" y="62" text-anchor="middle" font-weight="700" font-size="9">Output Validators</text>
+
+      <rect class="frame-box block-amber" x="620" y="30" width="110" height="55" rx="6" />
+      <text class="frame-label" x="675" y="62" text-anchor="middle" font-weight="700" font-size="9">User</text>
+
+      <line x1="120" y1="57" x2="146" y2="57" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="150,57 140,52 140,62" />
+      <line x1="280" y1="57" x2="306" y2="57" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="310,57 300,52 300,62" />
+      <line x1="430" y1="57" x2="456" y2="57" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="460,57 450,52 450,62" />
+      <line x1="590" y1="57" x2="616" y2="57" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="620,57 610,52 610,62" />
+
+      <line x1="215" y1="85" x2="215" y2="118" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="215,124 208,112 222,112" />
+      <rect class="frame-box block-blue" x="150" y="126" width="130" height="40" rx="6" />
+      <text class="frame-label" x="215" y="150" text-anchor="middle" font-size="9">Block / 422 error</text>
+
+      <line x1="525" y1="85" x2="525" y2="118" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="525,124 518,112 532,112" />
+      <rect class="frame-box block-blue" x="460" y="126" width="130" height="40" rx="6" />
+      <text class="frame-label" x="525" y="150" text-anchor="middle" font-size="9">Reject / regen loop</text>
+    </svg>
+    <figcaption class="diagram__caption">Both validator stages can block or reject — a system that only validates one side is enforcing safety at just one of the two places it's actually needed.</figcaption>
+  </figure>
+
+  <h2 id="input">Input guardrails</h2>
+  <p>
+    Input guardrails mitigate prompt injection, jailbreak attempts, toxic
+    input, and off-topic abuse before the prompt reaches the model. A
+    layered implementation runs fast deterministic checks first —
+    blocklists, regex patterns, length limits — then escalates to
+    model-based classification for anything ambiguous: a moderation
+    classifier, a dedicated prompt-injection detector, a topic classifier
+    that rejects out-of-scope queries before they waste a generation call.
+    The core trade-off is false-positive rate against false-negative rate:
+    over-aggressive filtering degrades legitimate use, under-aggressive
+    filtering creates real safety exposure — tune the threshold against a
+    labelled adversarial test set, not by intuition.
+  </p>
+
+  <h2 id="structural">Structural and syntactic output guardrails</h2>
+  <p>
+    These validate that output conforms to an expected schema — valid
+    JSON, a syntactically correct query, a response constrained to a fixed
+    set of categories — before it's passed downstream. Constrained
+    decoding (libraries like Outlines, Guidance, Instructor) biases the
+    token-sampling distribution at generation time so output is
+    <em>guaranteed</em> to match a grammar or schema, which is strictly
+    more reliable than generating freely and validating afterward. Without
+    constrained decoding, a generate-validate-retry loop feeding the
+    validation error back into the next prompt is the standard fallback,
+    typically capped at two or three retries before failing closed.
+  </p>
+
+  <h2 id="semantic">Semantic and factuality guardrails</h2>
+  <p>
+    These confirm output is semantically relevant to the input and
+    factually grounded in provided context. For RAG systems specifically,
+    this means <strong>faithfulness checking</strong>: does the generated
+    response only assert claims actually entailed by the retrieved
+    documents. Implementation approaches include NLI (natural language
+    inference) models scoring entailment between context and response,
+    embedding similarity between the answer and source chunks, and
+    dedicated hallucination-detection models. These matter wherever factual
+    errors carry real consequences, and are one of the highest-signal
+    things to add to a <a href="/ai/rag/index.html">RAG</a> answer.
+  </p>
+
+  <h2 id="degradation">Graceful degradation</h2>
+  <p>
+    This is where Defensive UX picks up from guardrails. When the model is
+    uncertain, or retrieved context is thin, the system should degrade
+    <em>visibly</em> rather than serve a confident hallucination that
+    happened to pass every automated check: partial results with explicit
+    caveats, surfaced confidence indicators where meaningful, an offer to
+    escalate to a human. This requires deliberately training or prompting
+    the model to say it's unsure rather than fabricating a plausible
+    answer — models default to fluent completion regardless of actual
+    certainty, and no guardrail fully catches a confidently wrong answer
+    that's syntactically and semantically well-formed.
+  </p>
+
+  <h2 id="attribution">Attribution and citation surfacing</h2>
+  <p>
+    Showing the sources or reasoning behind a response lets users verify
+    claims themselves rather than trusting blindly — a cheaper and more
+    scalable defense than any single automated guardrail. In RAG systems
+    this means linking directly to the retrieved chunks that informed the
+    answer; in agentic systems it means exposing the tool calls and
+    intermediate steps taken. Inline citation is now a standard user
+    expectation, and its absence is a frequent gap.
+  </p>
+
+  <h2 id="friction">Friction by design</h2>
+  <p>
+    Deliberately inserting confirmation steps before high-stakes actions is
+    the last line of defense when both guardrails and degradation signals
+    fail to catch a problem. Any system that sends messages, executes
+    code, makes purchases, or modifies a database needs an explicit
+    review-and-confirm step before the action fires — extending to
+    preview-before-publish workflows and presenting alternatives rather
+    than a single take-it-or-leave-it output, keeping a human in the loop
+    for consequential actions while allowing full automation for low-stakes
+    ones.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 760 130" role="img" aria-labelledby="defensive-ux-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="defensive-ux-title">Defensive UX layers run in sequence: confidence and attribution surfaced first, graceful degradation next, friction and confirmation as the last line of defense</title>
+
+      <rect class="frame-box block-violet" x="10" y="20" width="160" height="55" rx="6" />
+      <text class="frame-label" x="90" y="52" text-anchor="middle" font-weight="700" font-size="10">LLM Output</text>
+
+      <rect class="frame-box block-amber" x="210" y="20" width="170" height="55" rx="6" />
+      <text class="frame-label" x="295" y="45" text-anchor="middle" font-weight="700" font-size="9">Confidence &amp;</text>
+      <text class="frame-label" x="295" y="60" text-anchor="middle" font-weight="700" font-size="9">Attribution</text>
+
+      <rect class="frame-box block-green" x="420" y="20" width="170" height="55" rx="6" />
+      <text class="frame-label" x="505" y="45" text-anchor="middle" font-weight="700" font-size="9">Graceful</text>
+      <text class="frame-label" x="505" y="60" text-anchor="middle" font-weight="700" font-size="9">Degradation</text>
+
+      <rect class="frame-box block-teal" x="630" y="20" width="120" height="55" rx="6" />
+      <text class="frame-label" x="690" y="45" text-anchor="middle" font-weight="700" font-size="9">Friction &amp;</text>
+      <text class="frame-label" x="690" y="60" text-anchor="middle" font-weight="700" font-size="9">Confirmation</text>
+
+      <line x1="170" y1="47" x2="206" y2="47" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="210,47 200,42 200,52" />
+      <line x1="380" y1="47" x2="416" y2="47" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="420,47 410,42 410,52" />
+      <line x1="590" y1="47" x2="626" y2="47" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="630,47 620,42 620,52" />
+
+      <text class="frame-caption" x="295" y="95" text-anchor="middle" font-size="8">show sources</text>
+      <text class="frame-caption" x="505" y="95" text-anchor="middle" font-size="8">partial results</text>
+      <text class="frame-caption" x="690" y="95" text-anchor="middle" font-size="8">human in the loop</text>
+    </svg>
+    <figcaption class="diagram__caption">Each layer is a fallback for the one before it — attribution lets a user catch a problem the model itself won't flag, degradation catches what attribution alone won't, friction catches what both miss.</figcaption>
+  </figure>
+
+  <h2 id="production">Productionizing this pattern</h2>
+  <div class="callout callout--note">
+    <span class="callout__label">What changes past a demo</span>
+    <ul>
+      <li>Guardrails add latency on every request, not just the ones that fail — reserve expensive LLM-based semantic checks for high-stakes actions, not every request uniformly.</li>
+      <li>Fail closed on high-stakes actions (financial transactions, destructive operations) and fail open with a visible warning on low-stakes ones — treating all failures identically is a common design gap.</li>
+      <li>Log every guardrail trigger with the input, the rule that fired, and the action taken — this log is the primary source for tuning false-positive rate and for post-incident review.</li>
+      <li>Confidence indicators must be calibrated, not decorative — a model claiming 90% confidence should be right roughly 90% of the time on that claim category, or the signal erodes trust faster than no signal at all.</li>
+      <li>Coordinate the two layers explicitly: a guardrail that silently rewrites output while the UX implies the raw model response is shown creates a trust gap the moment a user notices the mismatch.</li>
+    </ul>
+  </div>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Natural-language-to-SQL tools —</strong> input guardrails against injection, structural guardrails validating syntax, safety guardrails against destructive statements, and a defensive UX that shows the generated query before executing it.</li>
+    <li><strong>Customer-facing chatbots —</strong> moderation on both input and output, graceful "let me connect you to a human" degradation instead of a confident wrong answer.</li>
+    <li><strong>Code-generation assistants —</strong> structural guardrails ensuring syntactically valid, compilable output before it's ever run.</li>
+    <li><strong>Any system that takes an action —</strong> email, purchases, database writes — friction by design before the action actually fires.</li>
+  </ul>
+
+  <h2 id="embedded">Embedded applications</h2>
+  <ul class="point-list">
+    <li><strong>Friction by design maps directly onto safety interlocks —</strong> an LLM-assisted diagnostic tool that can send a UDS command to an ECU (see <a href="/automotive/uds/index.html">UDS Diagnostics</a>) is exactly the "sends emails, executes code, modifies a database" case the guide warns about, except the action is real hardware — a review-and-confirm step before any write-type UDS service fires is not optional polish, it's the same "least privilege" and "fail securely" discipline already covered in <a href="/security/secure-coding/index.html">Secure Coding Principles</a>.</li>
+    <li><strong>Fail closed vs. fail open has a physical meaning —</strong> on embedded/automotive systems, "fail closed" often means literally refusing to actuate rather than returning an HTTP error, and "fail open with a warning" only makes sense for genuinely low-stakes suggestions (e.g. a diagnostic hint) — the cost-of-error matrix the guide calls out is much starker when the error can be a physical action, not a wrong sentence.</li>
+    <li><strong>Structural guardrails are cheap on constrained hardware —</strong> constrained decoding or a simple grammar check to force a small on-device model's output into a fixed command set is exactly the kind of guardrail that's affordable at the millisecond/milliwatt budget an MCU has, where an LLM-based semantic guardrail usually isn't — know which layer your hardware can actually afford.</li>
+    <li><strong>Attribution ties into observability —</strong> exposing which sensor readings or tool calls informed an on-device AI decision is the same instinct as logging every guardrail trigger, and feeds directly into <a href="/ai/observability/index.html">LLM Observability</a>'s tracing discipline — critical for post-incident review when the "incident" involves real hardware.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Treating every guardrail failure identically (always block, or always warn) ignores that the cost of a false positive and the cost of a false negative are almost never symmetric for a given action.</li>
+      <li>A guardrail that silently rewrites or truncates output without telling the UX layer creates a trust gap the moment a user compares notes with someone who saw the unmodified response.</li>
+      <li>Uncalibrated confidence scores are worse than no confidence score at all — a system that's "90% confident" and wrong half the time trains users to ignore the signal entirely, including on the cases where it would have mattered.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/ai/caching/index.html", "title": "Caching" },
+  "next": { "href": "/ai/user-feedback/index.html", "title": "User Feedback" },
+  "related": [
+    { "href": "/ai/rag/index.html", "title": "RAG" },
+    { "href": "/security/secure-coding/index.html", "title": "Secure Coding Principles" },
+    { "href": "/automotive/uds/index.html", "title": "UDS Diagnostics" },
+    { "href": "/ai/observability/index.html", "title": "LLM Observability" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

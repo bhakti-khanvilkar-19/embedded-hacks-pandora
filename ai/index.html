@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Systems — Embedded Pandora</title>
+<meta name="description" content="Production AI engineering design patterns — RAG, fine-tuning, caching, guardrails, feedback loops, agentic evals, and observability — and how each one changes shape on embedded and edge hardware." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Domain</p>
+  <h1>AI Systems</h1>
+  <p class="lede">
+    Building a model demo takes an afternoon. Building an AI system that
+    holds up under real traffic, real cost constraints, and real failure
+    modes is a different discipline — seven patterns that recur, in some
+    combination, in nearly every production LLM/agent architecture. This
+    domain covers each one in depth, and — the angle the rest of this
+    notebook cares about — how the pattern's shape changes when the model
+    runs on, or alongside, embedded hardware instead of purely as a cloud
+    service.
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">Two axes worth knowing before diving in</span>
+    <p>
+      Some patterns exist mainly to improve output <strong>quality</strong>
+      (RAG, Fine-tuning, Agentic Evals). Others exist mainly to control
+      <strong>cost and risk</strong> once quality is acceptable (Caching,
+      Guardrails &amp; Defensive UX, Observability). User Feedback sits in
+      the middle and feeds both over time. A strong system design names
+      this trade-off explicitly instead of treating every pattern as a
+      free win — the same "why, and when" discipline this notebook already
+      applies to <a href="/protocols/can/index.html">CAN vs. SPI vs.
+      I2C</a>.
+    </p>
+  </div>
+
+  <h2>Topics</h2>
+  <ul class="topic-list">
+    <li><a href="/ai/rag/index.html"><span>RAG — grounding generation in retrievable, verifiable context</span><span class="status">written</span></a></li>
+    <li><a href="/ai/fine-tuning/index.html"><span>Fine-tuning — specializing weights when prompting hits a ceiling</span><span class="status">written</span></a></li>
+    <li><a href="/ai/caching/index.html"><span>Caching — cutting latency and per-token cost with reuse</span><span class="status">written</span></a></li>
+    <li><a href="/ai/guardrails/index.html"><span>Guardrails &amp; Defensive UX — enforcing safety at the boundary</span><span class="status">written</span></a></li>
+    <li><a href="/ai/user-feedback/index.html"><span>User Feedback — closing the loop into a self-improving flywheel</span><span class="status">written</span></a></li>
+    <li><a href="/ai/agentic-evals/index.html"><span>Agentic Evals — scoring trajectories, not just answers</span><span class="status">written</span></a></li>
+    <li><a href="/ai/observability/index.html"><span>LLM Observability — tracing and monitoring live traffic</span><span class="status">written</span></a></li>
+  </ul>
+
+  <h2>Planned</h2>
+  <p>
+    <span class="badge">prompt engineering</span>
+    <span class="badge">model serving</span>
+    <span class="badge">on-device inference / TinyML</span>
+  </p>
+
+  <div class="callout callout--warn">
+    <span class="callout__label">Why this domain exists here</span>
+    <p>
+      These seven patterns were first popularized for cloud-hosted LLM
+      products, and most references stop there. An embedded engineer
+      building anything AI-adjacent — a voice-controlled appliance, an
+      edge-vision camera, a fleet of NPU-equipped gateway devices, an
+      LLM-assisted diagnostic tool talking to a vehicle's own ECUs — hits
+      every one of these patterns too, just with a different budget:
+      milliwatts instead of a GPU cluster, a flash partition instead of a
+      vector database with unlimited storage, and a real actuator on the
+      other end of a "friction by design" confirmation step instead of a
+      web form. Each page here ends with an <strong>Embedded
+      applications</strong> section making that translation explicit.
+    </p>
+  </div>
+</main>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

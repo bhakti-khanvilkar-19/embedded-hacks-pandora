@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agentic Evals — AI Systems — Embedded Pandora</title>
+<meta name="description" content="Trajectory evaluation, tool-call correctness, and efficiency/groundedness metrics for agentic AI systems — scoring the path an agent took, not just its final answer." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">AI Systems</p>
+  <h1>Agentic Evals — Scoring the Trajectory, Not Just the Answer</h1>
+  <p class="lede">
+    Standard evals score a single input-output pair. Agentic systems make
+    that insufficient: an agent that reaches the right final answer by
+    calling the wrong tool, in the wrong order, five more times than
+    necessary, has a serious production problem that final-answer accuracy
+    alone will never surface. Agentic evals score the full trajectory —
+    the sequence of reasoning steps, tool calls, tool results, and
+    intermediate decisions the agent took to arrive at its answer.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Evaluating the sequence of steps an agent takes, not only whether its final answer was correct.</dd>
+      <dt>Mental model</dt><dd>Grading a math test on the work shown, not just the final number — two students who both got the right answer are not equally good if one's method was a coin flip.</dd>
+      <dt>Key numbers</dt><dd>A small labelled trajectory benchmark (30–50 tasks with expected tool-call sequences) already unlocks debugging why an agent failed, not just that it failed.</dd>
+      <dt>Reach for it when</dt><dd>The system takes more than one step to answer — any tool-calling agent, not only ones that reach a final natural-language answer.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#trajectory">Trajectory evaluation</a></li>
+      <li><a href="#toolcall">Tool-call correctness</a></li>
+      <li><a href="#efficiency">Efficiency and groundedness metrics</a></li>
+      <li><a href="#production">Productionizing this pattern</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#embedded">Embedded applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 780 220" role="img" aria-labelledby="agentic-eval-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="agentic-eval-title">An agent's full trajectory feeds a step-level judge and tool-call correctness check, each with its own sub-metric, before rolling up into overall task success</title>
+
+      <rect class="frame-box block-green" x="10" y="20" width="170" height="55" rx="6" />
+      <text class="frame-label" x="95" y="45" text-anchor="middle" font-weight="700" font-size="9">Agent</text>
+      <text class="frame-label" x="95" y="60" text-anchor="middle" font-weight="700" font-size="9">Trajectory</text>
+
+      <rect class="frame-box block-amber" x="200" y="20" width="170" height="55" rx="6" />
+      <text class="frame-label" x="285" y="45" text-anchor="middle" font-weight="700" font-size="9">Step-level</text>
+      <text class="frame-label" x="285" y="60" text-anchor="middle" font-weight="700" font-size="9">Judge</text>
+
+      <rect class="frame-box block-teal" x="390" y="20" width="180" height="55" rx="6" />
+      <text class="frame-label" x="480" y="45" text-anchor="middle" font-weight="700" font-size="9">Tool-call</text>
+      <text class="frame-label" x="480" y="60" text-anchor="middle" font-weight="700" font-size="9">Correctness</text>
+
+      <rect class="frame-box block-violet" x="590" y="20" width="170" height="55" rx="6" />
+      <text class="frame-label" x="675" y="45" text-anchor="middle" font-weight="700" font-size="9">Task</text>
+      <text class="frame-label" x="675" y="60" text-anchor="middle" font-weight="700" font-size="9">Success</text>
+
+      <line x1="180" y1="47" x2="196" y2="47" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="200,47 190,42 190,52" />
+      <line x1="370" y1="47" x2="386" y2="47" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="390,47 380,42 380,52" />
+      <line x1="570" y1="47" x2="586" y2="47" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="590,47 580,42 580,52" />
+
+      <rect class="frame-box block-blue" x="15" y="140" width="160" height="50" rx="6" />
+      <text class="frame-label" x="95" y="169" text-anchor="middle" font-size="8">Exact-match trajectory</text>
+      <line x1="95" y1="140" x2="95" y2="79" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="95,73 88,85 102,85" />
+
+      <rect class="frame-box block-blue" x="205" y="140" width="160" height="50" rx="6" />
+      <text class="frame-label" x="285" y="169" text-anchor="middle" font-size="8">Precision / recall on calls</text>
+      <line x1="285" y1="140" x2="285" y2="79" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="285,73 278,85 292,85" />
+
+      <rect class="frame-box block-blue" x="395" y="140" width="170" height="50" rx="6" />
+      <text class="frame-label" x="480" y="169" text-anchor="middle" font-size="8">Efficiency: steps taken</text>
+      <line x1="480" y1="140" x2="480" y2="79" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="480,73 473,85 487,85" />
+
+      <rect class="frame-box block-blue" x="595" y="140" width="160" height="50" rx="6" />
+      <text class="frame-label" x="675" y="169" text-anchor="middle" font-size="8">Groundedness per step</text>
+      <line x1="675" y1="140" x2="675" y2="79" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="675,73 668,85 682,85" />
+    </svg>
+    <figcaption class="diagram__caption">Each stage rolls up its own sub-metric — a good final answer with poor tool-call precision or poor groundedness is a real failure this multi-level view catches that a single pass/fail check would miss.</figcaption>
+  </figure>
+
+  <h2 id="trajectory">Trajectory evaluation</h2>
+  <p>
+    Scores the path taken, not only the destination. Exact-match trajectory
+    evaluation checks whether the sequence of actions matches a labelled
+    gold trajectory step for step — strict, and often too rigid, since
+    multiple valid paths can reach the same correct answer. A more
+    practical approach uses an LLM judge to assess whether each step was
+    <em>reasonable</em> given the state at that point, independent of
+    whether it matches a single reference path — the generalization of
+    LLM-as-judge scoring to a multi-step setting: instead of judging one
+    output, the judge walks the trajectory and scores coherence, necessity,
+    and correctness of each step.
+  </p>
+
+  <h2 id="toolcall">Tool-call correctness</h2>
+  <p>
+    Precision and recall computed over the set of tool calls the agent
+    made versus the set it should have made, given the task. Precision
+    catches unnecessary or hallucinated tool calls — calling a search API
+    when the answer was already in context. Recall catches missed steps —
+    failing to call a verification tool before taking a destructive
+    action. A further layer checks <strong>argument correctness</strong>:
+    did the agent call the right tool with the right parameters, since a
+    correct tool choice with malformed or wrong arguments is functionally a
+    failure even though it may look correct at a glance.
+  </p>
+
+  <h2 id="efficiency">Efficiency and groundedness metrics</h2>
+  <p>
+    Efficiency metrics track the number of steps, tool calls, and tokens
+    consumed to reach a correct outcome — two agents that both succeed are
+    not equally good if one takes twelve steps and the other takes four,
+    and this directly maps to production cost and latency. Groundedness
+    metrics check, at each step, whether the agent's stated reasoning is
+    actually supported by the tool results it has received so far,
+    catching a specific and dangerous failure mode: an agent's
+    chain-of-thought fabricating a justification disconnected from what its
+    tools actually returned.
+  </p>
+
+  <h2 id="production">Productionizing this pattern</h2>
+  <div class="callout callout--note">
+    <span class="callout__label">What changes past a demo</span>
+    <ul>
+      <li>Build a labelled trajectory benchmark early, even a small one of 30 to 50 tasks with expected tool-call sequences — without it, only pass/fail is observable, never <em>why</em>, which makes debugging production incidents extremely slow.</li>
+      <li>Log the full trajectory (every intermediate reasoning step, tool call, tool result) for every production request, not just the final answer — this is raw material for both agentic evals and <a href="/ai/observability/index.html">LLM Observability</a>.</li>
+      <li>Set a hard step-count or token-budget ceiling per task and treat exceeding it as a failure mode in its own right — an agent that loops indefinitely is a cost and reliability risk independent of whether it eventually produces a correct answer.</li>
+      <li>Distinguish evaluating the plan (did the agent choose a sound approach) from evaluating execution (did it carry out that approach correctly) — a good plan poorly executed and a bad plan well executed need completely different fixes.</li>
+    </ul>
+  </div>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Booking/transaction agents —</strong> an agent that searches, compares, and submits a booking through an API needs trajectory evaluation to isolate whether failures are search errors, comparison-logic errors, or booking-API misuse.</li>
+    <li><strong>Coding agents —</strong> tool-call precision/recall separates "wrote correct code" from "wrote correct code after five unnecessary file reads," which matters for both cost and trust.</li>
+    <li><strong>Research/analysis agents —</strong> groundedness checking catches an agent that cites a conclusion its own retrieved sources don't actually support.</li>
+    <li><strong>Customer-service agents —</strong> efficiency metrics catch an agent that resolves a ticket correctly but takes an unreasonable number of tool calls to get there, driving up cost per resolution.</li>
+  </ul>
+
+  <h2 id="embedded">Embedded applications</h2>
+  <ul class="point-list">
+    <li><strong>Physical consequences make trajectory scoring non-negotiable —</strong> an agent controlling a robot arm, a drone, or an industrial actuator that reaches the "right" final state via a dangerous or inefficient sequence of intermediate moves has a serious problem final-state checking alone will never surface — this is the same "path matters, not just the destination" idea as <a href="/protocols/can/index.html#arbitration">CAN's arbitration</a> guaranteeing a deterministic message order, just applied to an agent's decisions instead of bus traffic.</li>
+    <li><strong>Step-count ceilings map to real-time deadlines —</strong> the "hard step-count or token-budget ceiling" recommendation above isn't just a cost control on embedded/real-time systems, it's often a correctness requirement — an agent-driven control loop that blows past its deadline is exactly the kind of missed-deadline failure covered in <a href="/embedded/rtos/index.html">RTOS</a> scheduling.</li>
+    <li><strong>Tool-call correctness extends to hardware calls —</strong> for an agent that can read a sensor, write a GPIO, or issue a UDS diagnostic command, "tool calls" are physical I/O — precision (no hallucinated hardware writes) and recall (no skipped safety checks before a destructive action) are the exact same metric, with a much higher cost of a false negative.</li>
+    <li><strong>Groundedness catches the specific fabrication failure that's most dangerous on hardware —</strong> an agent whose reasoning claims a sensor reading supports an action it's about to take, when the actual tool result said something else, is precisely the "confidently wrong action reaching the real world" scenario <a href="/ai/guardrails/index.html#friction">friction by design</a> exists to catch as a last resort — groundedness checking is how to catch it earlier, in evaluation, before it ever reaches production.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Exact-match trajectory scoring will falsely fail a perfectly good agent that found a different, equally valid path — don't treat strict path-matching as the only signal.</li>
+      <li>A high final-task-success rate can hide a systematic tool-call problem — 85% correct outcomes with a concentrated failure pattern is a debugging job for trajectory-level evaluation, not a reason to declare the agent "mostly fine."</li>
+      <li>An agent with no step-count ceiling isn't just slow when it goes wrong — it's a live cost and reliability incident, since a looping agent keeps consuming tokens and tool-call budget indefinitely.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/ai/user-feedback/index.html", "title": "User Feedback" },
+  "next": { "href": "/ai/observability/index.html", "title": "LLM Observability" },
+  "related": [
+    { "href": "/ai/observability/index.html", "title": "LLM Observability" },
+    { "href": "/ai/guardrails/index.html", "title": "Guardrails & Defensive UX" },
+    { "href": "/embedded/rtos/index.html", "title": "RTOS" },
+    { "href": "/protocols/can/index.html", "title": "CAN" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

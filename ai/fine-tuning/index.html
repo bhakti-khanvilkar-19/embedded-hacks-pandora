@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fine-tuning — AI Systems — Embedded Pandora</title>
+<meta name="description" content="Full fine-tuning vs. LoRA/QLoRA parameter-efficient fine-tuning vs. RLHF/DPO preference tuning — mechanism, trade-offs, and embedded/on-device applications." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">AI Systems</p>
+  <h1>Fine-tuning — Specializing the Model</h1>
+  <p class="lede">
+    Fine-tuning adapts a pre-trained model's weights using task-specific
+    demonstrations. Where prompting and <a href="/ai/rag/index.html">RAG</a>
+    inject knowledge at inference time, fine-tuning bakes behavior directly
+    into the weights: consistent style, structured output adherence,
+    domain-specific reasoning patterns, and shorter prompts since learned
+    behavior replaces lengthy instructions. The cost is curated data,
+    compute, evaluation overhead, and an extra model artifact to version
+    and serve.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Updating a pre-trained model's weights on task-specific examples, instead of only steering it through the prompt.</dd>
+      <dt>Mental model</dt><dd>Prompting is giving someone instructions for one task; fine-tuning is actually training them — slower and more expensive up front, but they don't need the instructions repeated every time afterward.</dd>
+      <dt>Key numbers</dt><dd>LoRA typically updates well under 1% of total parameters (rank 8–64); a few hundred to low thousands of high-quality examples routinely beats tens of thousands of noisy ones.</dd>
+      <dt>Reach for it when</dt><dd>A quantified prompt-engineering and RAG baseline has already been tried and measurably falls short — never as the first tool reached for.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#full">Full fine-tuning</a></li>
+      <li><a href="#peft">Parameter-efficient fine-tuning (PEFT)</a></li>
+      <li><a href="#preference">Instruction and preference tuning</a></li>
+      <li><a href="#production">Productionizing this pattern</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#embedded">Embedded applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 760 190" role="img" aria-labelledby="peft-pipeline-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="peft-pipeline-title">A curated dataset drives a LoRA or full fine-tune, producing an adapted checkpoint that must pass a held-out evaluation gate before it ships</title>
+
+      <rect class="frame-box block-amber" x="10" y="30" width="150" height="60" rx="6" />
+      <text class="frame-label" x="85" y="56" text-anchor="middle" font-weight="700" font-size="10">Curated Dataset</text>
+      <text class="frame-caption" x="85" y="74" text-anchor="middle" font-size="8">quality over quantity</text>
+
+      <rect class="frame-box block-teal" x="200" y="30" width="150" height="60" rx="6" />
+      <text class="frame-label" x="275" y="56" text-anchor="middle" font-weight="700" font-size="10">LoRA / Full</text>
+      <text class="frame-caption" x="275" y="74" text-anchor="middle" font-size="8">fine-tune</text>
+
+      <rect class="frame-box block-green" x="390" y="30" width="160" height="60" rx="6" />
+      <text class="frame-label" x="470" y="56" text-anchor="middle" font-weight="700" font-size="10">Adapted</text>
+      <text class="frame-caption" x="470" y="74" text-anchor="middle" font-size="8">checkpoint</text>
+
+      <rect class="frame-box block-violet" x="590" y="30" width="160" height="60" rx="6" />
+      <text class="frame-label" x="670" y="56" text-anchor="middle" font-weight="700" font-size="10">Held-out</text>
+      <text class="frame-caption" x="670" y="74" text-anchor="middle" font-size="8">eval gate</text>
+
+      <line x1="160" y1="60" x2="196" y2="60" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="200,60 190,55 190,65" />
+      <line x1="350" y1="60" x2="386" y2="60" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="390,60 380,55 380,65" />
+      <line x1="550" y1="60" x2="586" y2="60" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="590,60 580,55 580,65" />
+
+      <rect class="frame-box block-blue" x="220" y="130" width="110" height="40" rx="6" />
+      <text class="frame-label" x="275" y="154" text-anchor="middle" font-size="9">rank r, alpha</text>
+      <line x1="275" y1="130" x2="275" y2="92" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="275,86 268,98 282,98" />
+    </svg>
+    <figcaption class="diagram__caption">A checkpoint that fails the held-out gate never ships — the gate is not optional QA, it's the difference between "fine-tuned" and "fine-tuned and verified."</figcaption>
+  </figure>
+
+  <h2 id="full">Full fine-tuning</h2>
+  <p>
+    Every parameter is updated on the task-specific dataset. This gives
+    maximum expressiveness and suits a target domain that diverges
+    significantly from the base model's pretraining distribution — turning
+    a general-purpose model into a specialized biomedical or legal one, for
+    instance. The costs are real: full-parameter gradients and optimizer
+    states need several times the model's parameter count in GPU memory,
+    catastrophic forgetting of general capabilities is a genuine risk
+    without careful data mixing, and the result is a full model checkpoint
+    to serve and version on its own. Proposing full fine-tuning without
+    justifying why PEFT is insufficient is a weak system-design answer, not
+    a strong one.
+  </p>
+
+  <h2 id="peft">Parameter-efficient fine-tuning (PEFT)</h2>
+  <p>
+    LoRA injects trainable low-rank decomposition matrices (rank r,
+    typically 8 to 64) into the attention projection layers while freezing
+    the base weights — updating well under 1 percent of total parameters.
+    QLoRA adds 4-bit quantization of the frozen base model, making it
+    possible to fine-tune a 70B-parameter model on a single high-memory
+    GPU. Because the base weights never move, one shared base model can
+    serve many task-specific adapters, hot-swapped per request — the
+    standard production pattern for multi-tenant fine-tuning, and the
+    default answer unless full fine-tuning is explicitly justified.
+  </p>
+
+  <h2 id="preference">Instruction and preference tuning</h2>
+  <p>
+    RLHF trains a separate reward model on human preference pairs, then
+    optimizes the policy model against that reward using PPO. DPO (Direct
+    Preference Optimization) reformulates the same objective as a single
+    supervised loss directly on preference pairs, removing the reward model
+    and the RL loop entirely — which is why it has largely displaced RLHF
+    for practical fine-tuning pipelines outside frontier labs. These
+    methods tune for <em>preferred behavior</em> — helpfulness, tone,
+    refusal calibration — rather than narrow task accuracy, and are a
+    distinct lever from task-specific supervised fine-tuning.
+  </p>
+
+  <h2 id="production">Productionizing this pattern</h2>
+  <div class="callout callout--note">
+    <span class="callout__label">What changes past a demo</span>
+    <ul>
+      <li>Always run a prompt-engineering and RAG baseline first and quantify the gap — fine-tuning has the highest fixed cost of any pattern in this domain, and skipping the baseline is the most common mistake.</li>
+      <li>Data quality dominates data quantity for PEFT — a few hundred to low thousands of high-quality, diverse examples routinely outperform tens of thousands of noisy ones. Deduplication and manual review of a sample is worth the time.</li>
+      <li>Hold out an eval set that never touches training, and gate every fine-tuned checkpoint behind it before it reaches production.</li>
+      <li>Plan for adapter lifecycle management: versioning, A/B testing new adapters against the incumbent on live traffic, and a fast rollback path.</li>
+      <li>Catastrophic forgetting is real even with PEFT at high rank — include a slice of general-capability examples in the training mix and evaluate on both the target task and a general benchmark.</li>
+    </ul>
+  </div>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Domain-specialized assistants —</strong> biomedical, legal, or financial models tuned on domain-specific reasoning patterns a general model handles poorly.</li>
+    <li><strong>Structured output adherence —</strong> forcing consistent JSON/format output that prompting alone produces inconsistently.</li>
+    <li><strong>Style/tone consistency —</strong> a brand voice or a support persona baked into weights instead of re-specified in every prompt.</li>
+    <li><strong>Multi-tenant SaaS —</strong> one shared base model serving many customers' individually fine-tuned LoRA adapters, hot-swapped per request.</li>
+  </ul>
+
+  <h2 id="embedded">Embedded applications</h2>
+  <ul class="point-list">
+    <li><strong>On-device model specialization —</strong> a small model running on an NPU-equipped edge board (the same class of hardware the <a href="/snap/ubuntu-core/index.html#inference">inference-snap pattern</a> targets) is far more likely to be a distilled/quantized model fine-tuned tightly for one task than a large general-purpose one — the compute and memory budget simply won't support a general model at acceptable latency.</li>
+    <li><strong>Quantization as a shared discipline —</strong> QLoRA's 4-bit quantization during fine-tuning and the int8/int4 quantization used to fit a model onto an embedded NPU are the same underlying technique applied at different points in the lifecycle — understanding one transfers directly to the other.</li>
+    <li><strong>Adapter hot-swapping over OTA —</strong> shipping a new LoRA adapter to a fleet of devices is a much smaller, faster OTA payload than a full model replacement — the same atomic-update-and-rollback discipline covered in <a href="/snap/ubuntu-core/index.html">Ubuntu Core</a> and <a href="/linux/kernel-source/index.html">kernel patching</a> applies directly: version the adapter, gate it behind an eval, and keep a rollback path if it regresses on-device.</li>
+    <li><strong>Field-collected fine-tuning data —</strong> corrections and edge-case failures captured from real deployed devices (see <a href="/ai/user-feedback/index.html">User Feedback</a>) are exactly the "few hundred high-quality examples" PEFT wants — often more valuable than a much larger synthetic dataset, because they're already in-distribution for the actual hardware and actual failure modes.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Fine-tuning fixes behavior, not knowledge gaps — a model that's confidently wrong about a fact will still be confidently wrong after fine-tuning unless the training data specifically corrects that fact; that's usually a RAG problem, not a fine-tuning one.</li>
+      <li>An eval gate that only checks the target task, not general capability, will happily ship a checkpoint that got better at the task and quietly worse at everything else.</li>
+      <li>"It works better on my test examples" without a held-out set that never touched training is not evidence — it's the exact overfitting failure the held-out gate exists to catch.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/ai/rag/index.html", "title": "RAG" },
+  "next": { "href": "/ai/caching/index.html", "title": "Caching" },
+  "related": [
+    { "href": "/ai/rag/index.html", "title": "RAG" },
+    { "href": "/ai/user-feedback/index.html", "title": "User Feedback" },
+    { "href": "/snap/ubuntu-core/index.html", "title": "Snap types & Ubuntu Core" },
+    { "href": "/linux/kernel-source/index.html", "title": "Kernel Source, Versions & Patching" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
