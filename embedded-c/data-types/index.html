@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Types & Integer Overflow — Embedded C — Embedded Pandora</title>
+<meta name="description" content="int vs. unsigned int, stdint.h fixed-width types, why embedded C reaches for uint, two's complement, and exactly what rollover/overflow does with a real embedded bug example." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Embedded C</p>
+  <h1>Data Types &amp; Integer Overflow</h1>
+  <p class="lede">
+    The C standard doesn't guarantee an <code>int</code> is 32 bits — only
+    that it's <em>at least</em> 16. On a desktop that ambiguity almost
+    never bites anyone; on embedded, where the same codebase might target
+    an 8-bit AVR and a 32-bit Cortex-M, it's exactly the kind of thing
+    that silently changes behavior between platforms. This page covers
+    what the types actually guarantee, why <code>unsigned</code> shows up
+    constantly in embedded code, and what actually happens — bit for
+    bit — when a value overflows.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>How C represents integers in memory, and the fixed-width types (<code>stdint.h</code>) embedded code uses instead of the ambiguous built-in ones.</dd>
+      <dt>Mental model</dt><dd>An unsigned integer is a car odometer — it rolls over to zero silently when it runs out of digits. A signed integer overflowing is undefined behavior — the "odometer" analogy doesn't even apply, the compiler is allowed to assume it never happens.</dd>
+      <dt>Key numbers</dt><dd>An 8-bit unsigned value: 0 to 255. An 8-bit signed value: -128 to 127 — same 256 total values, split differently.</dd>
+      <dt>Reach for it when</dt><dd>Choosing a type for anything that crosses a hardware register, a wire protocol, or a subtraction between two counters that could ever produce a negative logical result.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#stdint">Why stdint.h exists</a></li>
+      <li><a href="#signed-unsigned">Signed vs. unsigned representation</a></li>
+      <li><a href="#why-uint">Why embedded code reaches for uint</a></li>
+      <li><a href="#rollover">What rollover actually is</a></li>
+      <li><a href="#promotion">Integer promotion and the comparison trap</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="stdint">Why stdint.h exists</h2>
+  <p>
+    <code>char</code>, <code>short</code>, <code>int</code>,
+    <code>long</code>, and <code>long long</code> each only guarantee a
+    <em>minimum</em> width — the standard leaves the exact size up to the
+    compiler and target architecture. An <code>int</code> is 16 bits on
+    some small microcontroller toolchains and 32 bits on almost everything
+    else; writing code that assumes one or the other is silently
+    non-portable. <code>&lt;stdint.h&gt;</code> fixes this with
+    fixed-width types that mean exactly what they say on every
+    conforming compiler:
+  </p>
+  <table>
+    <thead><tr><th>Type</th><th>Width</th><th>Range</th></tr></thead>
+    <tbody>
+      <tr><td><code>uint8_t</code></td><td>8 bits</td><td>0 to 255</td></tr>
+      <tr><td><code>int8_t</code></td><td>8 bits</td><td>-128 to 127</td></tr>
+      <tr><td><code>uint16_t</code></td><td>16 bits</td><td>0 to 65,535</td></tr>
+      <tr><td><code>int16_t</code></td><td>16 bits</td><td>-32,768 to 32,767</td></tr>
+      <tr><td><code>uint32_t</code></td><td>32 bits</td><td>0 to 4,294,967,295</td></tr>
+      <tr><td><code>int32_t</code></td><td>32 bits</td><td>-2,147,483,648 to 2,147,483,647</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Any embedded codebase that talks to hardware registers or a wire
+    protocol should reach for these instead of <code>int</code>/
+    <code>unsigned</code> — a struct sent over <a href="/protocols/can/index.html">CAN</a>
+    or read from an I2C register genuinely has a fixed bit width, and the
+    type should say so explicitly rather than relying on whatever
+    <code>int</code> happens to mean on this particular toolchain.
+  </p>
+
+  <h2 id="signed-unsigned">Signed vs. unsigned representation</h2>
+  <p>
+    Both a signed and unsigned 8-bit integer are 256 possible bit
+    patterns — the difference is purely how those patterns are
+    <em>interpreted</em>. Unsigned reads the bits directly as a magnitude:
+    <code>0000 0000</code> through <code>1111 1111</code> is 0 through
+    255. Signed integers use <strong>two's complement</strong>: the
+    top bit becomes a sign bit, so the same 256 patterns split into
+    -128 through 127 instead — half the positive range, in exchange for
+    representing negative numbers at all.
+  </p>
+
+  <h2 id="why-uint">Why embedded code reaches for uint</h2>
+  <ul class="point-list">
+    <li><strong>The value is inherently non-negative —</strong> a buffer length, a pin number, a byte count, or a raw register value can never logically be negative; declaring it <code>unsigned</code> documents that intent and lets a reviewer (or the compiler, with warnings on) catch a bug that would let it go negative.</li>
+    <li><strong>Bitwise operations behave predictably —</strong> shifting, masking, and combining raw bits with <code>&amp;</code>/<code>|</code>/<code>^</code> is well-defined on unsigned types. A right-shift of a <em>negative signed</em> value is implementation-defined in C — not guaranteed to be the arithmetic shift most people assume — which makes signed types a real hazard for <a href="/embedded-c/registers/index.html#bit-manipulation">register-level bit manipulation</a>.</li>
+    <li><strong>Full range for the same memory —</strong> when a value truly can't be negative, unsigned doubles the usable range in the same number of bits — meaningful when every byte of RAM is budgeted.</li>
+    <li><strong>Hardware registers are unsigned bit patterns —</strong> a peripheral register doesn't have a sign; representing it as <code>uint32_t</code> is the accurate mapping to what the hardware actually is, not a style preference.</li>
+  </ul>
+
+  <h2 id="rollover">What rollover actually is</h2>
+  <p>
+    Unsigned arithmetic in C is defined to wrap modulo 2<sup>n</sup> — this
+    is not a bug or undefined behavior, it's exactly what the standard
+    guarantees will happen. Adding 1 to the maximum value of a
+    <code>uint8_t</code> doesn't error, doesn't saturate — it silently
+    becomes 0.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 620 220" role="img" aria-labelledby="rollover-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="rollover-title">A uint8_t at its maximum value 0xFF, all bits set, becomes 0x00 when incremented — the carry bit simply falls off the end and is discarded</title>
+
+      <text class="seq-note" x="310" y="18" text-anchor="middle">uint8_t counter = 255; counter++;</text>
+
+      <g font-family="var(--font-mono)">
+        <rect class="frame-box block-amber" x="40" y="40" width="40" height="40" /><text class="frame-label" x="60" y="65" text-anchor="middle">1</text>
+        <rect class="frame-box block-amber" x="80" y="40" width="40" height="40" /><text class="frame-label" x="100" y="65" text-anchor="middle">1</text>
+        <rect class="frame-box block-amber" x="120" y="40" width="40" height="40" /><text class="frame-label" x="140" y="65" text-anchor="middle">1</text>
+        <rect class="frame-box block-amber" x="160" y="40" width="40" height="40" /><text class="frame-label" x="180" y="65" text-anchor="middle">1</text>
+        <rect class="frame-box block-amber" x="200" y="40" width="40" height="40" /><text class="frame-label" x="220" y="65" text-anchor="middle">1</text>
+        <rect class="frame-box block-amber" x="240" y="40" width="40" height="40" /><text class="frame-label" x="260" y="65" text-anchor="middle">1</text>
+        <rect class="frame-box block-amber" x="280" y="40" width="40" height="40" /><text class="frame-label" x="300" y="65" text-anchor="middle">1</text>
+        <rect class="frame-box block-amber" x="320" y="40" width="40" height="40" /><text class="frame-label" x="340" y="65" text-anchor="middle">1</text>
+      </g>
+      <text class="frame-caption" x="450" y="65" text-anchor="middle">0xFF = 255</text>
+
+      <line x1="190" y1="90" x2="190" y2="118" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="190,124 183,110 197,110" />
+      <text class="seq-sub" x="270" y="112" text-anchor="middle">+1 — carry bit discarded</text>
+
+      <g font-family="var(--font-mono)">
+        <rect class="frame-box block-blue" x="40" y="140" width="40" height="40" /><text class="frame-label" x="60" y="165" text-anchor="middle">0</text>
+        <rect class="frame-box block-blue" x="80" y="140" width="40" height="40" /><text class="frame-label" x="100" y="165" text-anchor="middle">0</text>
+        <rect class="frame-box block-blue" x="120" y="140" width="40" height="40" /><text class="frame-label" x="140" y="165" text-anchor="middle">0</text>
+        <rect class="frame-box block-blue" x="160" y="140" width="40" height="40" /><text class="frame-label" x="180" y="165" text-anchor="middle">0</text>
+        <rect class="frame-box block-blue" x="200" y="140" width="40" height="40" /><text class="frame-label" x="220" y="165" text-anchor="middle">0</text>
+        <rect class="frame-box block-blue" x="240" y="140" width="40" height="40" /><text class="frame-label" x="260" y="165" text-anchor="middle">0</text>
+        <rect class="frame-box block-blue" x="280" y="140" width="40" height="40" /><text class="frame-label" x="300" y="165" text-anchor="middle">0</text>
+        <rect class="frame-box block-blue" x="320" y="140" width="40" height="40" /><text class="frame-label" x="340" y="165" text-anchor="middle">0</text>
+      </g>
+      <text class="frame-caption" x="450" y="165" text-anchor="middle">0x00 = 0 (wrapped)</text>
+
+      <text class="seq-note" x="310" y="205" text-anchor="middle">Defined behavior, not a bug — this is exactly what the C standard guarantees for unsigned overflow.</text>
+    </svg>
+    <figcaption class="diagram__caption">Signed overflow has no such guarantee — incrementing an <code>int8_t</code> past 127 is undefined behavior, and an optimizer is legally allowed to assume it never happens.</figcaption>
+  </figure>
+  <p>
+    The bug this actually causes in the field almost never looks like the
+    diagram above — it looks like an unsigned <em>subtraction</em> going
+    the wrong direction:
+  </p>
+  <pre><code>uint32_t deadline = start_time + TIMEOUT_MS;
+uint32_t remaining = deadline - now();
+
+// if now() has already passed deadline, "remaining" doesn't go negative —
+// there's no negative in unsigned arithmetic. It wraps to a number near
+// UINT32_MAX, and code checking "if (remaining &gt; 0) keep_waiting();"
+// concludes there's still billions of milliseconds left to wait.</code></pre>
+
+  <h2 id="promotion">Integer promotion and the comparison trap</h2>
+  <p>
+    Small types are promoted to <code>int</code> before most operations —
+    a <code>uint8_t</code> in an expression is temporarily treated as an
+    <code>int</code>, which is usually invisible but occasionally matters.
+    Far more dangerous: comparing a <code>signed</code> value to an
+    <code>unsigned</code> one silently converts the signed value to
+    unsigned first.
+  </p>
+  <pre><code>int x = -1;
+unsigned int y = 0;
+if (x &gt; y) {
+    // this branch RUNS — x is converted to UINT_MAX before comparing,
+    // and UINT_MAX really is greater than 0
+}</code></pre>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Register-width matching —</strong> writing an 8-bit peripheral register with a <code>uint8_t</code> instead of <code>int</code> prevents a value silently truncated by the hardware from ever looking correct in the C code that wrote it.</li>
+    <li><strong>Protocol field widths —</strong> a <a href="/protocols/i2c/index.html">I2C</a>/<a href="/protocols/spi/index.html">SPI</a> frame field with a fixed bit width maps directly onto a <code>stdint.h</code> type — the type declares the wire format instead of leaving it implicit.</li>
+    <li><strong>Buffer index sizing —</strong> sizing a loop counter or array index to match the actual buffer size (rather than defaulting to <code>int</code>) avoids the classic off-by-one/overflow class of bug in a fixed-size ring buffer (see <a href="/embedded-c/stacks-queues/index.html">Stacks, Queues &amp; Ring Buffers</a>).</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Never silence a signed/unsigned comparison compiler warning — it's flagging exactly the conversion trap shown above, not being pedantic.</li>
+      <li>Unsigned subtraction that can logically go negative (a "time remaining" or "bytes left" calculation) needs an explicit check for the wraparound case before subtracting, not after.</li>
+      <li>Assuming <code>int</code> is a specific width across different toolchains/architectures is non-portable — always use explicit <code>stdint.h</code> widths for anything that crosses a struct boundary, a register, or a wire protocol.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/embedded-c/storage-classes/index.html", "title": "Storage Classes & Scope" },
+  "next": { "href": "/embedded-c/compilation/index.html", "title": "Compilation & Linking" },
+  "related": [
+    { "href": "/embedded-c/registers/index.html", "title": "Registers & volatile" },
+    { "href": "/protocols/can/index.html", "title": "CAN" },
+    { "href": "/embedded-c/stacks-queues/index.html", "title": "Stacks, Queues & Ring Buffers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

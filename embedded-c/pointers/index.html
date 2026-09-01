@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pointers — Embedded C — Embedded Pandora</title>
+<meta name="description" content="Pointer arithmetic, array decay, function pointers, void pointers, and the pointer bugs that actually show up in embedded firmware — with real code and a memory-address diagram." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Embedded C</p>
+  <h1>Pointers</h1>
+  <p class="lede">
+    A pointer is just a variable holding a memory address — but that one
+    idea underpins register access, interrupt vector tables, driver
+    callback APIs, and most of the bug classes that make C notorious.
+    Embedded code leans on pointers harder than most application code
+    ever does, because talking to hardware <em>is</em> reading and
+    writing specific memory addresses.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A variable whose value is a memory address, typed so the compiler knows how to interpret what's stored there.</dd>
+      <dt>Mental model</dt><dd>A pointer is a sticky note with an address on it, not the thing at that address — losing track of whether you're holding the note or the thing itself is where most pointer bugs come from.</dd>
+      <dt>Key numbers</dt><dd><code>p + 1</code> advances by <code>sizeof(*p)</code> bytes, not one byte — unless <code>p</code> is a <code>char*</code>.</dd>
+      <dt>Reach for it when</dt><dd>Passing large data efficiently, accessing hardware registers, or building a callback-based driver API — not as a default way to pass every argument.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#basics">Address-of and dereference</a></li>
+      <li><a href="#arithmetic">Pointer arithmetic</a></li>
+      <li><a href="#decay">Array decay and the sizeof trap</a></li>
+      <li><a href="#function-pointers">Function pointers</a></li>
+      <li><a href="#double-pointers">Pointers to pointers</a></li>
+      <li><a href="#void-pointers">void pointers</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="basics">Address-of and dereference</h2>
+  <pre><code>int x = 42;
+int *p = &amp;x;   // p now holds x's address
+*p = 7;        // writes through p — x is now 7, not p itself</code></pre>
+  <figure class="diagram">
+    <svg viewBox="0 0 600 200" role="img" aria-labelledby="pointer-mem-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="pointer-mem-title">Variable x lives at address 0x1000 holding the value 42; pointer p lives at a different address, 0x2004, and its own value is 0x1000 — the address of x</title>
+
+      <text class="frame-caption" x="130" y="55" text-anchor="middle" font-size="9">address: 0x1000</text>
+      <rect class="frame-box block-blue" x="60" y="65" width="140" height="60" rx="6" />
+      <text class="frame-label" x="130" y="92" text-anchor="middle" font-weight="700" font-size="10">x</text>
+      <text class="frame-caption" x="130" y="110" text-anchor="middle" font-size="9">value: 42</text>
+
+      <text class="frame-caption" x="470" y="55" text-anchor="middle" font-size="9">address: 0x2004</text>
+      <rect class="frame-box block-teal" x="390" y="65" width="160" height="60" rx="6" />
+      <text class="frame-label" x="470" y="92" text-anchor="middle" font-weight="700" font-size="10">p</text>
+      <text class="frame-caption" x="470" y="110" text-anchor="middle" font-size="9">value: 0x1000</text>
+
+      <line x1="390" y1="95" x2="206" y2="95" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="200,95 210,90 210,100" />
+      <text class="seq-sub" x="295" y="80" text-anchor="middle">p points to x</text>
+
+      <text class="seq-note" x="300" y="170" text-anchor="middle">p's own value is just a number — an address — stored at p's own, separate location in memory.</text>
+    </svg>
+    <figcaption class="diagram__caption">A pointer variable has two addresses worth tracking: where <em>it</em> lives, and the address <em>it holds</em> — confusing the two is the root of most pointer confusion for beginners.</figcaption>
+  </figure>
+
+  <h2 id="arithmetic">Pointer arithmetic</h2>
+  <p>
+    Adding 1 to a pointer advances it by <code>sizeof</code> the pointed-to
+    type, not by one byte — <code>int *p; p + 1;</code> moves 4 bytes
+    forward on a platform where <code>int</code> is 4 bytes, because
+    that's the address of the <em>next int</em>, which is what pointer
+    arithmetic is actually for.
+  </p>
+  <pre><code>int arr[5] = {10, 20, 30, 40, 50};
+int *p = arr;
+printf("%d\n", *(p + 2));   // 30 — the third element, arr[2]</code></pre>
+
+  <h2 id="decay">Array decay and the sizeof trap</h2>
+  <p>
+    An array passed to a function <strong>decays</strong> to a pointer to
+    its first element — the function receiving it never actually sees the
+    array's full size, only a pointer. This produces one of the most
+    common beginner bugs in all of embedded C:
+  </p>
+  <pre><code>void print_size(int arr[]) {
+    printf("%zu\n", sizeof(arr));   // prints 4 or 8 — the pointer's
+                                     // size, NOT the array's size!
+}
+
+int main(void) {
+    int numbers[10];
+    printf("%zu\n", sizeof(numbers)); // prints 40 (10 * sizeof(int)) — correct, full array
+    print_size(numbers);               // decayed to a pointer at the call boundary
+}</code></pre>
+  <p>
+    This is exactly why a function that needs to know an array's length
+    has to be told explicitly, as a separate parameter — <code>sizeof</code>
+    cannot recover information that's already been lost by decay.
+  </p>
+
+  <h2 id="function-pointers">Function pointers</h2>
+  <p>
+    A pointer can hold the address of a function, not just data —
+    declared with the return type and parameter list built into the
+    pointer's own type: <code>void (*callback)(int);</code>. This is the
+    mechanism underneath driver callback APIs (a UART driver's
+    "on_receive" hook) and, more fundamentally, an MCU's own
+    <strong>interrupt vector table</strong> — literally an array of
+    function pointers stored at a fixed address that the CPU jumps through
+    the moment an interrupt fires.
+  </p>
+  <pre><code>typedef void (*uart_callback_t)(uint8_t byte);
+
+void register_rx_callback(uart_callback_t cb) {
+    rx_callback = cb;          // stash the function pointer
+}
+
+void UART_RX_Handler(void) {
+    if (rx_callback != NULL) {
+        rx_callback(read_data_register());   // call through the pointer
+    }
+}</code></pre>
+
+  <h2 id="double-pointers">Pointers to pointers</h2>
+  <p>
+    A pointer to a pointer (<code>int **pp</code>) is how a function
+    modifies a <em>caller's own pointer</em> — passing a plain
+    <code>int *</code> by value only lets the callee change what it points
+    <em>to</em>, not make the caller's pointer variable itself point
+    somewhere else.
+  </p>
+  <pre><code>void allocate_buffer(uint8_t **out_ptr, size_t size) {
+    *out_ptr = malloc(size);   // sets the CALLER's pointer variable
+}
+
+uint8_t *buf = NULL;
+allocate_buffer(&amp;buf, 64);   // buf now actually points at the new memory</code></pre>
+
+  <h2 id="void-pointers">void pointers</h2>
+  <p>
+    <code>void*</code> is a generic pointer with no known pointed-to
+    type — it can hold the address of anything, but can't be dereferenced
+    directly without first casting it to a concrete type. It's what
+    <code>malloc</code> returns (a block of memory with no inherent type
+    until the caller decides), and what callback APIs commonly use for a
+    generic "context" or "user data" parameter passed through untouched.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Hardware register access —</strong> a pointer to a fixed address, qualified <code>volatile</code>, is how C reads and writes memory-mapped peripherals — the full mechanism is covered in <a href="/embedded-c/registers/index.html">Registers &amp; volatile</a>.</li>
+    <li><strong>Driver "operations" structs —</strong> a struct of function pointers acting as a simple interface/vtable is the same pattern Linux device drivers use — see <a href="/linux/drivers/index.html">Linux drivers</a>.</li>
+    <li><strong>DMA buffer handoff —</strong> handing a peripheral a pointer to a buffer it will write into directly, with no CPU involvement per byte, is a pointer being passed to hardware itself, not just to other code.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Dereferencing an uninitialized ("wild") pointer is undefined behavior that can "work" by accident during testing and fail unpredictably once deployed.</li>
+      <li>Returning the address of a local variable hands back a pointer into stack memory that's about to be reused — see <a href="/embedded-c/storage-classes/index.html#gotchas">Storage Classes</a>.</li>
+      <li>Off-by-one pointer arithmetic that walks one element past the end of an array is a buffer overrun even though the arithmetic itself "looks" correct.</li>
+      <li>Comparing pointers into two unrelated arrays is undefined behavior in strict C, even when the comparison superficially compiles and appears to work.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/embedded-c/dynamic-memory/index.html", "title": "Dynamic Memory" },
+  "next": { "href": "/embedded-c/registers/index.html", "title": "Registers & volatile" },
+  "related": [
+    { "href": "/embedded-c/registers/index.html", "title": "Registers & volatile" },
+    { "href": "/embedded-c/arrays-strings/index.html", "title": "Arrays & Strings" },
+    { "href": "/linux/drivers/index.html", "title": "Linux drivers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

@@ -36,6 +36,9 @@ the content or picking a vaguer shared folder.
 │   └── <topic>/
 ├── embedded/                  the microcontroller itself: pins, cores, timing
 │   └── <topic>/
+├── embedded-c/                  the C language on bare metal: storage classes,
+│                                integer behavior, memory, pointers, data structures
+│   └── <topic>/
 ├── sensors/                    the sensing element and the physics behind it
 │   └── <topic>/
 ├── protocols/                 wire-level buses: SPI, I2C, UART, CAN, ...
@@ -69,6 +72,13 @@ Each topic is a subfolder of exactly one domain, with its own `index.html`.
   before a datasheet.
 - **Embedded** — the microcontroller/SoC itself, in isolation: cores, pins,
   interrupts, timers, memory, debugging. Not the protocols it speaks.
+- **Embedded C** — the C language as it actually behaves on bare metal:
+  storage classes, integer representation/overflow, the compile/link
+  pipeline, dynamic memory, pointers, register access, and data
+  structures implemented from scratch. Kept separate from Embedded
+  (the hardware) because this is language/software-engineering
+  discipline that applies to any target, not a specific chip's
+  peripherals.
 - **Sensors** — the sensing element itself and the physics or math behind
   what it measures (GNSS trilateration, MEMS accelerometers, thermocouples).
   Not the wire it's read over — that's Protocols — and not the

@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Storage Classes & Scope — Embedded C — Embedded Pandora</title>
+<meta name="description" content="global, static, local (auto), extern, and register in depth — scope, lifetime, and linkage, where each one actually lives in memory, and the bugs that come from getting it wrong." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Embedded C</p>
+  <h1>Storage Classes &amp; Scope</h1>
+  <p class="lede">
+    Every variable in C has three properties that don't show up anywhere
+    in its declared type: <strong>scope</strong> (where in the source it
+    can be named), <strong>lifetime</strong> (how long its storage
+    actually exists), and <strong>linkage</strong> (whether other files
+    can see it). The storage-class keywords — <code>static</code>,
+    <code>extern</code>, <code>register</code>, and the usually-omitted
+    <code>auto</code> — are how you control all three, and on a
+    memory-starved microcontroller with no OS to isolate a mistake, which
+    one you picked is often the difference between a working driver and a
+    corrupted stack.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The keywords and defaults that decide a variable's scope, lifetime, and cross-file visibility.</dd>
+      <dt>Mental model</dt><dd>Scope is who can call it by name; lifetime is how long its memory actually exists; linkage is whether other files are allowed to know about it at all.</dd>
+      <dt>Key numbers</dt><dd>4 storage-class keywords total (<code>auto</code>, <code>static</code>, <code>extern</code>, <code>register</code>) — <code>auto</code> is the default for locals and is almost never typed out.</dd>
+      <dt>Reach for it when</dt><dd>Deciding whether a variable should be a local, a file-scoped static, or a genuinely global — not an afterthought, a design decision made before writing the driver.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#local">Local (automatic) variables</a></li>
+      <li><a href="#global">Global variables</a></li>
+      <li><a href="#static-local">static inside a function</a></li>
+      <li><a href="#static-file">static at file scope</a></li>
+      <li><a href="#extern">extern</a></li>
+      <li><a href="#register">register</a></li>
+      <li><a href="#memory-map">Where each one actually lives</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="local">Local (automatic) variables</h2>
+  <p>
+    A variable declared inside a function with no storage-class keyword is
+    <code>auto</code> by default — nobody writes <code>auto int x;</code>
+    in practice, but that's what's happening. Scope is the enclosing
+    block; lifetime is exactly the function call — the storage is carved
+    out of the stack when the function is entered and is gone the instant
+    it returns.
+  </p>
+  <pre><code>void read_sensor(void) {
+    int raw = adc_read();       // lives on the stack — gone when this returns
+    int scaled = raw * 3 / 2;
+    send_over_uart(scaled);
+}   // raw and scaled cease to exist here</code></pre>
+
+  <h2 id="global">Global variables</h2>
+  <p>
+    A variable declared outside any function has <strong>static storage
+    duration</strong> — it exists for the entire life of the program, not
+    just one function call — and, by default, <strong>external
+    linkage</strong>, meaning another source file can see it too, by
+    declaring it <code>extern</code>. Global state is the fastest way to
+    let two completely unrelated pieces of code interact by accident,
+    which gets sharply worse the moment one of the writers is an
+    interrupt handler — the exact shared-state hazard covered in
+    <a href="/embedded/interrupts/index.html">Interrupts</a>.
+  </p>
+  <pre><code>volatile uint32_t system_tick_ms = 0;   // written by an ISR, read everywhere
+
+void SysTick_Handler(void) {
+    system_tick_ms++;                    // fires every 1ms, forever
+}</code></pre>
+
+  <h2 id="static-local">static inside a function</h2>
+  <p>
+    A local variable declared <code>static</code> is a genuine hybrid:
+    block <em>scope</em> (only nameable inside that function, same as a
+    normal local) but static <em>lifetime</em> (its storage exists for the
+    whole program, and its value persists between calls instead of being
+    reinitialized). It's the standard way to give one function its own
+    private, persistent state without polluting file or global scope.
+  </p>
+  <pre><code>int next_request_id(void) {
+    static int counter = 0;   // initialized once, ever — not on every call
+    return ++counter;
+}</code></pre>
+
+  <h2 id="static-file">static at file scope</h2>
+  <p>
+    The same keyword means something different outside a function:
+    <code>static</code> on a file-scope variable or function restricts its
+    linkage to <strong>internal</strong> — only this translation unit
+    (this <code>.c</code> file, after preprocessing) can see it, even
+    though C provides no <code>private</code> keyword. In a real firmware
+    project with dozens of driver files, marking file-local helpers
+    <code>static</code> is what prevents a linker error the moment two
+    unrelated files both happen to define a function called
+    <code>init()</code>.
+  </p>
+  <pre><code>// uart_driver.c
+static uint8_t rx_buffer[64];     // invisible outside this file
+static void flush_rx(void) { ... } // ditto
+
+void uart_init(void) { flush_rx(); }  // the file's actual public API</code></pre>
+
+  <h2 id="extern">extern</h2>
+  <p>
+    <code>extern</code> <em>declares</em> a variable or function without
+    <em>defining</em> it — it tells the compiler "this exists somewhere,
+    the linker will find it," so other files can reference a global
+    without each one allocating its own copy. The definition (the one
+    place storage is actually reserved) lives in exactly one
+    <code>.c</code> file.
+  </p>
+  <pre><code>// error_codes.h
+extern const char *error_table[16];   // declaration — no storage here
+
+// error_codes.c
+const char *error_table[16] = { "OK", "TIMEOUT", "CRC_FAIL", ... }; // definition</code></pre>
+
+  <h2 id="register">register</h2>
+  <p>
+    <code>register</code> is a hint asking the compiler to keep a
+    frequently-used local variable in an actual CPU register instead of
+    memory, for speed — a hint modern optimizing compilers almost always
+    ignore in favor of their own register-allocation decisions, which are
+    generally better than a programmer's guess. Its one remaining
+    practical effect: the address-of operator is disallowed on a
+    <code>register</code> variable (<code>&amp;x</code> won't compile),
+    since there may be no memory address to take. Mostly a historical
+    relic, occasionally still seen in older embedded codebases predating
+    good optimizers.
+  </p>
+
+  <h2 id="memory-map">Where each one actually lives</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 460 500" role="img" aria-labelledby="memmap-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="memmap-title">A program's address space from low to high: compiled code and constants, initialized globals, uninitialized globals, the heap growing upward, free space, and the stack growing downward from the top</title>
+
+      <text class="seq-note" x="230" y="16" text-anchor="middle">High address</text>
+
+      <rect class="frame-box block-violet" x="100" y="24" width="260" height="70" rx="6" />
+      <text class="frame-label" x="230" y="52" text-anchor="middle" font-weight="700" font-size="11">Stack</text>
+      <text class="frame-caption" x="230" y="70" text-anchor="middle" font-size="8">local/auto variables, call frames</text>
+      <line x1="230" y1="98" x2="230" y2="116" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="230,122 224,110 236,110" />
+      <text class="seq-sub" x="270" y="112" text-anchor="start" font-size="7">grows down</text>
+
+      <rect x="100" y="128" width="260" height="55" rx="6" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" stroke-dasharray="5 4" />
+      <text class="frame-caption" x="230" y="159" text-anchor="middle" font-size="8">unused (free space)</text>
+
+      <line x1="230" y1="188" x2="230" y2="206" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="230,182 224,194 236,194" />
+      <rect class="frame-box block-green" x="100" y="208" width="260" height="65" rx="6" />
+      <text class="frame-label" x="230" y="234" text-anchor="middle" font-weight="700" font-size="11">Heap</text>
+      <text class="frame-caption" x="230" y="252" text-anchor="middle" font-size="8">malloc / calloc / realloc</text>
+
+      <rect class="frame-box block-blue" x="100" y="288" width="260" height="60" rx="6" />
+      <text class="frame-label" x="230" y="313" text-anchor="middle" font-weight="700" font-size="11">.bss</text>
+      <text class="frame-caption" x="230" y="332" text-anchor="middle" font-size="8">uninitialized globals &amp; statics (zeroed at startup)</text>
+
+      <rect class="frame-box block-teal" x="100" y="358" width="260" height="60" rx="6" />
+      <text class="frame-label" x="230" y="383" text-anchor="middle" font-weight="700" font-size="11">.data</text>
+      <text class="frame-caption" x="230" y="402" text-anchor="middle" font-size="8">initialized globals &amp; statics</text>
+
+      <rect class="frame-box block-amber" x="100" y="428" width="260" height="60" rx="6" />
+      <text class="frame-label" x="230" y="453" text-anchor="middle" font-weight="700" font-size="10">.text / .rodata</text>
+      <text class="frame-caption" x="230" y="472" text-anchor="middle" font-size="8">compiled code + string/const literals</text>
+
+      <text class="seq-note" x="230" y="497" text-anchor="middle">Low address</text>
+    </svg>
+    <figcaption class="diagram__caption">Heap and stack deliberately grow toward each other from opposite ends of the free space between them — on a tiny microcontroller with only a few KB total, they can actually collide, which is exactly the kind of failure a memory pool (see <a href="/embedded-c/dynamic-memory/index.html">Dynamic Memory</a>) is chosen to avoid.</figcaption>
+  </figure>
+  <p>
+    Reading the diagram against the keywords above: a plain local variable
+    lives on the <strong>Stack</strong>. An uninitialized global or
+    <code>static</code> (<code>static int count;</code>) lives in
+    <strong>.bss</strong> — the compiler doesn't even store its zero value
+    in the binary, it just records "zero this many bytes at startup."
+    An <em>initialized</em> global or static (<code>static int
+    count = 5;</code>) lives in <strong>.data</strong>, and its initial
+    value <em>is</em> stored in the binary, copied into RAM by startup
+    code before <code>main()</code> runs (see
+    <a href="/embedded-c/compilation/index.html#startup-code">Compilation
+    &amp; Linking</a>). A <code>const</code> global typically lands in
+    <strong>.rodata</strong>, often placed in flash directly rather than
+    copied to RAM at all, since it's read-only.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Driver singleton state —</strong> a <code>static</code> local inside a driver's "get instance" function is the standard C way to implement a single, lazily-initialized instance without a global.</li>
+    <li><strong>ISR-to-main-loop handoff —</strong> a <code>volatile</code> global tick counter or flag, incremented in an interrupt and polled in the main loop, is the single most common piece of shared global state in bare-metal firmware.</li>
+    <li><strong>Cross-module error tables —</strong> a shared <code>extern</code> array of error strings or status codes referenced from every driver file without duplicating the definition.</li>
+    <li><strong>File-local helpers —</strong> marking every function not part of a driver's public API <code>static</code> is standard practice in any codebase with more than a couple of source files.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Returning the address of a local variable (<code>return &amp;local_var;</code>) hands the caller a pointer into stack memory that's about to be reused by the very next function call — a classic dangling-pointer bug that often "works" in a quick test and fails unpredictably later.</li>
+      <li>Forgetting <code>static</code> on a file-scope helper function is invisible until a second file happens to define a function with the same name, at which point the linker reports a duplicate symbol across two files that otherwise have nothing to do with each other.</li>
+      <li>A global written by an ISR and read in the main loop without <code>volatile</code> can be silently cached by the compiler — see <a href="/embedded-c/registers/index.html">Registers &amp; volatile</a> for exactly why.</li>
+      <li><code>extern</code> declared but never actually defined anywhere links fine right up until that specific symbol is referenced, then fails with an "undefined reference" — a mismatch that's easy to introduce when a header outlives the .c file that used to define it.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "next": { "href": "/embedded-c/data-types/index.html", "title": "Data Types & Integer Overflow" },
+  "related": [
+    { "href": "/embedded-c/compilation/index.html", "title": "Compilation & Linking" },
+    { "href": "/embedded-c/registers/index.html", "title": "Registers & volatile" },
+    { "href": "/embedded/interrupts/index.html", "title": "Interrupts" },
+    { "href": "/embedded-c/dynamic-memory/index.html", "title": "Dynamic Memory" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

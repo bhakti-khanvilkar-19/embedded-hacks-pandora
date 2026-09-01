@@ -293,6 +293,115 @@
     ]
   },
   {
+    "title": "Arrays & Strings — Embedded C",
+    "url": "/embedded-c/arrays-strings/index.html",
+    "domain": "Embedded C",
+    "category": "Arrays Strings",
+    "description": "Array memory layout, multi-dimensional arrays, why a C string is just a char array with a NUL terminator, and the buffer-overflow risk that comes from it.",
+    "tags": [
+      "embedded-c",
+      "arrays-strings"
+    ]
+  },
+  {
+    "title": "Compilation & Linking — Embedded C",
+    "url": "/embedded-c/compilation/index.html",
+    "domain": "Embedded C",
+    "category": "Compilation",
+    "description": "Preprocessor, compiler, assembler, linker — the full pipeline from C source to firmware, plus linker scripts, startup code, and reading a .map file.",
+    "tags": [
+      "embedded-c",
+      "compilation"
+    ]
+  },
+  {
+    "title": "Data Types & Integer Overflow — Embedded C",
+    "url": "/embedded-c/data-types/index.html",
+    "domain": "Embedded C",
+    "category": "Data Types",
+    "description": "int vs. unsigned int, stdint.h fixed-width types, why embedded C reaches for uint, two's complement, and exactly what rollover/overflow does with a real embedded bug example.",
+    "tags": [
+      "embedded-c",
+      "data-types"
+    ]
+  },
+  {
+    "title": "Dynamic Memory: malloc, calloc, realloc, free — Embedded C",
+    "url": "/embedded-c/dynamic-memory/index.html",
+    "domain": "Embedded C",
+    "category": "Dynamic Memory",
+    "description": "malloc/calloc/realloc/free in depth, heap fragmentation, the four classic dynamic-memory bugs, and why embedded/safety-critical code restricts or bans dynamic allocation entirely.",
+    "tags": [
+      "embedded-c",
+      "dynamic-memory"
+    ]
+  },
+  {
+    "title": "Embedded C",
+    "url": "/embedded-c/index.html",
+    "domain": "Embedded C",
+    "category": "Overview",
+    "description": "The C language as embedded engineers actually have to reason about it — storage classes, integer behavior, compilation and linking, memory management, pointers, registers, and data structures built from scratch.",
+    "tags": [
+      "embedded-c"
+    ]
+  },
+  {
+    "title": "Linked Lists — Embedded C",
+    "url": "/embedded-c/linked-lists/index.html",
+    "domain": "Embedded C",
+    "category": "Linked Lists",
+    "description": "Singly, doubly, and circular linked lists implemented from scratch in C — the self-referential struct pattern, trade-offs against arrays, and where linked lists actually show up in firmware.",
+    "tags": [
+      "embedded-c",
+      "linked-lists"
+    ]
+  },
+  {
+    "title": "Pointers — Embedded C",
+    "url": "/embedded-c/pointers/index.html",
+    "domain": "Embedded C",
+    "category": "Pointers",
+    "description": "Pointer arithmetic, array decay, function pointers, void pointers, and the pointer bugs that actually show up in embedded firmware — with real code and a memory-address diagram.",
+    "tags": [
+      "embedded-c",
+      "pointers"
+    ]
+  },
+  {
+    "title": "Registers & volatile — Embedded C",
+    "url": "/embedded-c/registers/index.html",
+    "domain": "Embedded C",
+    "category": "Registers",
+    "description": "What a hardware register actually is, why volatile exists, register access patterns, and bit-set/clear/toggle/check manipulation with real code.",
+    "tags": [
+      "embedded-c",
+      "registers"
+    ]
+  },
+  {
+    "title": "Stacks, Queues & Ring Buffers — Embedded C",
+    "url": "/embedded-c/stacks-queues/index.html",
+    "domain": "Embedded C",
+    "category": "Stacks Queues",
+    "description": "LIFO stacks, naive FIFO queues and why they're O(n), and the ring (circular) buffer — the single most important data structure for handing data between an ISR and the main loop.",
+    "tags": [
+      "embedded-c",
+      "stacks-queues"
+    ]
+  },
+  {
+    "title": "Storage Classes & Scope — Embedded C",
+    "url": "/embedded-c/storage-classes/index.html",
+    "domain": "Embedded C",
+    "category": "Storage Classes",
+    "description": "global, static, local (auto), extern, and register in depth — scope, lifetime, and linkage, where each one actually lives in memory, and the bugs that come from getting it wrong.",
+    "tags": [
+      "embedded-c",
+      "storage-classes"
+    ]
+  },
+  {
     "title": "GPIO — Embedded",
     "url": "/embedded/gpio/index.html",
     "domain": "Embedded",

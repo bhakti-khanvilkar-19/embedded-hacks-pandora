@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Registers & volatile — Embedded C — Embedded Pandora</title>
+<meta name="description" content="What a hardware register actually is, why volatile exists, register access patterns, and bit-set/clear/toggle/check manipulation with real code." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Embedded C</p>
+  <h1>Registers &amp; volatile</h1>
+  <p class="lede">
+    A hardware register looks like an ordinary variable in C — an address
+    you read and write — but it isn't one, and the compiler needs to be
+    told so explicitly. This page covers what a register actually is,
+    exactly why <code>volatile</code> exists, and the bit-level
+    manipulation that's the real, daily mechanics underneath every
+    protocol page elsewhere in this notebook.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A fixed memory address that controls or reports hardware state, accessed exactly like RAM but behaving nothing like it.</dd>
+      <dt>Mental model</dt><dd>A normal variable is a note only your code writes on. A register is a note the hardware itself can also change, at any moment, with no announcement — <code>volatile</code> is what tells the compiler not to assume it knows the note's contents.</dd>
+      <dt>Key numbers</dt><dd>A single register commonly packs 8, 16, or 32 independent bit-fields — reading/writing "the register" as one number without masking is how you clobber a neighbor's setting.</dd>
+      <dt>Reach for it when</dt><dd>Any variable touched by hardware or an interrupt handler — never optional, never a performance-only concern.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#what-is-register">What a register actually is</a></li>
+      <li><a href="#why-volatile">Why volatile exists</a></li>
+      <li><a href="#access-patterns">Register access patterns</a></li>
+      <li><a href="#bit-manipulation">Bit manipulation</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="what-is-register">What a register actually is</h2>
+  <p>
+    A peripheral register is a specific memory address, documented in the
+    chip's reference manual, where reading or writing doesn't just store
+    a value — it controls or reports the state of actual hardware (a
+    GPIO pin's level, a timer's current count, whether a UART has a byte
+    ready). This is <strong>memory-mapped I/O</strong>: the CPU accesses
+    hardware using the exact same load/store instructions it uses for
+    ordinary RAM, at an address that happens to be wired to a peripheral
+    instead of a memory chip.
+  </p>
+
+  <h2 id="why-volatile">Why volatile exists</h2>
+  <p>
+    Without <code>volatile</code>, the compiler is allowed to assume a
+    variable's value only ever changes through code it can see — a
+    completely valid assumption for ordinary variables, and the basis for
+    real optimizations like caching a value in a CPU register instead of
+    re-reading memory every time. That assumption is simply wrong for a
+    hardware register or a variable an interrupt handler writes
+    asynchronously — the value can change from somewhere the compiler has
+    no visibility into at all, which is precisely the shared-state
+    situation already covered in <a href="/embedded/interrupts/index.html">Interrupts</a>.
+  </p>
+  <pre><code>/* WITHOUT volatile — a real, classic bug */
+while (STATUS_REG == 0) { }
+/* the optimizer may read STATUS_REG exactly ONCE, decide the loop
+   condition can't change (nothing in the visible code writes it), and
+   generate an infinite loop that never looks at the register again */
+
+/* WITH volatile — correct */
+volatile uint32_t *status = (volatile uint32_t *)STATUS_REG_ADDR;
+while (*status == 0) { }   // re-read from hardware on every iteration, guaranteed</code></pre>
+
+  <h2 id="access-patterns">Register access patterns</h2>
+  <p>
+    Two equivalent ways to reach a register show up constantly. Direct
+    address-cast access:
+  </p>
+  <pre><code>#define GPIO_BASE      0x40020000UL
+#define GPIO_ODR_OFFSET 0x14UL
+
+*(volatile uint32_t *)(GPIO_BASE + GPIO_ODR_OFFSET) = 0x1;</code></pre>
+  <p>
+    And the struct-overlay pattern most vendor SDKs actually generate —
+    a struct whose member layout exactly matches the peripheral's
+    register map, then one pointer cast to the peripheral's base address
+    gives named access to every register in it:
+  </p>
+  <pre><code>typedef struct {
+    volatile uint32_t MODER;   // offset 0x00
+    volatile uint32_t OTYPER;  // offset 0x04
+    volatile uint32_t ODR;     // offset 0x14
+} GPIO_TypeDef;
+
+#define GPIOA  ((GPIO_TypeDef *)0x40020000UL)
+
+GPIOA-&gt;ODR = 0x1;   // same effect as the direct-cast version, more readable</code></pre>
+
+  <h2 id="bit-manipulation">Bit manipulation</h2>
+  <p>
+    A register is rarely one logical value — it's a packed set of
+    independent bit-fields, and writing the whole register wholesale would
+    clobber every unrelated bit sharing it. Read-modify-write with bitwise
+    operators touches only the bit(s) intended:
+  </p>
+  <pre><code>#define BIT(n) (1UL &lt;&lt; (n))
+
+reg |=  BIT(3);   // set bit 3, leave every other bit untouched
+reg &amp;= ~BIT(3);   // clear bit 3
+reg ^=  BIT(3);   // toggle bit 3
+if (reg &amp; BIT(3)) { /* bit 3 is set */ }</code></pre>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 160" role="img" aria-labelledby="register-bits-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="register-bits-title">An 8-bit UART status/control register, each bit position carrying a completely independent meaning — reserved bits, an overrun flag, a parity-error flag, and enable bits</title>
+
+      <text class="frame-caption" x="70" y="25" text-anchor="middle" font-size="9">7</text>
+      <text class="frame-caption" x="140" y="25" text-anchor="middle" font-size="9">6</text>
+      <text class="frame-caption" x="210" y="25" text-anchor="middle" font-size="9">5</text>
+      <text class="frame-caption" x="280" y="25" text-anchor="middle" font-size="9">4</text>
+      <text class="frame-caption" x="350" y="25" text-anchor="middle" font-size="9">3</text>
+      <text class="frame-caption" x="420" y="25" text-anchor="middle" font-size="9">2</text>
+      <text class="frame-caption" x="490" y="25" text-anchor="middle" font-size="9">1</text>
+      <text class="frame-caption" x="560" y="25" text-anchor="middle" font-size="9">0</text>
+
+      <g font-family="var(--font-mono)">
+        <rect class="frame-box" x="40" y="35" width="60" height="45" /><text class="frame-label" x="70" y="62" text-anchor="middle" font-size="8">RSV</text>
+        <rect class="frame-box" x="110" y="35" width="60" height="45" /><text class="frame-label" x="140" y="62" text-anchor="middle" font-size="8">RSV</text>
+        <rect class="frame-box block-amber" x="180" y="35" width="60" height="45" /><text class="frame-label" x="210" y="62" text-anchor="middle" font-size="8">OVR</text>
+        <rect class="frame-box block-amber" x="250" y="35" width="60" height="45" /><text class="frame-label" x="280" y="62" text-anchor="middle" font-size="8">PERR</text>
+        <rect class="frame-box block-teal" x="320" y="35" width="60" height="45" /><text class="frame-label" x="350" y="62" text-anchor="middle" font-size="7">TXE</text>
+        <rect class="frame-box block-teal" x="390" y="35" width="60" height="45" /><text class="frame-label" x="420" y="62" text-anchor="middle" font-size="7">RXR</text>
+        <rect class="frame-box block-blue" x="460" y="35" width="60" height="45" /><text class="frame-label" x="490" y="62" text-anchor="middle" font-size="7">TXEN</text>
+        <rect class="frame-box block-blue" x="530" y="35" width="60" height="45" /><text class="frame-label" x="560" y="62" text-anchor="middle" font-size="7">RXEN</text>
+      </g>
+
+      <text class="seq-note" x="350" y="105" text-anchor="middle">Writing this register as one 8-bit number instead of masking individual bits</text>
+      <text class="seq-note" x="350" y="121" text-anchor="middle">would silently disable TX/RX or clear flags nothing intended to touch.</text>
+    </svg>
+    <figcaption class="diagram__caption">Every protocol page elsewhere in this notebook is configuring registers exactly like this one, whether it's spelled out or not — a UART's baud setting, an I2C status flag, an SPI mode bit, all live in registers structured this way.</figcaption>
+  </figure>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every protocol page in this notebook —</strong> configuring a UART's baud rate register, checking an I2C status register's ACK bit (see <a href="/protocols/i2c/index.html">I2C</a>), setting an SPI mode's CPOL/CPHA bits (see <a href="/protocols/spi/index.html">SPI</a>) are all instances of exactly this pattern.</li>
+    <li><strong>GPIO configuration —</strong> setting a pin's mode (input/output/alternate function) is a multi-bit field write into a single mode register shared by every pin on that port — see <a href="/embedded/gpio/index.html">GPIO</a>.</li>
+    <li><strong>Interrupt flag clearing —</strong> most interrupt sources require explicitly clearing a status-register flag inside the handler (often by writing 1 to it, not 0 — a real per-peripheral quirk) or the interrupt re-fires immediately.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Forgetting <code>volatile</code> on any register pointer or ISR-shared variable is a "works in testing, fails intermittently in the field" bug, since its symptoms depend entirely on compiler optimization level.</li>
+      <li>A non-atomic read-modify-write (<code>reg |= BIT(3);</code>) can lose an ISR's concurrent change to the same register if the interrupt fires between the read and the write — the same shared-state hazard as any other variable touched by both contexts, needing the same discipline covered in <a href="/embedded/rtos/index.html">RTOS</a>.</li>
+      <li>Some peripherals need a few clock cycles before a written value is reflected in a subsequent read-back — a documented hardware timing quirk, not a bug in the C code reading it too soon.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/embedded-c/pointers/index.html", "title": "Pointers" },
+  "next": { "href": "/embedded-c/arrays-strings/index.html", "title": "Arrays & Strings" },
+  "related": [
+    { "href": "/embedded/gpio/index.html", "title": "GPIO" },
+    { "href": "/embedded/interrupts/index.html", "title": "Interrupts" },
+    { "href": "/protocols/i2c/index.html", "title": "I2C" },
+    { "href": "/protocols/spi/index.html", "title": "SPI" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
