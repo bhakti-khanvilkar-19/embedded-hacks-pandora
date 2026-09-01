@@ -68,6 +68,28 @@
     parity, 1 stop bit) — the configuration both ends must agree on, along
     with the baud rate.
   </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 620 100" role="img" aria-labelledby="uart-frame-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="uart-frame-title">One UART frame: idle high, a low start bit, 8 data bits sent LSB first, an optional parity bit, then one or two stop bits back at idle-high</title>
+      <rect class="frame-box" x="10" y="24" width="50" height="40" /><text class="frame-label" x="35" y="44" text-anchor="middle" font-size="8">idle</text><text class="frame-label" x="35" y="56" text-anchor="middle" font-size="8">(high)</text>
+      <rect class="frame-box block-amber" x="64" y="24" width="46" height="40" /><text class="frame-label" x="87" y="48" text-anchor="middle" font-size="9">START</text>
+      <rect class="frame-box" x="114" y="24" width="40" height="40" /><text class="frame-label" x="134" y="48" text-anchor="middle" font-size="9">D0</text>
+      <rect class="frame-box" x="154" y="24" width="40" height="40" /><text class="frame-label" x="174" y="48" text-anchor="middle" font-size="9">D1</text>
+      <rect class="frame-box" x="194" y="24" width="40" height="40" /><text class="frame-label" x="214" y="48" text-anchor="middle" font-size="9">D2</text>
+      <rect class="frame-box" x="234" y="24" width="40" height="40" /><text class="frame-label" x="254" y="48" text-anchor="middle" font-size="9">D3</text>
+      <rect class="frame-box" x="274" y="24" width="40" height="40" /><text class="frame-label" x="294" y="48" text-anchor="middle" font-size="9">D4</text>
+      <rect class="frame-box" x="314" y="24" width="40" height="40" /><text class="frame-label" x="334" y="48" text-anchor="middle" font-size="9">D5</text>
+      <rect class="frame-box" x="354" y="24" width="40" height="40" /><text class="frame-label" x="374" y="48" text-anchor="middle" font-size="9">D6</text>
+      <rect class="frame-box" x="394" y="24" width="40" height="40" /><text class="frame-label" x="414" y="48" text-anchor="middle" font-size="9">D7</text>
+      <rect class="frame-box frame-box--variable" x="434" y="24" width="56" height="40" /><text class="frame-label" x="462" y="44" text-anchor="middle" font-size="8">Parity</text><text class="frame-label" x="462" y="56" text-anchor="middle" font-size="8">(optional)</text>
+      <rect class="frame-box block-teal" x="490" y="24" width="60" height="40" /><text class="frame-label" x="520" y="44" text-anchor="middle" font-size="9">STOP</text><text class="frame-label" x="520" y="56" text-anchor="middle" font-size="8">(1–2)</text>
+
+      <text class="frame-caption" x="87" y="80" text-anchor="middle">1b, low</text>
+      <text class="frame-caption" x="254" y="80" text-anchor="middle">8 data bits, LSB (D0) first</text>
+      <text class="frame-caption" x="520" y="80" text-anchor="middle">back to idle-high</text>
+    </svg>
+    <figcaption class="diagram__caption">No shared clock means the receiver has to find this frame on its own — the falling edge of START is the only synchronization signal it ever gets, which is exactly why baud-rate agreement matters so much.</figcaption>
+  </figure>
 
   <h2 id="baud">Baud rate</h2>
   <p>

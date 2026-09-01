@@ -65,11 +65,59 @@
     Because dominant always overrides recessive when both happen at once,
     the bus behaves like a wired-AND: the resulting bus level is dominant
     if <em>any</em> node drives dominant, recessive only if <em>every</em>
-    node is recessive. <strong>120 Ω termination resistors</strong> belong
-    at the two physical ends of the bus (not at every node) — the classic
-    wiring mistake is terminating every node, which wrecks the bus
-    impedance just as thoroughly as terminating nowhere at all.
+    node is recessive.
   </p>
+
+  <h3>Why 120 Ω, and why only at the two ends</h3>
+  <p>
+    The CAN_H/CAN_L twisted pair isn't just a wire at these signal speeds —
+    it behaves as a <strong>transmission line</strong> with its own
+    characteristic impedance, around 120 Ω for the cable CAN's spec calls
+    for. A signal traveling down that line reflects part of its energy
+    back whenever it hits anything that isn't that same impedance — an
+    open, unterminated end, in particular. Those reflections superimpose
+    on the real signal and, with CAN's fast edges, can corrupt bits. A
+    resistor matched to the line's own impedance placed at a true end
+    absorbs the traveling wave instead of bouncing it back — that's
+    ordinary matched-termination theory, not a CAN-specific rule.
+  </p>
+  <p>
+    A node in the <em>middle</em> of the bus is a short stub tapping off
+    the line, not an end — putting a 120 Ω resistor there does nothing to
+    stop reflections at the real ends, and instead adds another 120 Ω in
+    parallel with everything else. Five "terminated" nodes in parallel
+    works out to roughly 24 Ω of total load, far below what a CAN
+    transceiver is designed to drive, and it flattens the differential
+    voltage swing enough that dominant and recessive may stop reading
+    reliably at all.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 760 210" role="img" aria-labelledby="can-term-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="can-term-title">120-ohm termination resistors sit only at the two physical ends of the CAN bus; nodes tapping off the middle of the bus are stubs, not ends, and carry no termination of their own</title>
+
+      <rect class="frame-box block-amber" x="15" y="85" width="50" height="30" rx="4" />
+      <text class="frame-label" x="40" y="105" text-anchor="middle" font-weight="700" font-size="9">120Ω</text>
+
+      <line x1="65" y1="100" x2="695" y2="100" class="seq-arrow" stroke-width="3" />
+
+      <rect class="frame-box block-amber" x="695" y="85" width="50" height="30" rx="4" />
+      <text class="frame-label" x="720" y="105" text-anchor="middle" font-weight="700" font-size="9">120Ω</text>
+
+      <line x1="250" y1="100" x2="250" y2="140" class="seq-arrow" stroke-width="1.5" />
+      <rect class="frame-box block-blue" x="200" y="140" width="100" height="40" rx="6" />
+      <text class="frame-label" x="250" y="164" text-anchor="middle" font-weight="700" font-size="9">Node 1</text>
+
+      <line x1="400" y1="100" x2="400" y2="140" class="seq-arrow" stroke-width="1.5" />
+      <rect class="frame-box block-blue" x="350" y="140" width="100" height="40" rx="6" />
+      <text class="frame-label" x="400" y="164" text-anchor="middle" font-weight="700" font-size="9">Node 2</text>
+      <text class="seq-sub" x="400" y="195" text-anchor="middle">a mid-bus tap, not an end — no resistor here</text>
+
+      <line x1="550" y1="100" x2="550" y2="140" class="seq-arrow" stroke-width="1.5" />
+      <rect class="frame-box block-blue" x="500" y="140" width="100" height="40" rx="6" />
+      <text class="frame-label" x="550" y="164" text-anchor="middle" font-weight="700" font-size="9">Node 3 (ECU)</text>
+    </svg>
+    <figcaption class="diagram__caption">Only the two physical ends of the bus see a resistor — every node in between is just a stub tapping the same twisted pair, electrically invisible to where the wave actually needs absorbing.</figcaption>
+  </figure>
   <p>
     Classical CAN tops out around 1 Mbit/s; see <a href="#canfd">CAN FD</a>
     for how newer controllers push that further.

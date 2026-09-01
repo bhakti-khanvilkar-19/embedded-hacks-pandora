@@ -100,22 +100,27 @@
     <li>Deasserting CS usually marks the end of a logical transaction (e.g. flash chips reset their internal address counter on CS high).</li>
   </ul>
 
-  <div class="figure">
-    <svg viewBox="0 0 420 140" role="img" aria-labelledby="spi-svg-title" xmlns="http://www.w3.org/2000/svg" style="max-width: 26rem; width:100%;">
-      <title id="spi-svg-title">SPI mode 0 timing: SCLK, MOSI and MISO relative to CS</title>
-      <g fill="none" stroke="currentColor" stroke-width="1.5">
-        <text x="4" y="18" font-size="11" fill="currentColor" stroke="none">CS</text>
-        <path d="M40 12 L60 12 L60 26 L400 26 L400 12 L410 12" />
-        <text x="4" y="52" font-size="11" fill="currentColor" stroke="none">SCLK</text>
-        <path d="M40 60 L60 60 L60 46 L80 46 L80 60 L100 60 L100 46 L120 46 L120 60 L140 60 L140 46 L160 46 L160 60 L180 60 L180 46 L200 46 L200 60 L220 60 L220 46 L240 46 L240 60 L260 60 L260 46 L280 46 L280 60 L400 60" />
-        <text x="4" y="88" font-size="11" fill="currentColor" stroke="none">MOSI</text>
-        <path d="M60 96 L400 96" />
-        <text x="4" y="118" font-size="11" fill="currentColor" stroke="none">MISO</text>
-        <path d="M60 126 L400 126" />
-      </g>
+  <figure class="diagram">
+    <svg viewBox="0 0 460 170" role="img" aria-labelledby="spi-svg-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="spi-svg-title">SPI mode 0 timing: CS frames the transaction while SCLK, MOSI and MISO all run inside it, sampled on the rising edge</title>
+      <text class="frame-caption" x="10" y="22" text-anchor="start" font-size="10">CS</text>
+      <path d="M50 16 L70 16 L70 30 L410 30 L410 16 L440 16" fill="none" stroke="var(--accent)" stroke-width="2" />
+
+      <text class="frame-caption" x="10" y="66" text-anchor="start" font-size="10">SCLK</text>
+      <path d="M50 74 L70 74 L70 58 L90 58 L90 74 L110 74 L110 58 L130 58 L130 74 L150 74 L150 58 L170 58 L170 74 L190 74 L190 58 L210 58 L210 74 L230 74 L230 58 L250 58 L250 74 L270 74 L270 58 L290 58 L290 74 L410 74"
+            fill="none" stroke="var(--blue)" stroke-width="2" />
+
+      <text class="frame-caption" x="10" y="110" text-anchor="start" font-size="10">MOSI</text>
+      <path d="M70 118 L410 118" fill="none" stroke="var(--teal)" stroke-width="2" />
+
+      <text class="frame-caption" x="10" y="150" text-anchor="start" font-size="10">MISO</text>
+      <path d="M70 158 L410 158" fill="none" stroke="var(--violet)" stroke-width="2" />
+
+      <line x1="90" y1="10" x2="90" y2="164" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="2 3" />
+      <line x1="130" y1="10" x2="130" y2="164" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="2 3" />
     </svg>
-    <figcaption>CS frames the transaction; MOSI and MISO shift simultaneously with every SCLK edge (mode 0 shown).</figcaption>
-  </div>
+    <figcaption class="diagram__caption">CS (amber) frames the whole transaction; SCLK (blue) is controller-driven throughout; MOSI (teal) and MISO (violet) both shift one bit per clock edge, simultaneously — mode 0 shown, sampled on the rising edge.</figcaption>
+  </figure>
 
   <h2 id="cs">Chip select strategies</h2>
   <p>
