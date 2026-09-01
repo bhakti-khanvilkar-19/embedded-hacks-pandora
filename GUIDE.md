@@ -52,6 +52,8 @@ the content or picking a vaguer shared folder.
 │   └── <topic>/
 ├── security/                   cross-cutting security: secure coding, CVEs, SCA
 │   └── <topic>/
+├── ai/                          production AI design patterns + embedded applications
+│   └── <topic>/
 └── references/                 material that spans multiple topics
     └── <topic>/
 ```
@@ -96,6 +98,13 @@ Each topic is a subfolder of exactly one domain, with its own `index.html`.
   dependency analysis/SBOMs, and automotive-specific cybersecurity
   standards. Kept as its own domain rather than folded into wherever it's
   first relevant, since the same concepts apply everywhere.
+- **AI Systems** — production AI/LLM engineering design patterns (RAG,
+  fine-tuning, caching, guardrails, feedback loops, agentic evals,
+  observability), each with a dedicated section connecting it to
+  embedded/edge development specifically. Kept separate from Embedded
+  because the patterns themselves are general AI-engineering discipline;
+  what's embedded-specific is how each one's shape changes under a
+  milliwatt/flash/real-time budget instead of a cloud GPU cluster.
 - **References** — material that genuinely spans multiple topics (books,
   datasheets, curated links). If something is really about one topic, it
   belongs in that topic's own page instead, not here.

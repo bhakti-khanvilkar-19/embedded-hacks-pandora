@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LLM Observability — AI Systems — Embedded Pandora</title>
+<meta name="description" content="Distributed tracing, cost/latency monitoring, and drift/anomaly detection for AI systems in production — seeing what actually happened, including on fielded embedded devices." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">AI Systems</p>
+  <h1>LLM Observability — Seeing What Happened in Production</h1>
+  <p class="lede">
+    Evals and <a href="/ai/agentic-evals/index.html">agentic evals</a> tell
+    you what a system will likely do before it ships. Observability tells
+    you what it actually did, for a specific user, on a specific request,
+    right now. The two are complementary and easy to confuse: evals
+    establish confidence before deployment, observability provides ground
+    truth after it.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Structured tracing, cost/latency dashboards, and drift detection that let you reconstruct exactly what a live system did on a real request.</dd>
+      <dt>Mental model</dt><dd>A flight recorder, not a pre-flight checklist — evals are the checklist run before takeoff, observability is what you play back after something goes wrong mid-flight.</dd>
+      <dt>Key numbers</dt><dd>Track p50/p95/p99 latency, not just averages — averages hide the tail behavior that actually drives complaints.</dd>
+      <dt>Reach for it when</dt><dd>The system is live — this is not optional past a demo, and retrofitting it after an unreproducible incident is far more painful than building it in from day one.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#tracing">Tracing and span-level logging</a></li>
+      <li><a href="#monitoring">Token, cost, and latency monitoring</a></li>
+      <li><a href="#drift">Drift and anomaly detection</a></li>
+      <li><a href="#production">Productionizing this pattern</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#embedded">Embedded applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 780 240" role="img" aria-labelledby="tracing-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="tracing-title">A request's root span branches into retrieval, LLM call, tool call, and guardrail spans, all feeding into traces, then metrics, then drift and anomaly alerts</title>
+
+      <rect class="frame-box block-blue" x="310" y="15" width="160" height="50" rx="6" />
+      <text class="frame-label" x="390" y="37" text-anchor="middle" font-weight="700" font-size="9">Request</text>
+      <text class="frame-label" x="390" y="52" text-anchor="middle" font-weight="700" font-size="9">Span Root</text>
+
+      <rect class="frame-box block-amber" x="20" y="90" width="160" height="50" rx="6" />
+      <text class="frame-label" x="100" y="119" text-anchor="middle" font-weight="700" font-size="9">Retrieval Span</text>
+
+      <rect class="frame-box block-green" x="210" y="90" width="160" height="50" rx="6" />
+      <text class="frame-label" x="290" y="119" text-anchor="middle" font-weight="700" font-size="9">LLM Call Span</text>
+
+      <rect class="frame-box block-teal" x="400" y="90" width="160" height="50" rx="6" />
+      <text class="frame-label" x="480" y="119" text-anchor="middle" font-weight="700" font-size="9">Tool Call Span</text>
+
+      <rect class="frame-box block-violet" x="590" y="90" width="170" height="50" rx="6" />
+      <text class="frame-label" x="675" y="119" text-anchor="middle" font-weight="700" font-size="9">Guardrail Span</text>
+
+      <line x1="360" y1="65" x2="140" y2="86" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="100,92 108,80 120,88" />
+      <line x1="380" y1="65" x2="310" y2="86" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="290,92 293,80 305,84" />
+      <line x1="400" y1="65" x2="460" y2="86" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="480,92 468,82 478,80" />
+      <line x1="420" y1="65" x2="640" y2="86" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="675,92 660,84 668,80" />
+
+      <rect class="frame-box block-green" x="180" y="175" width="420" height="50" rx="6" />
+      <text class="frame-label" x="390" y="196" text-anchor="middle" font-size="9">Traces → Metrics (p50/p95/p99, cost/token)</text>
+      <text class="frame-label" x="390" y="212" text-anchor="middle" font-size="9">→ Alerts on drift and anomalies</text>
+
+      <line x1="100" y1="140" x2="250" y2="173" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="255,175 244,171 246,182" />
+      <line x1="290" y1="140" x2="335" y2="173" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="340,175 328,172 331,183" />
+      <line x1="480" y1="140" x2="445" y2="173" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="440,175 447,183 450,172" />
+      <line x1="675" y1="140" x2="530" y2="173" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="525,175 533,183 536,172" />
+    </svg>
+    <figcaption class="diagram__caption">This is the OpenTelemetry model applied to an LLM pipeline — every span carries inputs, outputs, latency, and token counts, so a failure attributes to the exact step that caused it instead of an opaque black box.</figcaption>
+  </figure>
+
+  <h2 id="tracing">Tracing and span-level logging</h2>
+  <p>
+    Every request is captured as a structured trace, following the
+    OpenTelemetry model: a root span for the overall request, with child
+    spans for each retrieval call, each LLM generation call, each tool
+    invocation, and each guardrail check — all tagged with inputs, outputs,
+    latency, and token counts. This lets a failure attribute to the exact
+    step that caused it rather than treating the pipeline as an opaque
+    black box. Purpose-built LLM tracing tools add LLM-aware concepts, like
+    prompt and completion capture, on top of generic distributed tracing.
+  </p>
+
+  <h2 id="monitoring">Token, cost, and latency monitoring</h2>
+  <p>
+    Dashboards tracking token usage, dollar cost, and latency percentiles
+    (p50, p95, p99, since averages hide the tail behavior that actually
+    drives complaints) broken down per route, per model, and per customer
+    segment. This surfaces a specific, common production failure: a single
+    prompt template or a single customer silently becoming
+    disproportionately expensive, often because a chain grew an extra
+    retry loop or a context window quietly ballooned. Rate limiting and
+    budget alerts (per-minute caps, per-tenant spend ceilings) belong in
+    this layer, guarding against a bug or an abusive user generating an
+    unbounded bill.
+  </p>
+
+  <h2 id="drift">Drift and anomaly detection</h2>
+  <p>
+    Monitoring output distributions, retrieval quality, and user feedback
+    signals over time catches silent degradation that no single request
+    would reveal. Examples: embedding model drift, where an upstream
+    provider silently updates a model and the vector space shifts
+    underneath a <a href="/ai/rag/index.html">RAG</a> pipeline; a
+    knowledge base going stale as source documents age past a freshness
+    threshold; or a gradual shift in the distribution of user queries that
+    pushes traffic outside the distribution the system was ever evaluated
+    against. Statistical approaches range from simple threshold alerts on
+    rolling eval scores to population-level distribution comparisons
+    between current and baseline traffic.
+  </p>
+
+  <h2 id="production">Productionizing this pattern</h2>
+  <div class="callout callout--note">
+    <span class="callout__label">What changes past a demo</span>
+    <ul>
+      <li>Observability and <a href="/ai/agentic-evals/index.html">agentic evals</a> should share the same trace schema — if the evaluation harness and production tracing log different fields, a production trajectory can't be replayed directly into the eval pipeline when debugging an incident, the single most common integration gap in real systems.</li>
+      <li>Redact or tokenize sensitive content (PII, credentials, proprietary data) at the tracing layer before it's persisted, not after — full prompt/completion logging is enormously useful for debugging but creates a real compliance surface if handled carelessly.</li>
+      <li>Alert on leading indicators, not just lagging ones — a rising retry rate or a falling cache hit rate often predicts a cost or quality incident hours before user-facing complaints arrive.</li>
+      <li>Sampling matters at scale: full tracing on a statistically significant sample plus lightweight metrics-only logging on the remainder, with automatic upgrade to full tracing when an anomaly fires, is the common pattern.</li>
+      <li>Set SLOs, not just dashboards — an explicit p95 latency target and cost-per-request ceiling that pages an on-call engineer when breached, exactly as for any other backend service.</li>
+    </ul>
+  </div>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Incident response —</strong> reconstructing exactly what a customer-reported "wrong answer" incident actually did, step by step, instead of only seeing the final response.</li>
+    <li><strong>Cost governance —</strong> catching a single prompt template or customer silently becoming disproportionately expensive before it shows up as a surprise bill.</li>
+    <li><strong>Silent quality regression —</strong> detecting a knowledge base going stale, or an upstream embedding model changing underneath a RAG system, before user complaints arrive.</li>
+    <li><strong>Compliance and audit —</strong> a full, redacted trace of every production decision is what a post-incident review or regulatory audit actually needs.</li>
+  </ul>
+
+  <h2 id="embedded">Embedded applications</h2>
+  <ul class="point-list">
+    <li><strong>Constrained-device tracing needs the same store-and-forward pattern as any other telemetry —</strong> a device can't afford to hold a full OpenTelemetry backend, but it can emit compact, structured spans over <a href="/networking/mqtt/index.html">MQTT</a> or <a href="/networking/coap/index.html">CoAP</a> to a gateway or cloud collector, exactly the same "batch locally, upload opportunistically" discipline already used for sensor logging.</li>
+    <li><strong>Drift detection matters more when the model rarely gets updated —</strong> a model running on a fielded device might go months between OTA updates (see <a href="/linux/kernel-source/index.html">Kernel Source, Versions &amp; Patching</a> for the same "vendor kernel is years behind mainline" dynamic) — monitoring for input distribution drift is how a team notices the deployed model is quietly falling out of step with reality long before an OTA cycle would otherwise catch it.</li>
+    <li><strong>Cost monitoring becomes power/bandwidth monitoring —</strong> the "denial-of-wallet" risk in the cloud maps directly to denial-of-battery or denial-of-data-plan on an embedded device — a bug that causes an unbounded retry loop is not just an expensive incident, it can be the difference between a device lasting a day or a week on battery.</li>
+    <li><strong>Full-trace logging is what makes an unreproducible field incident debuggable —</strong> exactly as the interview scenario describes for a cloud system, a customer or technician reporting "the device did something wrong" with only a final-state log is undiagnosable — the same root-span-plus-child-spans discipline, sized down for flash-constrained local buffering with periodic upload, is what turns "we have no idea what happened" into an actual root cause.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Final-response-only logging is the single most common observability gap — by the time an incident is reported, there's no way to reconstruct which step actually went wrong.</li>
+      <li>Full prompt/completion tracing without redaction at the logging layer is a compliance liability waiting to be discovered, not a hypothetical one.</li>
+      <li>Averages hide exactly the tail latency that drives user complaints — a system that looks healthy on p50 can be failing badly on p99, and only percentile tracking catches it.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/ai/agentic-evals/index.html", "title": "Agentic Evals" },
+  "related": [
+    { "href": "/ai/agentic-evals/index.html", "title": "Agentic Evals" },
+    { "href": "/ai/rag/index.html", "title": "RAG" },
+    { "href": "/networking/mqtt/index.html", "title": "MQTT" },
+    { "href": "/linux/kernel-source/index.html", "title": "Kernel Source, Versions & Patching" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

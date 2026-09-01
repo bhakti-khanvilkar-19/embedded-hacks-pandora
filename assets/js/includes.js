@@ -13,7 +13,7 @@
   var LABELS = {
     spi: "SPI", i2c: "I2C", uart: "UART", can: "CAN",
     tcp: "TCP", ip: "IP", udp: "UDP", dns: "DNS", "u-boot": "U-Boot",
-    gpio: "GPIO", cpu: "CPU", os: "OS"
+    gpio: "GPIO", cpu: "CPU", os: "OS", ai: "AI Systems", rag: "RAG"
   };
 
   function humanize(segment) {

@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>User Feedback — AI Systems — Embedded Pandora</title>
+<meta name="description" content="Explicit feedback, implicit feedback, and correction capture — building the data flywheel that lets an AI system improve itself over time, including on fielded embedded devices." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">AI Systems</p>
+  <h1>User Feedback — Building the Data Flywheel</h1>
+  <p class="lede">
+    Collecting feedback closes the loop across every other pattern in this
+    domain: feedback improves the eval set, better evals identify what to
+    fine-tune, fine-tuning improves output, improved output generates more
+    positive feedback. Without this loop, a system ships at a fixed
+    quality level and slowly degrades as the world around it changes. With
+    it, the system compounds.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Systematically capturing signal about output quality from real usage, and feeding it back into evaluation and fine-tuning.</dd>
+      <dt>Mental model</dt><dd>A flywheel: each turn (interaction → feedback → curation → retrain) costs effort to start, but a system that closes the loop compounds instead of plateauing.</dd>
+      <dt>Key numbers</dt><dd>Explicit feedback participation is typically only 1–5% of interactions and skews toward the very satisfied or very frustrated — implicit signals have far higher volume but need calibration against explicit signal before being trusted alone.</dd>
+      <dt>Reach for it when</dt><dd>A system is live and quality has plateaued, or before it plateaus — this is a pattern to design in from day one, not bolt on once growth stalls.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#explicit">Explicit feedback</a></li>
+      <li><a href="#implicit">Implicit feedback</a></li>
+      <li><a href="#correction">Correction capture</a></li>
+      <li><a href="#production">Productionizing this pattern</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#embedded">Embedded applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 760 180" role="img" aria-labelledby="flywheel-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="flywheel-title">User interaction produces feedback, which is curated into a dataset used to retrain or tune the model, and the improved model closes the loop back into the next user interaction</title>
+
+      <rect class="frame-box block-amber" x="10" y="20" width="160" height="55" rx="6" />
+      <text class="frame-label" x="90" y="52" text-anchor="middle" font-weight="700" font-size="9">User Interaction</text>
+
+      <rect class="frame-box block-teal" x="210" y="20" width="160" height="55" rx="6" />
+      <text class="frame-label" x="290" y="52" text-anchor="middle" font-weight="700" font-size="9">Collect Feedback</text>
+
+      <rect class="frame-box block-blue" x="410" y="20" width="160" height="55" rx="6" />
+      <text class="frame-label" x="490" y="52" text-anchor="middle" font-weight="700" font-size="9">Curate Dataset</text>
+
+      <rect class="frame-box block-violet" x="610" y="20" width="140" height="55" rx="6" />
+      <text class="frame-label" x="680" y="52" text-anchor="middle" font-weight="700" font-size="9">Retrain / Tune</text>
+
+      <line x1="170" y1="47" x2="206" y2="47" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="210,47 200,42 200,52" />
+      <line x1="370" y1="47" x2="406" y2="47" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="410,47 400,42 400,52" />
+      <line x1="570" y1="47" x2="606" y2="47" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="610,47 600,42 600,52" />
+
+      <path d="M680,75 L680,140 L90,140 L90,79" fill="none" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="90,73 83,85 97,85" />
+      <text class="seq-note" x="385" y="156" text-anchor="middle">closes into the data flywheel</text>
+    </svg>
+    <figcaption class="diagram__caption">A flywheel that takes six months to complete one turn barely qualifies as one — feedback-loop latency (correction to influencing the live model) is a metric worth tracking on its own.</figcaption>
+  </figure>
+
+  <h2 id="explicit">Explicit feedback</h2>
+  <p>
+    Direct user signals: thumbs up or down, star ratings, free-text
+    corrections. Clean and unambiguous, but participation is typically
+    only 1 to 5 percent of interactions and skews toward users who are
+    either very satisfied or very frustrated — a J-curve that biases naive
+    aggregate scores. Maximize participation with low-friction, contextual
+    prompts (one tap, asked immediately after the interaction) and
+    specific questions rather than generic satisfaction surveys.
+  </p>
+
+  <h2 id="implicit">Implicit feedback</h2>
+  <p>
+    Behavioral signals inferred from actions: regeneration requests, copy
+    or paste events, edit distance on a suggested draft, task completion
+    rate, session abandonment. Volume is far higher than explicit feedback
+    and captures users who never click a rating button, but the signal is
+    noisier — a regeneration might mean the user was exploring
+    alternatives, not that the first answer was bad. Calibrate implicit
+    signals against a sample of explicit feedback before trusting them as a
+    standalone quality metric.
+  </p>
+
+  <h2 id="correction">Correction capture</h2>
+  <p>
+    The highest-value feedback type: logging the specific corrected
+    version when a user fixes a bad output. An edited draft, a corrected
+    code snippet, a modified query — each (original, corrected) pair is
+    effectively free, in-distribution fine-tuning data. Building correction
+    capture into the product itself — edit-in-place interfaces, explicit
+    submit-corrected-version flows — is one of the highest-ROI investments
+    in the whole flywheel. The constraint is privacy: corrections often
+    contain sensitive content and require appropriate consent and
+    anonymization before entering a training pipeline.
+  </p>
+
+  <h2 id="production">Productionizing this pattern</h2>
+  <div class="callout callout--note">
+    <span class="callout__label">What changes past a demo</span>
+    <ul>
+      <li>Guard against feedback loops that reinforce existing bias — fine-tuning only on corrections from the most engaged users increasingly optimizes for that subgroup's preferences.</li>
+      <li>Separate the feedback collection pipeline from the training pipeline with a manual or automated curation and deduplication step in between. Raw feedback should never flow directly into training without a quality filter.</li>
+      <li>Address the cold-start problem explicitly — before enough production feedback exists, seed the eval set and initial fine-tune data from synthetic examples, red-teaming sessions, or a small paid annotation batch.</li>
+      <li>Track feedback-loop latency (time from a user correction to that correction influencing the live model) as an explicit metric.</li>
+    </ul>
+  </div>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Writing assistants —</strong> edited drafts feed directly back into (original, corrected) fine-tuning pairs.</li>
+    <li><strong>Code assistants —</strong> accepted vs. rejected suggestions, and the edits made after acceptance, are exceptionally high-signal implicit feedback.</li>
+    <li><strong>Support chatbots —</strong> escalation-to-human rate is a strong implicit quality signal that needs no explicit rating at all.</li>
+    <li><strong>Recommendation-adjacent LLM features —</strong> regeneration and dismissal rates calibrate directly against explicit thumbs feedback.</li>
+  </ul>
+
+  <h2 id="embedded">Embedded applications</h2>
+  <ul class="point-list">
+    <li><strong>Field telemetry as implicit feedback —</strong> a fleet of deployed devices already generates enormous implicit signal — fault-code recurrence, a technician overriding an AI-suggested diagnosis, a retry loop on an automated action — without needing a thumbs-up button anywhere; this is the embedded analogue of "implicit feedback has far higher volume but needs calibration against explicit signal."</li>
+    <li><strong>OTA-delivered model updates close the loop physically —</strong> the "retrain/tune" step of the flywheel, once it produces an improved checkpoint, still has to reach the device — that's exactly the atomic-update-and-rollback machinery already covered in <a href="/snap/ubuntu-core/index.html">Ubuntu Core</a> and <a href="/linux/kernel-source/index.html">kernel patching</a>. Feedback-loop latency for an embedded fleet includes OTA rollout time, not just retraining time.</li>
+    <li><strong>Correction capture needs a physical interface —</strong> on a device with no keyboard, "correction capture" might mean a technician's field-service tool logging what action they actually took after overriding an AI suggestion, or a simple accept/reject button on a small display — the UX constraint is real hardware, not a web form, and shapes what's even possible to collect.</li>
+    <li><strong>Bandwidth-aware feedback upload —</strong> for devices on metered or intermittent connectivity, feedback collection itself needs the same store-and-forward thinking as any other constrained telemetry pipeline — batch and compress corrections locally, upload opportunistically, exactly the pattern already used for sensor logging over <a href="/networking/mqtt/index.html">MQTT</a>.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A flywheel that only samples from your most vocal or most engaged users will faithfully optimize toward that group's preferences, and away from everyone else's — this is a bias problem, not a data-volume problem, and more data doesn't fix it.</li>
+      <li>Raw, uncurated feedback flowing directly into a training pipeline is how label noise and outright bad examples silently degrade a fine-tune — the curation step is not bureaucracy, it's where quality control actually lives.</li>
+      <li>A cold-start plan is not optional — a system with zero feedback yet still needs an eval set on day one, seeded from synthetic examples or a small annotation batch, or there's no way to tell if the first version even works.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/ai/guardrails/index.html", "title": "Guardrails & Defensive UX" },
+  "next": { "href": "/ai/agentic-evals/index.html", "title": "Agentic Evals" },
+  "related": [
+    { "href": "/ai/fine-tuning/index.html", "title": "Fine-tuning" },
+    { "href": "/ai/observability/index.html", "title": "LLM Observability" },
+    { "href": "/snap/ubuntu-core/index.html", "title": "Snap types & Ubuntu Core" },
+    { "href": "/networking/mqtt/index.html", "title": "MQTT" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

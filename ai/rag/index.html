@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RAG — AI Systems — Embedded Pandora</title>
+<meta name="description" content="Retrieval-Augmented Generation: naive single-pass, hybrid BM25+dense retrieval, agentic/iterative RAG, productionizing notes, and embedded/edge applications." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">AI Systems</p>
+  <h1>RAG — Retrieval-Augmented Generation</h1>
+  <p class="lede">
+    RAG fetches relevant data from outside a model's parameters and injects
+    it into the context window, grounding generation in retrievable
+    evidence instead of whatever the model happened to memorize during
+    training. It's also far cheaper to keep a retrieval index current than
+    to retrain a model — which is what makes RAG the default answer for
+    incorporating recent or proprietary knowledge, and the single most
+    frequently designed AI system in practice.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Retrieving relevant external context at inference time and injecting it into the prompt, instead of relying only on what the model learned during training.</dd>
+      <dt>Mental model</dt><dd>An open-book exam: the model doesn't have to memorize everything, it just has to find the right page and read it correctly.</dd>
+      <dt>Key numbers</dt><dd>256–512 token chunks with 10–20% overlap is a reasonable prose default; a two-stage retrieve-then-rerank pipeline (fetch 50–100 candidates, rerank to top 5–10) consistently beats either stage alone.</dd>
+      <dt>Reach for it when</dt><dd>Answers need to be grounded in data that changes faster than a retraining cycle, or in proprietary/internal content the base model never saw.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#naive">Naive single-pass RAG</a></li>
+      <li><a href="#hybrid">Hybrid retrieval RAG</a></li>
+      <li><a href="#agentic">Agentic and iterative RAG</a></li>
+      <li><a href="#production">Productionizing this pattern</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#embedded">Embedded applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 790 220" role="img" aria-labelledby="rag-pipeline-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="rag-pipeline-title">A user query is embedded, searched against a vector index built offline from a chunked document corpus, reranked to a top-k set, and generated into an answer</title>
+
+      <rect class="frame-box block-amber" x="10" y="40" width="130" height="60" rx="6" />
+      <text class="frame-label" x="75" y="66" text-anchor="middle" font-weight="700" font-size="10">User Query</text>
+
+      <rect class="frame-box block-teal" x="170" y="40" width="130" height="60" rx="6" />
+      <text class="frame-label" x="235" y="66" text-anchor="middle" font-weight="700" font-size="10">Embed Query</text>
+
+      <rect class="frame-box block-blue" x="330" y="40" width="140" height="60" rx="6" />
+      <text class="frame-label" x="400" y="62" text-anchor="middle" font-weight="700" font-size="10">Vector DB</text>
+      <text class="frame-caption" x="400" y="80" text-anchor="middle" font-size="8">ANN search</text>
+
+      <rect class="frame-box block-green" x="500" y="40" width="140" height="60" rx="6" />
+      <text class="frame-label" x="570" y="62" text-anchor="middle" font-weight="700" font-size="10">Re-rank</text>
+      <text class="frame-caption" x="570" y="80" text-anchor="middle" font-size="8">+ top-k</text>
+
+      <rect class="frame-box block-violet" x="670" y="40" width="110" height="60" rx="6" />
+      <text class="frame-label" x="725" y="62" text-anchor="middle" font-weight="700" font-size="10">LLM</text>
+      <text class="frame-caption" x="725" y="80" text-anchor="middle" font-size="8">Generation</text>
+
+      <line x1="140" y1="70" x2="166" y2="70" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="170,70 160,65 160,75" />
+      <line x1="300" y1="70" x2="326" y2="70" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="330,70 320,65 320,75" />
+      <line x1="470" y1="70" x2="496" y2="70" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="500,70 490,65 490,75" />
+      <line x1="640" y1="70" x2="666" y2="70" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="670,70 660,65 660,75" />
+
+      <rect class="frame-box block-amber" x="330" y="150" width="140" height="50" rx="6" />
+      <text class="frame-label" x="400" y="172" text-anchor="middle" font-weight="700" font-size="9">Document Corpus</text>
+      <text class="frame-caption" x="400" y="188" text-anchor="middle" font-size="8">chunk + embed offline</text>
+      <line x1="400" y1="150" x2="400" y2="102" class="seq-arrow" stroke-width="1.5" stroke-dasharray="4 3" />
+      <polygon class="seq-arrowhead" points="400,96 393,108 407,108" />
+    </svg>
+    <figcaption class="diagram__caption">The corpus is chunked and embedded once, offline, well before any query arrives — only the query-embed → search → rerank → generate path runs on the request's critical path.</figcaption>
+  </figure>
+
+  <h2 id="naive">Naive single-pass RAG</h2>
+  <p>
+    Embed the incoming query with the same model family used to embed the
+    corpus, run approximate nearest-neighbor search (HNSW or IVF-PQ
+    indexes, in stores like pgvector, Pinecone, Weaviate or Qdrant),
+    retrieve the top-k chunks by cosine similarity, and concatenate them
+    into the prompt. Chunk size is the first real design decision — 256 to
+    512 tokens with 10 to 20 percent overlap is a reasonable default for
+    prose, while structured documents (contracts, tables, datasheets) often
+    need semantic or layout-aware chunking instead of fixed-size windows.
+    Naive RAG degrades on ambiguous queries, multi-hop questions that need
+    synthesizing several documents, and corpora with poor structural
+    boundaries.
+  </p>
+
+  <h2 id="hybrid">Hybrid retrieval RAG</h2>
+  <p>
+    Combine dense vector retrieval with sparse lexical search — typically
+    BM25 — and fuse the two ranked lists with reciprocal rank fusion or a
+    learned cross-encoder reranker. This directly addresses a well-known
+    weakness of dense embeddings: they generalize <em>away</em> exact
+    identifiers like part numbers, register names, or rare proper nouns
+    that a keyword index matches trivially. A two-stage pipeline — cheap
+    bi-encoder retrieval fetching 50 to 100 candidate chunks, then a
+    cross-encoder reranker narrowing to the final top 5 to 10 — reliably
+    outperforms either method alone.
+  </p>
+
+  <h2 id="agentic">Agentic and iterative RAG</h2>
+  <p>
+    The model judges whether retrieved context is actually sufficient and,
+    if not, reformulates the query and retrieves again — sometimes
+    decomposing a complex question into sub-questions first. Self-RAG
+    trains the model to emit special retrieval/critique tokens that trigger
+    on-demand retrieval and self-assessment; Corrective RAG (CRAG) adds a
+    lightweight relevance grader on retrieved documents and falls back to
+    a web search when the internal knowledge base has thin coverage. Both
+    add one to three extra round trips of latency and cost for materially
+    better answers on multi-hop and ambiguous queries — reserve them for
+    query types where naive RAG measurably underperforms, not by default.
+  </p>
+
+  <h2 id="production">Productionizing this pattern</h2>
+  <div class="callout callout--note">
+    <span class="callout__label">What changes past a demo</span>
+    <ul>
+      <li>Chunking and re-indexing are recurring operational costs, not one-time setup — design an incremental, diff-based re-embedding pipeline instead of a full re-embed on every content update, especially past a few hundred thousand documents.</li>
+      <li>Track retrieval quality (recall@k, mean reciprocal rank against a labelled query set) separately from generation quality. A RAG system can fail purely at retrieval while the LLM step looks fine in isolation, and conflating the two wastes debugging time.</li>
+      <li>Embedding model versioning matters: swap embedding models and old vectors plus new query embeddings live in different geometric spaces — similarity scores become meaningless until the whole corpus is re-embedded.</li>
+      <li>Attach source attribution and freshness metadata (document date, version) to every chunk, so generation can reason about staleness and the UX layer can cite sources.</li>
+      <li>At scale, ANN index build/query latency is a first-class SLO — HNSW trades memory for faster queries, IVF-PQ trades recall for a smaller footprint.</li>
+    </ul>
+  </div>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Internal knowledge search —</strong> letting employees ask questions over policies, procedures, and contracts instead of grepping a shared drive.</li>
+    <li><strong>Customer support copilots —</strong> grounding responses in a product's actual documentation and past ticket resolutions instead of the model's general training.</li>
+    <li><strong>Code assistants —</strong> retrieving relevant functions/files from a specific codebase rather than hallucinating a plausible-looking API.</li>
+    <li><strong>Legal/compliance review —</strong> answers grounded in the exact regulation or contract clause, with citation, rather than a paraphrase from memory.</li>
+  </ul>
+
+  <h2 id="embedded">Embedded applications</h2>
+  <ul class="point-list">
+    <li><strong>Local-first diagnostic assistants —</strong> a gateway device or field-service tool can retrieve from a locally cached corpus of datasheets, error-code tables, and past repair logs stored on-device (SQLite + a lightweight vector index) — the same "the corpus is embedded offline" step in the diagram above, just running on flash instead of a cloud vector DB, so a technician gets grounded answers even with no connectivity.</li>
+    <li><strong>Hybrid edge/cloud RAG —</strong> a resource-constrained device does a cheap local retrieval pass (small embedding model, small local index) to answer common questions instantly, and only escalates to a cloud RAG pipeline for genuinely novel queries — directly analogous to the exact-match-first, semantic-cache-second layering covered in <a href="/ai/caching/index.html">Caching</a>.</li>
+    <li><strong>Fleet log retrieval —</strong> an LLM assistant answering "has this fault code appeared on other units?" is doing RAG over a corpus of device telemetry and logs — the same retrieval-quality-vs-generation-quality separation applies, and it's the same kind of structured, high-cardinality data that benefits from hybrid (BM25 + dense) retrieval over dense-only, since fault codes and part numbers behave like the exact-identifier problem hybrid retrieval solves.</li>
+    <li><strong>Device-tree and datasheet lookup —</strong> a documentation assistant for board bring-up work grounded in a corpus of a project's actual <a href="/bootloaders/device-tree/index.html">device tree</a> sources and vendor datasheets, rather than a general model's often-outdated recollection of a specific SoC's register map.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Retrieval and generation quality can move in opposite directions — a change that improves recall@k can still make final answers worse if the extra chunks add noise the model gets distracted by. Evaluate both stages, not just the end-to-end answer.</li>
+      <li>A corpus with poor structural boundaries (a huge unstructured PDF dump) degrades retrieval no matter how good the embedding model is — chunking strategy is a data-quality problem before it's an algorithm problem.</li>
+      <li>Multi-hop questions ("compare X's spec in the 2022 datasheet to the 2024 one") reliably break naive single-pass retrieval — that's the specific failure mode agentic/iterative RAG exists to fix, not a sign the embedding model is bad.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "next": { "href": "/ai/fine-tuning/index.html", "title": "Fine-tuning" },
+  "related": [
+    { "href": "/ai/fine-tuning/index.html", "title": "Fine-tuning" },
+    { "href": "/ai/caching/index.html", "title": "Caching" },
+    { "href": "/ai/agentic-evals/index.html", "title": "Agentic Evals" },
+    { "href": "/bootloaders/device-tree/index.html", "title": "Device Tree" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

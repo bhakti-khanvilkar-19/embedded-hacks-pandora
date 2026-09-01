@@ -1,5 +1,92 @@
 [
   {
+    "title": "Agentic Evals — AI Systems",
+    "url": "/ai/agentic-evals/index.html",
+    "domain": "Ai",
+    "category": "Agentic Evals",
+    "description": "Trajectory evaluation, tool-call correctness, and efficiency/groundedness metrics for agentic AI systems — scoring the path an agent took, not just its final answer.",
+    "tags": [
+      "ai",
+      "agentic-evals"
+    ]
+  },
+  {
+    "title": "Caching — AI Systems",
+    "url": "/ai/caching/index.html",
+    "domain": "Ai",
+    "category": "Caching",
+    "description": "Exact-match, semantic, and prefix/KV caching for LLM inference — cutting latency and per-token cost with reuse, and what this looks like on constrained edge hardware.",
+    "tags": [
+      "ai",
+      "caching"
+    ]
+  },
+  {
+    "title": "Fine-tuning — AI Systems",
+    "url": "/ai/fine-tuning/index.html",
+    "domain": "Ai",
+    "category": "Fine Tuning",
+    "description": "Full fine-tuning vs. LoRA/QLoRA parameter-efficient fine-tuning vs. RLHF/DPO preference tuning — mechanism, trade-offs, and embedded/on-device applications.",
+    "tags": [
+      "ai",
+      "fine-tuning"
+    ]
+  },
+  {
+    "title": "Guardrails & Defensive UX — AI Systems",
+    "url": "/ai/guardrails/index.html",
+    "domain": "Ai",
+    "category": "Guardrails",
+    "description": "Input/structural/semantic guardrails and defensive UX (graceful degradation, attribution, friction by design) — the safety boundary for AI systems, including safety-critical embedded applications.",
+    "tags": [
+      "ai",
+      "guardrails"
+    ]
+  },
+  {
+    "title": "AI Systems",
+    "url": "/ai/index.html",
+    "domain": "Ai",
+    "category": "Overview",
+    "description": "Production AI engineering design patterns — RAG, fine-tuning, caching, guardrails, feedback loops, agentic evals, and observability — and how each one changes shape on embedded and edge hardware.",
+    "tags": [
+      "ai"
+    ]
+  },
+  {
+    "title": "LLM Observability — AI Systems",
+    "url": "/ai/observability/index.html",
+    "domain": "Ai",
+    "category": "Observability",
+    "description": "Distributed tracing, cost/latency monitoring, and drift/anomaly detection for AI systems in production — seeing what actually happened, including on fielded embedded devices.",
+    "tags": [
+      "ai",
+      "observability"
+    ]
+  },
+  {
+    "title": "RAG — AI Systems",
+    "url": "/ai/rag/index.html",
+    "domain": "Ai",
+    "category": "Rag",
+    "description": "Retrieval-Augmented Generation: naive single-pass, hybrid BM25+dense retrieval, agentic/iterative RAG, productionizing notes, and embedded/edge applications.",
+    "tags": [
+      "ai",
+      "rag"
+    ]
+  },
+  {
+    "title": "User Feedback — AI Systems",
+    "url": "/ai/user-feedback/index.html",
+    "domain": "Ai",
+    "category": "User Feedback",
+    "description": "Explicit feedback, implicit feedback, and correction capture — building the data flywheel that lets an AI system improve itself over time, including on fielded embedded devices.",
+    "tags": [
+      "ai",
+      "user-feedback"
+    ]
+  },
+  {
     "title": "ADAS — Automotive",
     "url": "/automotive/adas/index.html",
     "domain": "Automotive",
