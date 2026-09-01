@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Embedded C — Embedded Pandora</title>
+<meta name="description" content="The C language as embedded engineers actually have to reason about it — storage classes, integer behavior, compilation and linking, memory management, pointers, registers, and data structures built from scratch." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Domain</p>
+  <h1>Embedded C</h1>
+  <p class="lede">
+    Not a "learn C" tutorial — this domain is the specific discipline of
+    reasoning about C the way it actually behaves on a microcontroller
+    with a few kilobytes of RAM, no operating system to catch a mistake,
+    and a CPU that will happily execute undefined behavior instead of
+    complaining about it. Every topic here exists because it's a place
+    embedded C diverges from "C as taught in a general programming
+    course" in a way that produces real, field-reported bugs.
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">Why this domain is separate from Embedded</span>
+    <p>
+      <a href="/embedded/index.html">Embedded</a> is the microcontroller
+      itself — cores, pins, interrupts, timers. This domain is the
+      language running on top of it: storage classes, integer
+      representation, the compile/link pipeline, memory management, and
+      the data structures a program is built out of. The distinction
+      matters because everything here applies whether the target is an
+      8-bit AVR, a 32-bit Cortex-M, or a full Linux SBC — it's C
+      discipline, not hardware.
+    </p>
+  </div>
+
+  <h2>Topics</h2>
+  <ul class="topic-list">
+    <li><a href="/embedded-c/storage-classes/index.html"><span>Storage Classes &amp; Scope — global, static, local, extern, register</span><span class="status">written</span></a></li>
+    <li><a href="/embedded-c/data-types/index.html"><span>Data Types &amp; Integer Overflow — int vs. uint, stdint.h, rollover</span><span class="status">written</span></a></li>
+    <li><a href="/embedded-c/compilation/index.html"><span>Compilation &amp; Linking — preprocessor to linker, startup code, .map files</span><span class="status">written</span></a></li>
+    <li><a href="/embedded-c/dynamic-memory/index.html"><span>Dynamic Memory — malloc, calloc, realloc, free, and why embedded avoids them</span><span class="status">written</span></a></li>
+    <li><a href="/embedded-c/pointers/index.html"><span>Pointers — arithmetic, array decay, function pointers, common bugs</span><span class="status">written</span></a></li>
+    <li><a href="/embedded-c/registers/index.html"><span>Registers &amp; volatile — memory-mapped I/O and bit manipulation</span><span class="status">written</span></a></li>
+    <li><a href="/embedded-c/arrays-strings/index.html"><span>Arrays &amp; Strings — memory layout, decay, and the missing-NUL bug</span><span class="status">written</span></a></li>
+    <li><a href="/embedded-c/linked-lists/index.html"><span>Linked Lists — singly, doubly, and circular</span><span class="status">written</span></a></li>
+    <li><a href="/embedded-c/stacks-queues/index.html"><span>Stacks, Queues &amp; Ring Buffers — the ISR-to-main-loop pattern</span><span class="status">written</span></a></li>
+  </ul>
+
+  <h2>Planned</h2>
+  <p>
+    <span class="badge">structs, unions &amp; bit-fields</span>
+    <span class="badge">alignment &amp; padding</span>
+    <span class="badge">const correctness</span>
+  </p>
+</main>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

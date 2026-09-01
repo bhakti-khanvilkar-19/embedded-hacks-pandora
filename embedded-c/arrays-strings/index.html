@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Arrays & Strings — Embedded C — Embedded Pandora</title>
+<meta name="description" content="Array memory layout, multi-dimensional arrays, why a C string is just a char array with a NUL terminator, and the buffer-overflow risk that comes from it." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Embedded C</p>
+  <h1>Arrays &amp; Strings</h1>
+  <p class="lede">
+    C has no real string type and no bounds-checked array — a string is
+    just a <code>char</code> array with a convention for where it ends,
+    and an array is just a contiguous block of memory the compiler will
+    happily let code read or write past the end of. Both facts are the
+    direct ancestors of the most common security bug class in C, covered
+    concretely elsewhere in this notebook.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A fixed-size, contiguous block of same-typed elements, and — for strings — a byte convention (NUL termination) layered on top of a plain char array.</dd>
+      <dt>Mental model</dt><dd>An array is a row of identical mailboxes with no locks — nothing stops code from reaching into the box next door. A string is that row with a "the message ends here" note in one box, and every string function trusts that note is actually there.</dd>
+      <dt>Key numbers</dt><dd>A string of N visible characters needs N+1 bytes of storage — the +1 is the NUL terminator, and forgetting to budget for it is a one-byte overflow that's easy to miss.</dd>
+      <dt>Reach for it when</dt><dd>The maximum size is known ahead of time — the common embedded case — rather than defaulting to a dynamically-sized structure.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#layout">Memory layout</a></li>
+      <li><a href="#multidim">Multi-dimensional arrays</a></li>
+      <li><a href="#decay">Decay, briefly revisited</a></li>
+      <li><a href="#strings">Strings are just char arrays</a></li>
+      <li><a href="#safe-functions">Bounded string functions</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="layout">Memory layout</h2>
+  <p>
+    An array's elements sit back to back in memory with no gaps —
+    <code>arr[i]</code> is genuinely just shorthand for
+    <code>*(arr + i)</code>, the exact pointer arithmetic covered in
+    <a href="/embedded-c/pointers/index.html#arithmetic">Pointers</a>.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 200" role="img" aria-labelledby="array-layout-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="array-layout-title">An int array's five elements sit at consecutive addresses four bytes apart; a string is a char array whose final byte is a zero-value NUL terminator marking where it ends</title>
+
+      <text class="seq-note" x="350" y="18" text-anchor="middle">int arr[5] — five 4-byte elements, contiguous</text>
+      <g font-family="var(--font-mono)">
+        <rect class="frame-box block-blue" x="40" y="30" width="110" height="45" /><text class="frame-label" x="95" y="57" text-anchor="middle" font-size="9">arr[0]</text>
+        <rect class="frame-box block-blue" x="150" y="30" width="110" height="45" /><text class="frame-label" x="205" y="57" text-anchor="middle" font-size="9">arr[1]</text>
+        <rect class="frame-box block-blue" x="260" y="30" width="110" height="45" /><text class="frame-label" x="315" y="57" text-anchor="middle" font-size="9">arr[2]</text>
+        <rect class="frame-box block-blue" x="370" y="30" width="110" height="45" /><text class="frame-label" x="425" y="57" text-anchor="middle" font-size="9">arr[3]</text>
+        <rect class="frame-box block-blue" x="480" y="30" width="110" height="45" /><text class="frame-label" x="535" y="57" text-anchor="middle" font-size="9">arr[4]</text>
+      </g>
+      <text class="frame-caption" x="95" y="90" text-anchor="middle" font-size="7">0x1000</text>
+      <text class="frame-caption" x="205" y="90" text-anchor="middle" font-size="7">0x1004</text>
+      <text class="frame-caption" x="315" y="90" text-anchor="middle" font-size="7">0x1008</text>
+      <text class="frame-caption" x="425" y="90" text-anchor="middle" font-size="7">0x100C</text>
+      <text class="frame-caption" x="535" y="90" text-anchor="middle" font-size="7">0x1010</text>
+
+      <text class="seq-note" x="350" y="130" text-anchor="middle">char greeting[] = "HI" — 3 bytes: two characters, then the terminator</text>
+      <g font-family="var(--font-mono)">
+        <rect class="frame-box block-teal" x="230" y="140" width="70" height="45" /><text class="frame-label" x="265" y="167" text-anchor="middle" font-size="10">'H'</text>
+        <rect class="frame-box block-teal" x="300" y="140" width="70" height="45" /><text class="frame-label" x="335" y="167" text-anchor="middle" font-size="10">'I'</text>
+        <rect class="frame-box block-amber" x="370" y="140" width="70" height="45" /><text class="frame-label" x="405" y="167" text-anchor="middle" font-size="9">'\0'</text>
+      </g>
+      <text class="frame-caption" x="405" y="197" text-anchor="middle" font-size="8">NUL terminator — this byte is 0x00</text>
+    </svg>
+    <figcaption class="diagram__caption">Every string function — <code>strlen</code>, <code>strcpy</code>, <code>printf</code>'s <code>%s</code> — works by scanning forward until it finds that zero byte. If it's missing, they keep scanning past the buffer into whatever memory comes next.</figcaption>
+  </figure>
+
+  <h2 id="multidim">Multi-dimensional arrays</h2>
+  <p>
+    A 2D array (<code>int grid[3][4]</code>) is still one contiguous block
+    underneath — C lays it out <strong>row-major</strong>, meaning an
+    entire row is contiguous before the next row begins. This matters for
+    more than performance: correctly indexing into a hardware buffer laid
+    out this way (a framebuffer, a multi-channel sensor's raw reading
+    array) depends on knowing which dimension is actually contiguous in
+    memory.
+  </p>
+
+  <h2 id="decay">Decay, briefly revisited</h2>
+  <p>
+    An array passed to a function decays to a pointer to its first
+    element, losing the compile-time size information — covered in full,
+    with the classic <code>sizeof</code> bug, in
+    <a href="/embedded-c/pointers/index.html#decay">Pointers</a>. Any
+    function taking an array parameter needs its length passed explicitly
+    as a separate argument; there's no way to recover it after decay.
+  </p>
+
+  <h2 id="strings">Strings are just char arrays</h2>
+  <p>
+    C has no dedicated string type — a string literal like
+    <code>"HI"</code> is a <code>char</code> array with an automatically
+    appended NUL byte (<code>'\0'</code>, the integer value 0) marking
+    where it ends. Every standard string function — <code>strlen</code>,
+    <code>strcpy</code>, <code>strcat</code>, <code>printf</code>'s
+    <code>%s</code> — relies entirely on finding that terminator. Walking
+    off the end of a buffer that was never actually NUL-terminated is
+    undefined behavior, and it's the exact root cause behind CWE-787
+    (out-of-bounds write), already covered as the single most common
+    memory-safety CWE in <a href="/security/secure-coding/index.html">Secure
+    Coding Principles</a>.
+  </p>
+
+  <h2 id="safe-functions">Bounded string functions</h2>
+  <p>
+    Bounded variants exist specifically to cap how far these functions
+    read or write — but they come with their own sharp edge worth knowing
+    explicitly: <code>strncpy(dst, src, n)</code> does <em>not</em>
+    guarantee <code>dst</code> ends up NUL-terminated if <code>src</code>
+    is <code>n</code> bytes or longer. <code>snprintf</code> is generally
+    the safer, more predictable choice for building a bounded string.
+  </p>
+  <pre><code>char dst[8];
+strncpy(dst, "a string well over 8 bytes long", sizeof(dst));
+// dst is now 8 bytes, NONE of which is guaranteed to be '\0' —
+// every subsequent string function that touches dst reads past it
+
+/* the safer alternative */
+snprintf(dst, sizeof(dst), "%s", "a string well over 8 bytes long");
+// dst is guaranteed NUL-terminated, truncated to fit</code></pre>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Fixed-size receive buffers —</strong> a UART/SPI/I2C driver's receive buffer is almost always a compile-time-sized array, not a dynamically grown one — see <a href="/protocols/uart/index.html">UART</a>.</li>
+    <li><strong>Calibration/lookup tables —</strong> a sensor's calibration coefficients stored as a <code>const</code> array land in flash (<code>.rodata</code>), read directly without ever being copied to RAM.</li>
+    <li><strong>Command parsing —</strong> a device accepting text commands over a serial console has to defend every incoming buffer against a missing or attacker-controlled terminator before calling any string function on it.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Off-by-one indexing — a 10-element array has valid indices 0 through 9; <code>arr[10]</code> is already out of bounds.</li>
+      <li>A manually built string missing its NUL terminator looks fine until something calls a string function on it, at which point it reads (or writes) past the buffer with no warning.</li>
+      <li>Comparing strings with <code>==</code> compares the pointers, not the contents — two identical strings at different addresses compare unequal; <code>strcmp</code> is required for content comparison.</li>
+      <li><code>strncpy</code>'s missing-terminator behavior is a genuine footgun, not an obscure edge case — prefer <code>snprintf</code> when a guaranteed-terminated bounded copy is the actual goal.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/embedded-c/registers/index.html", "title": "Registers & volatile" },
+  "next": { "href": "/embedded-c/linked-lists/index.html", "title": "Linked Lists" },
+  "related": [
+    { "href": "/embedded-c/pointers/index.html", "title": "Pointers" },
+    { "href": "/security/secure-coding/index.html", "title": "Secure Coding Principles" },
+    { "href": "/protocols/uart/index.html", "title": "UART" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

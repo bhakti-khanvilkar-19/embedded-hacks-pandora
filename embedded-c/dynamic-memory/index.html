@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dynamic Memory: malloc, calloc, realloc, free — Embedded C — Embedded Pandora</title>
+<meta name="description" content="malloc/calloc/realloc/free in depth, heap fragmentation, the four classic dynamic-memory bugs, and why embedded/safety-critical code restricts or bans dynamic allocation entirely." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Embedded C</p>
+  <h1>Dynamic Memory: malloc, calloc, realloc, free</h1>
+  <p class="lede">
+    Dynamic allocation is the default tool on a desktop and the tool many
+    embedded/safety-critical codebases restrict or ban outright — not
+    from tradition, but because a heap on a device with a few kilobytes of
+    RAM and no OS to reclaim memory fails in ways a desktop application
+    never has to think about. Understanding exactly what each function
+    does, and exactly how a heap fails, is what makes "we don't use
+    malloc here" a design decision instead of a superstition.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Runtime-managed memory requested from the heap with malloc/calloc/realloc and returned with free.</dd>
+      <dt>Mental model</dt><dd>The heap is a shared parking lot with no attendant — you have to remember which spot you parked in, never park somewhere you already left, and never assume a spot is still yours after you've given up the ticket.</dd>
+      <dt>Key numbers</dt><dd>4 classic bug categories (leak, double-free, use-after-free, overflow) account for the overwhelming majority of real-world heap bugs.</dd>
+      <dt>Reach for it when</dt><dd>Almost never after initialization on a hard-real-time or safety-critical embedded target — reach for a static array or a fixed-size memory pool instead, and reserve this page for understanding why.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#malloc">malloc</a></li>
+      <li><a href="#calloc">calloc</a></li>
+      <li><a href="#realloc">realloc</a></li>
+      <li><a href="#fragmentation">Heap fragmentation</a></li>
+      <li><a href="#errors">The four classic bugs</a></li>
+      <li><a href="#why-avoid">Why embedded code avoids malloc</a></li>
+      <li><a href="#alternatives">Alternatives: static allocation and memory pools</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="malloc">malloc</h2>
+  <p>
+    <code>malloc(size)</code> requests <code>size</code> bytes of
+    <strong>uninitialized</strong> memory from the heap, returning a
+    <code>void*</code> to it — or <code>NULL</code> if the request
+    can't be satisfied. On a device with a heap measured in kilobytes,
+    failure is a realistic outcome that has to be handled, not a
+    theoretical edge case a desktop program can shrug off.
+  </p>
+  <pre><code>uint8_t *buf = malloc(64);
+if (buf == NULL) {
+    handle_allocation_failure();   // this branch is not optional here
+    return;
+}</code></pre>
+
+  <h2 id="calloc">calloc</h2>
+  <p>
+    <code>calloc(count, size)</code> allocates <code>count * size</code>
+    bytes and <strong>zero-initializes</strong> them — and, unlike doing
+    the multiplication yourself, does it with an internal overflow check.
+    <code>malloc(count * size)</code> can silently overflow the
+    multiplication on a platform with a narrow <code>size_t</code>, handing
+    back a successful allocation that's far smaller than intended;
+    <code>calloc</code> is specified to detect that and fail instead.
+  </p>
+  <pre><code>struct sensor_reading *readings = calloc(num_sensors, sizeof(*readings));
+// every field of every element starts at zero — no manual memset needed</code></pre>
+
+  <h2 id="realloc">realloc</h2>
+  <p>
+    <code>realloc(ptr, new_size)</code> resizes a previous allocation —
+    possibly by moving it to a new address entirely, in which case it
+    copies the old contents and the original pointer becomes invalid. The
+    classic mistake overwrites the only reference to the original block
+    with <code>realloc</code>'s return value before checking it succeeded:
+  </p>
+  <pre><code>/* WRONG — leaks the original block on failure */
+ptr = realloc(ptr, bigger_size);   // if this returns NULL, the old
+                                    // block's address is gone forever
+
+/* correct */
+void *tmp = realloc(ptr, bigger_size);
+if (tmp == NULL) {
+    handle_allocation_failure();   // ptr is still valid here — free it if done
+} else {
+    ptr = tmp;
+}</code></pre>
+
+  <h2 id="fragmentation">Heap fragmentation</h2>
+  <p>
+    A heap doesn't fail only when it's genuinely full — it fails when
+    <em>enough contiguous space</em> doesn't exist, even though the total
+    free memory would be plenty. This is fragmentation, and it's the
+    specific reason a long-running device can start failing allocations
+    after weeks of uptime despite never leaking a single byte.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 260" role="img" aria-labelledby="fragmentation-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="fragmentation-title">Allocating A, B, and C, then freeing B, leaves a hole exactly B's size — a later allocation larger than that hole can't reuse it and has to go after C instead, wasting the hole permanently</title>
+
+      <text class="seq-note" x="350" y="20" text-anchor="middle">Step 1 — allocate A, B, C</text>
+      <rect class="frame-box block-blue" x="20" y="30" width="100" height="40" /><text class="frame-label" x="70" y="54" text-anchor="middle" font-size="9">A</text>
+      <rect class="frame-box block-teal" x="120" y="30" width="100" height="40" /><text class="frame-label" x="170" y="54" text-anchor="middle" font-size="9">B</text>
+      <rect class="frame-box block-green" x="220" y="30" width="100" height="40" /><text class="frame-label" x="270" y="54" text-anchor="middle" font-size="9">C</text>
+      <rect x="320" y="30" width="340" height="40" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" stroke-dasharray="5 4" /><text class="frame-caption" x="490" y="54" text-anchor="middle" font-size="8">free</text>
+
+      <text class="seq-note" x="350" y="100" text-anchor="middle">Step 2 — free(B)</text>
+      <rect class="frame-box block-blue" x="20" y="110" width="100" height="40" /><text class="frame-label" x="70" y="134" text-anchor="middle" font-size="9">A</text>
+      <rect x="120" y="110" width="100" height="40" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" stroke-dasharray="5 4" /><text class="frame-caption" x="170" y="134" text-anchor="middle" font-size="8">freed hole</text>
+      <rect class="frame-box block-green" x="220" y="110" width="100" height="40" /><text class="frame-label" x="270" y="134" text-anchor="middle" font-size="9">C</text>
+      <rect x="320" y="110" width="340" height="40" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" stroke-dasharray="5 4" /><text class="frame-caption" x="490" y="134" text-anchor="middle" font-size="8">free</text>
+
+      <text class="seq-note" x="350" y="180" text-anchor="middle">Step 3 — malloc(D), D bigger than the hole</text>
+      <rect class="frame-box block-blue" x="20" y="190" width="100" height="40" /><text class="frame-label" x="70" y="214" text-anchor="middle" font-size="9">A</text>
+      <rect x="120" y="190" width="100" height="40" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="3 3" /><text class="frame-caption" x="170" y="210" text-anchor="middle" font-size="7">hole —</text><text class="frame-caption" x="170" y="220" text-anchor="middle" font-size="7">too small</text>
+      <rect class="frame-box block-green" x="220" y="190" width="100" height="40" /><text class="frame-label" x="270" y="214" text-anchor="middle" font-size="9">C</text>
+      <rect class="frame-box block-violet" x="320" y="190" width="160" height="40" /><text class="frame-label" x="400" y="214" text-anchor="middle" font-size="9">D</text>
+      <rect x="480" y="190" width="180" height="40" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" stroke-dasharray="5 4" /><text class="frame-caption" x="570" y="214" text-anchor="middle" font-size="8">free</text>
+    </svg>
+    <figcaption class="diagram__caption">The B-sized hole is never reused for anything bigger than B — on a device that runs for months without a reboot, this pattern compounds until an allocation fails despite plenty of total free memory.</figcaption>
+  </figure>
+
+  <h2 id="errors">The four classic bugs</h2>
+  <dl class="kv">
+    <dt>Memory leak</dt><dd>Losing every pointer to an allocated block without calling <code>free()</code> — the memory is unreachable but the allocator still considers it in use. On a device with no process model to reclaim memory when it exits, a leak means the device slowly runs out until it's reset.</dd>
+    <dt>Double free</dt><dd>Calling <code>free()</code> on the same pointer twice — corrupts the allocator's internal bookkeeping, often not crashing at the point of the mistake but at some unrelated later allocation.</dd>
+    <dt>Use-after-free</dt><dd>Dereferencing a pointer after its memory has been freed — the memory may already belong to a different, unrelated allocation, so the bug's symptoms depend entirely on what else happens to run next.</dd>
+    <dt>Heap buffer overflow</dt><dd>Writing past the end of an allocated block corrupts whatever comes after it in the heap — often another allocation's data or the allocator's own metadata, producing a crash far from the actual bug.</dd>
+  </dl>
+
+  <h2 id="why-avoid">Why embedded code avoids malloc</h2>
+  <ul class="point-list">
+    <li><strong>Non-deterministic timing —</strong> searching for a suitable free block can take variable time depending on heap state, unacceptable when code has to meet a hard real-time deadline (see <a href="/embedded/rtos/index.html">RTOS</a>).</li>
+    <li><strong>Fragmentation over a long lifetime —</strong> exactly the failure mode diagrammed above — a device running for months can fail an allocation despite having enough total free memory.</li>
+    <li><strong>No OS safety net —</strong> a desktop process's leaked memory is reclaimed the moment it exits; an embedded system usually has no concept of a process exiting at all, so a leak simply accumulates until the device fails.</li>
+    <li><strong>Coding-standard restrictions —</strong> MISRA-C and similar safety-critical coding standards restrict or ban dynamic allocation after initialization specifically for the reasons above.</li>
+  </ul>
+
+  <h2 id="alternatives">Alternatives: static allocation and memory pools</h2>
+  <p>
+    The simplest alternative is a compile-time-sized array — its memory
+    footprint is fixed and known before the program ever runs. When
+    something genuinely needs to be allocated and released at runtime, a
+    <strong>memory pool</strong> (fixed-size block allocator) is the
+    standard embedded answer: pre-allocate <code>N</code> fixed-size
+    blocks once at startup, and "allocate"/"free" become O(1) operations
+    that just mark a pool slot used or free — no search, no
+    fragmentation, because every block is the same size. A pool's free
+    list is, not coincidentally, usually implemented as the exact singly
+    linked list covered in <a href="/embedded-c/linked-lists/index.html">Linked
+    Lists</a>, threaded through the unused blocks themselves.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>RTOS task stacks —</strong> a task's stack is typically a compile-time array or drawn from a static pool, never a raw <code>malloc()</code> per task.</li>
+    <li><strong>Sensor driver buffers —</strong> a fixed receive buffer allocated once at driver initialization and reused for the device's entire operating lifetime.</li>
+    <li><strong>Network packet pools —</strong> a networking stack on a constrained device typically draws packet buffers from a pre-sized pool rather than calling <code>malloc()</code> per packet.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Not checking <code>malloc</code>'s return value for <code>NULL</code> is common in tutorials and genuinely dangerous on a device with a heap measured in kilobytes.</li>
+      <li>Calling <code>free()</code> on a pointer that didn't come from <code>malloc</code>/<code>calloc</code>/<code>realloc</code> (a stack address, an offset pointer) is undefined behavior, not a no-op.</li>
+      <li><code>realloc</code>'s return-value-overwrite pattern (<code>ptr = realloc(ptr, n)</code>) silently leaks the original block on failure — always assign to a temporary first.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/embedded-c/compilation/index.html", "title": "Compilation & Linking" },
+  "next": { "href": "/embedded-c/pointers/index.html", "title": "Pointers" },
+  "related": [
+    { "href": "/embedded-c/linked-lists/index.html", "title": "Linked Lists" },
+    { "href": "/embedded-c/stacks-queues/index.html", "title": "Stacks, Queues & Ring Buffers" },
+    { "href": "/embedded/rtos/index.html", "title": "RTOS" },
+    { "href": "/security/secure-coding/index.html", "title": "Secure Coding Principles" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

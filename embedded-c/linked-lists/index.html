@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Linked Lists — Embedded C — Embedded Pandora</title>
+<meta name="description" content="Singly, doubly, and circular linked lists implemented from scratch in C — the self-referential struct pattern, trade-offs against arrays, and where linked lists actually show up in firmware." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Embedded C</p>
+  <h1>Linked Lists</h1>
+  <p class="lede">
+    A linked list is nothing more than a struct holding a pointer to
+    another struct of its own type — the entire data structure is built
+    from that one self-referential idea. Embedded code reaches for arrays
+    far more often than linked lists, for reasons that connect directly
+    back to <a href="/embedded-c/dynamic-memory/index.html">Dynamic
+    Memory</a>, but the pattern itself shows up constantly once memory
+    pools enter the picture.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A chain of nodes, each holding data plus a pointer to the next (and sometimes previous) node.</dd>
+      <dt>Mental model</dt><dd>A scavenger hunt — each clue (node) only tells you where the next one is, and you can't skip ahead without following the chain from wherever you're currently standing.</dd>
+      <dt>Key numbers</dt><dd>O(1) insert/delete at a known position; O(n) to reach an arbitrary element by index — the opposite trade-off from an array.</dd>
+      <dt>Reach for it when</dt><dd>The maximum size genuinely isn't known ahead of time, or elements need to be inserted/removed from the middle frequently — otherwise, an array wins on both simplicity and embedded-friendliness.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#node">The self-referential node</a></li>
+      <li><a href="#singly">Singly linked</a></li>
+      <li><a href="#doubly">Doubly linked</a></li>
+      <li><a href="#circular">Circular</a></li>
+      <li><a href="#vs-arrays">Linked lists vs. arrays</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="node">The self-referential node</h2>
+  <pre><code>struct node {
+    int data;
+    struct node *next;   // a struct pointing to another struct of its own type
+};</code></pre>
+
+  <h2 id="singly">Singly linked</h2>
+  <p>
+    Each node points only forward. Traversal is one-directional;
+    inserting at the head is O(1), but inserting anywhere else requires
+    walking the list from the head first.
+  </p>
+  <pre><code>struct node *push_front(struct node *head, int value) {
+    struct node *n = malloc(sizeof(*n));
+    n-&gt;data = value;
+    n-&gt;next = head;     // new node points at the old head
+    return n;            // caller's head pointer now becomes this node
+}</code></pre>
+
+  <h2 id="doubly">Doubly linked</h2>
+  <p>
+    Each node carries both <code>next</code> and <code>prev</code>,
+    enabling backward traversal and O(1) removal of a node whose address
+    is already known, without needing to find its predecessor first — at
+    the cost of one extra pointer per node and twice as many pointer
+    updates to get right on every insert/delete.
+  </p>
+  <pre><code>struct dnode {
+    int data;
+    struct dnode *next;
+    struct dnode *prev;
+};</code></pre>
+
+  <h2 id="circular">Circular</h2>
+  <p>
+    The last node's <code>next</code> points back to the first node
+    instead of <code>NULL</code> — there's no "end" to reach. Useful for
+    anything that logically repeats: a simple round-robin scheduler's task
+    list, or cycling through a fixed set of I/O channels in a loop that
+    never actually terminates.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 700 340" role="img" aria-labelledby="linked-list-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="linked-list-title">A singly linked list ends in NULL; a doubly linked list adds backward pointers between the same nodes; a circular list's last node points back to the first instead of terminating</title>
+
+      <text class="seq-note" x="350" y="18" text-anchor="middle">Singly linked</text>
+      <rect class="frame-box block-blue" x="40" y="35" width="90" height="45" /><text class="frame-label" x="85" y="62" text-anchor="middle" font-size="9">Node 1</text>
+      <rect class="frame-box block-blue" x="190" y="35" width="90" height="45" /><text class="frame-label" x="235" y="62" text-anchor="middle" font-size="9">Node 2</text>
+      <rect class="frame-box block-blue" x="340" y="35" width="90" height="45" /><text class="frame-label" x="385" y="62" text-anchor="middle" font-size="9">Node 3</text>
+      <rect x="490" y="35" width="70" height="45" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" stroke-dasharray="5 4" /><text class="frame-caption" x="525" y="62" text-anchor="middle" font-size="9">NULL</text>
+      <line x1="130" y1="57" x2="186" y2="57" class="seq-arrow" stroke-width="2" /><polygon class="seq-arrowhead" points="190,57 180,52 180,62" />
+      <line x1="280" y1="57" x2="336" y2="57" class="seq-arrow" stroke-width="2" /><polygon class="seq-arrowhead" points="340,57 330,52 330,62" />
+      <line x1="430" y1="57" x2="486" y2="57" class="seq-arrow" stroke-width="2" /><polygon class="seq-arrowhead" points="490,57 480,52 480,62" />
+
+      <text class="seq-note" x="350" y="118" text-anchor="middle">Doubly linked</text>
+      <rect class="frame-box block-teal" x="40" y="135" width="90" height="45" /><text class="frame-label" x="85" y="162" text-anchor="middle" font-size="9">Node 1</text>
+      <rect class="frame-box block-teal" x="190" y="135" width="90" height="45" /><text class="frame-label" x="235" y="162" text-anchor="middle" font-size="9">Node 2</text>
+      <rect class="frame-box block-teal" x="340" y="135" width="90" height="45" /><text class="frame-label" x="385" y="162" text-anchor="middle" font-size="9">Node 3</text>
+      <line x1="130" y1="150" x2="186" y2="150" class="seq-arrow" stroke-width="1.5" /><polygon class="seq-arrowhead" points="190,150 180,146 180,154" />
+      <line x1="186" y1="165" x2="130" y2="165" class="seq-arrow" stroke-width="1.5" /><polygon class="seq-arrowhead" points="130,165 140,161 140,169" />
+      <line x1="280" y1="150" x2="336" y2="150" class="seq-arrow" stroke-width="1.5" /><polygon class="seq-arrowhead" points="340,150 330,146 330,154" />
+      <line x1="336" y1="165" x2="280" y2="165" class="seq-arrow" stroke-width="1.5" /><polygon class="seq-arrowhead" points="280,165 290,161 290,169" />
+
+      <text class="seq-note" x="350" y="218" text-anchor="middle">Circular</text>
+      <rect class="frame-box block-violet" x="40" y="235" width="90" height="45" /><text class="frame-label" x="85" y="262" text-anchor="middle" font-size="9">Node 1</text>
+      <rect class="frame-box block-violet" x="190" y="235" width="90" height="45" /><text class="frame-label" x="235" y="262" text-anchor="middle" font-size="9">Node 2</text>
+      <rect class="frame-box block-violet" x="340" y="235" width="90" height="45" /><text class="frame-label" x="385" y="262" text-anchor="middle" font-size="9">Node 3</text>
+      <line x1="130" y1="257" x2="186" y2="257" class="seq-arrow" stroke-width="2" /><polygon class="seq-arrowhead" points="190,257 180,252 180,262" />
+      <line x1="280" y1="257" x2="336" y2="257" class="seq-arrow" stroke-width="2" /><polygon class="seq-arrowhead" points="340,257 330,252 330,262" />
+      <path d="M385,280 L385,310 L85,310 L85,280" fill="none" class="seq-arrow" stroke-width="1.5" />
+      <polygon class="seq-arrowhead" points="85,274 78,286 92,286" />
+      <text class="seq-sub" x="235" y="325" text-anchor="middle">last node's next points back to the first</text>
+    </svg>
+    <figcaption class="diagram__caption">Same node struct, three different link patterns — the choice is purely about what the traversal needs to do, not a different data structure underneath.</figcaption>
+  </figure>
+
+  <h2 id="vs-arrays">Linked lists vs. arrays</h2>
+  <table>
+    <thead><tr><th></th><th>Array</th><th>Linked list</th></tr></thead>
+    <tbody>
+      <tr><td>Random access</td><td>O(1)</td><td>O(n)</td></tr>
+      <tr><td>Insert/delete at known position</td><td>O(n) (shifting)</td><td>O(1)</td></tr>
+      <tr><td>Memory layout</td><td>Contiguous — cache-friendly</td><td>Scattered — poor cache locality</td></tr>
+      <tr><td>Size</td><td>Fixed at compile time (or costly resize)</td><td>Grows one node at a time</td></tr>
+      <tr><td>Allocation</td><td>Usually one static block</td><td>Usually one allocation per node</td></tr>
+    </tbody>
+  </table>
+  <p>
+    That last row is the one that matters most for embedded: a linked
+    list built with raw <code>malloc()</code> per node inherits every
+    problem from <a href="/embedded-c/dynamic-memory/index.html">Dynamic
+    Memory</a> — fragmentation, non-deterministic timing, allocation
+    failure. This is why embedded code favors arrays whenever the maximum
+    size is known ahead of time, and reserves linked lists for cases where
+    nodes are drawn from a pre-sized static pool rather than the raw heap.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>RTOS ready/blocked task lists —</strong> built from pre-allocated task control blocks threaded together by pointers, never malloc'd per task — see <a href="/embedded/rtos/index.html">RTOS</a>.</li>
+    <li><strong>Free-list allocators —</strong> the memory-pool alternative to raw <code>malloc</code> (see <a href="/embedded-c/dynamic-memory/index.html#alternatives">Dynamic Memory</a>) is, underneath, a singly linked list of free blocks threaded through the pool's own unused memory — no separate bookkeeping structure needed.</li>
+    <li><strong>Round-robin I/O scanning —</strong> a circular linked list of channels or devices to poll in sequence is a natural fit for "there's no last one, just keep going."</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Overwriting a node's <code>next</code> pointer before saving it elsewhere loses the rest of the list permanently — a very easy mistake during insertion/deletion.</li>
+      <li>Freeing a node without saving its <code>next</code> pointer first leaks the entire remainder of the list, since nothing else references it anymore.</li>
+      <li>An accidental cycle in what should be a linear list — or mishandling a circular list's stopping condition — turns a traversal into an infinite loop, since there's no <code>NULL</code> to naturally stop at.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/embedded-c/arrays-strings/index.html", "title": "Arrays & Strings" },
+  "next": { "href": "/embedded-c/stacks-queues/index.html", "title": "Stacks, Queues & Ring Buffers" },
+  "related": [
+    { "href": "/embedded-c/dynamic-memory/index.html", "title": "Dynamic Memory" },
+    { "href": "/embedded/rtos/index.html", "title": "RTOS" },
+    { "href": "/embedded-c/pointers/index.html", "title": "Pointers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
