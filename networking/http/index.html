@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HTTP — Networking — Embedded Pandora</title>
+<meta name="description" content="The request/response protocol underneath every web page and REST API: methods, status codes, headers, statelessness, and how HTTP/1.1, HTTP/2, and HTTP/3 differ." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>HTTP</h1>
+  <p class="lede">
+    <a href="/networking/https/index.html">HTTPS</a>'s own page describes itself as "just HTTP run over
+    TCP with one thing added: TLS." This page is that one thing removed — HTTP itself, the plain
+    request/response protocol underneath practically every web page, REST API, and IoT device dashboard,
+    independent of whether the connection happens to be encrypted.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A text-based request/response protocol built on <a href="/networking/tcp/index.html">TCP</a> — a client sends a request, a server sends back a response, and that exchange is done.</dd>
+      <dt>Mental model</dt><dd>Ordering at a counter: you state exactly what you want, you get back exactly one answer, and the interaction ends — nothing is remembered between orders unless you're carrying something (a cookie/token) that says otherwise.</dd>
+      <dt>Key numbers</dt><dd>Port 80 (plaintext); status codes are 3 digits, grouped 1xx–5xx by category.</dd>
+      <dt>Reach for it when</dt><dd>Any request/response interaction between a client and server — in practice almost always via <a href="/networking/https/index.html">HTTPS</a>, never plain HTTP, once anything real is at stake.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#request-response">The request/response shape</a></li>
+      <li><a href="#methods">Methods</a></li>
+      <li><a href="#status-codes">Status codes</a></li>
+      <li><a href="#headers">Headers</a></li>
+      <li><a href="#statelessness">Statelessness — and how cookies work around it</a></li>
+      <li><a href="#versions">HTTP/1.1 vs. HTTP/2 vs. HTTP/3</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="request-response">The request/response shape</h2>
+  <p>
+    Every HTTP exchange is one request, one response — a method, a path, a set of headers, and an
+    optional body, answered with a status code, its own headers, and an optional body.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 640 200" role="img" aria-labelledby="http-reqres-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="http-reqres-title">A GET request with method, path, and headers, answered by a 200 OK response with headers and a body</title>
+      <rect class="seq-actor-chip" x="10" y="30" width="110" height="40" rx="8" />
+      <text class="seq-actor-text" x="65" y="55" text-anchor="middle">Client</text>
+      <rect class="seq-actor-chip" x="520" y="30" width="110" height="40" rx="8" />
+      <text class="seq-actor-text" x="575" y="55" text-anchor="middle">Server</text>
+
+      <line class="seq-arrow" x1="120" y1="60" x2="512" y2="60" stroke-width="1.6" />
+      <polygon class="seq-arrowhead" points="520,60 508,55 508,65" />
+      <text class="seq-label" x="320" y="48" text-anchor="middle">GET /devices/42/status HTTP/1.1</text>
+      <text class="seq-sub" x="320" y="80" text-anchor="middle">Host: api.example.com · Accept: application/json</text>
+
+      <line class="seq-arrow" x1="520" y1="130" x2="128" y2="130" stroke-width="1.6" />
+      <polygon class="seq-arrowhead" points="120,130 132,125 132,135" />
+      <text class="seq-label" x="320" y="118" text-anchor="middle">HTTP/1.1 200 OK</text>
+      <text class="seq-sub" x="320" y="150" text-anchor="middle">Content-Type: application/json</text>
+      <text class="seq-sub" x="320" y="165" text-anchor="middle">{"status": "online", "battery": 87}</text>
+    </svg>
+    <figcaption class="diagram__caption">One request, one response — the entire exchange, whether it's a browser loading a page or a device polling an API.</figcaption>
+  </figure>
+
+  <h2 id="methods">Methods</h2>
+  <dl class="kv">
+    <dt>GET</dt><dd>Fetch a resource. Should never change anything server-side — safe to retry, cache, or send twice by accident.</dd>
+    <dt>POST</dt><dd>Create something, or trigger an action with side effects. Not safe to blindly retry — a retried POST can create a duplicate.</dd>
+    <dt>PUT</dt><dd>Replace a resource entirely with the given data. Idempotent — sending the same PUT twice has the same effect as sending it once.</dd>
+    <dt>PATCH</dt><dd>Apply a partial update to a resource, rather than replacing the whole thing.</dd>
+    <dt>DELETE</dt><dd>Remove a resource. Idempotent — deleting something already deleted is still "deleted."</dd>
+    <dt>HEAD</dt><dd>Same as GET, but the server returns only headers, no body — used to check a resource's existence/metadata cheaply.</dd>
+  </dl>
+
+  <h2 id="status-codes">Status codes</h2>
+  <table>
+    <thead><tr><th>Range</th><th>Meaning</th><th>Common examples</th></tr></thead>
+    <tbody>
+      <tr><td>1xx</td><td>Informational — the request was received, processing continues</td><td>101 Switching Protocols (used by WebSocket's upgrade)</td></tr>
+      <tr><td>2xx</td><td>Success</td><td>200 OK, 201 Created, 204 No Content</td></tr>
+      <tr><td>3xx</td><td>Redirection — the client should look elsewhere</td><td>301 Moved Permanently, 304 Not Modified</td></tr>
+      <tr><td>4xx</td><td>Client error — the request itself was wrong</td><td>400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found</td></tr>
+      <tr><td>5xx</td><td>Server error — the request was fine, the server failed</td><td>500 Internal Server Error, 503 Service Unavailable</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="headers">Headers</h2>
+  <p>Headers carry metadata about the request or response, separate from the actual body content:</p>
+  <dl class="kv">
+    <dt>Host</dt><dd>Which domain the request is for — required since one server/IP can host many different domains.</dd>
+    <dt>Content-Type</dt><dd>The format of the body — <code>application/json</code>, <code>text/html</code>, <code>application/octet-stream</code> for raw binary (like a firmware image).</dd>
+    <dt>Content-Length</dt><dd>Body size in bytes, so the receiver knows exactly where the body ends.</dd>
+    <dt>Authorization</dt><dd>Credentials — a bearer token, API key, or Basic-auth pair — proving who's making the request.</dd>
+    <dt>Cache-Control</dt><dd>How long a response may be cached, and by whom, before it needs to be re-fetched.</dd>
+  </dl>
+
+  <h2 id="statelessness">Statelessness — and how cookies work around it</h2>
+  <p>
+    HTTP itself has no memory — each request is handled with zero knowledge of any earlier one, even from
+    the same client. That's deliberate: it's what lets any server behind a load balancer answer any
+    request, since no server needs to remember which client it talked to last. The practical need to stay
+    "logged in" across many requests is solved entirely outside the protocol's own state: a
+    <strong>cookie</strong> or token is sent by the client on every subsequent request, and the server
+    looks it up against its own session store — the illusion of a continuous conversation, built out of
+    many independent, stateless ones.
+  </p>
+
+  <h2 id="versions">HTTP/1.1 vs. HTTP/2 vs. HTTP/3</h2>
+  <dl class="kv">
+    <dt>HTTP/1.1</dt><dd>Text-based, one request waits for its response before the next can use that same connection (unless pipelined, which is rarely used in practice) — browsers work around this by opening several TCP connections in parallel.</dd>
+    <dt>HTTP/2</dt><dd>Binary framing, multiplexes many requests over a single TCP connection at once — but still inherits TCP's own head-of-line blocking at the packet level, since it's all still one TCP stream underneath.</dd>
+    <dt>HTTP/3</dt><dd>Runs over <a href="/networking/quic/index.html">QUIC</a> instead of TCP — gets true independent-stream multiplexing, since QUIC's per-stream ordering means one lost packet no longer blocks unrelated requests.</dd>
+  </dl>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>REST APIs —</strong> the vast majority of device-to-cloud and service-to-service APIs use HTTP methods and status codes as their entire vocabulary for "what happened."</li>
+    <li><strong>IoT device dashboards and local config pages —</strong> many embedded devices run a small HTTP server for local setup/status (often on their own Wi-Fi AP before they've joined a network).</li>
+    <li><strong>OTA firmware update checks —</strong> a device periodically issuing a GET to ask "is a newer firmware version available" is one of the simplest and most common HTTP use cases in embedded systems.</li>
+    <li><strong>Webhooks —</strong> one service notifying another of an event by making an outbound HTTP POST is the standard way independent systems integrate without polling each other.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Returning HTTP 200 with an error described only in the response body is a common API design mistake — it defeats every piece of tooling (caches, monitoring, retries) that makes decisions based on the status code alone.</li>
+      <li>GET requests are meant to be safe and idempotent — a GET that has side effects (like incrementing a counter) will eventually get "retried" by a cache, prefetcher, or browser in a way that silently corrupts state.</li>
+      <li>Plain HTTP (no TLS) sends everything, including any Authorization header, in cleartext — see <a href="/networking/https/index.html">HTTPS &amp; TLS</a> for why this matters on any network you don't fully control.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "next": { "href": "/networking/https/index.html", "title": "HTTPS & TLS" },
+  "related": [
+    { "href": "/networking/https/index.html", "title": "HTTPS & TLS" },
+    { "href": "/networking/tcp/index.html", "title": "TCP" },
+    { "href": "/networking/quic/index.html", "title": "QUIC" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

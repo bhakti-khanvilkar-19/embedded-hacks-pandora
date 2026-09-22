@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SSH — Networking — Embedded Pandora</title>
+<meta name="description" content="Encrypted remote shell access: why it replaced telnet, how key-based authentication proves identity without ever sending a secret, and how SSH tunneling reaches devices behind NAT." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>SSH — Secure Shell</h1>
+  <p class="lede">
+    The protocol behind the single most common command an embedded engineer types:
+    <code>ssh user@device-ip</code>. It gives an encrypted, authenticated terminal on a remote machine —
+    the same core guarantees <a href="/networking/https/index.html">TLS</a> provides for a web connection,
+    applied specifically to "give me a shell on that box," with a distinct, stronger identity model built
+    around cryptographic keys instead of certificates.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>An encrypted, authenticated protocol for remote login, command execution, and file transfer.</dd>
+      <dt>Mental model</dt><dd>A locked door that only opens for a key you already own — the server never asks you to show it the key, only to prove you have it.</dd>
+      <dt>Key numbers</dt><dd>Port 22 by default; common key types are ed25519 (newer, preferred) and RSA (older, still widely supported).</dd>
+      <dt>Reach for it when</dt><dd>Any remote shell, file transfer, or administration task over an untrusted network — effectively always, in place of telnet or rsh.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#why-ssh">Why SSH replaced telnet</a></li>
+      <li><a href="#host-keys">Host keys — trusting the server</a></li>
+      <li><a href="#key-auth">Key-based authentication — proving who you are</a></li>
+      <li><a href="#tunneling">Tunneling and port forwarding</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="why-ssh">Why SSH replaced telnet</h2>
+  <p>
+    Telnet and rsh, SSH's plaintext predecessors, sent everything over the wire exactly as typed —
+    including the login password. Anyone able to observe the network between client and server could read
+    credentials directly out of the traffic, the exact same problem
+    <a href="/networking/https/index.html#why">plain HTTP has for web traffic</a>. SSH exists to close
+    that gap for remote administration specifically: every byte, including the password (if password auth
+    is even used), is encrypted before it leaves the client.
+  </p>
+
+  <h2 id="host-keys">Host keys — trusting the server</h2>
+  <p>
+    Before authenticating <em>you</em>, SSH authenticates the <em>server</em> — every SSH server has its
+    own host key pair, and the client checks the server's public key against a local
+    <code>known_hosts</code> file from any previous connection. This is a different trust model from TLS's
+    certificate chain: there's no central authority vouching for a server's identity, only
+    <strong>trust-on-first-use</strong> — the first connection asks "are you sure?" and remembers the
+    answer. If the key ever changes afterward, SSH refuses to connect and warns loudly, since that's
+    exactly what a machine-in-the-middle attack — or, far more often, a reimaged or reinstalled server —
+    would look like.
+  </p>
+
+  <h2 id="key-auth">Key-based authentication — proving who you are</h2>
+  <p>
+    A key pair consists of a private key (stays on your machine, never transmitted) and a public key
+    (copied to every server you want to access, into its <code>authorized_keys</code> file). Logging in
+    proves you hold the private key without ever sending it:
+  </p>
+  <ol>
+    <li>The server sends a challenge — some data encrypted with your public key, or generated fresh for this login attempt.</li>
+    <li>Only your private key can produce the correct response to that challenge.</li>
+    <li>The server verifies the response against the public key it already has on file — if it checks out, you're in.</li>
+  </ol>
+  <p>
+    Password authentication, by contrast, transmits the actual secret (encrypted in transit, but still a
+    reusable, guessable string) every single time — key-based auth never sends anything an attacker who
+    captured it could reuse.
+  </p>
+
+  <h2 id="tunneling">Tunneling and port forwarding</h2>
+  <p>
+    Once an SSH connection exists, it can carry more than a terminal — SSH can forward arbitrary TCP
+    traffic through that same encrypted channel. <strong>Local forwarding</strong> exposes a remote
+    service on your own machine's local port; <strong>remote forwarding</strong> does the reverse, exposing
+    a local service to the remote side. A <strong>reverse SSH tunnel</strong> — a device behind NAT
+    initiating an outbound connection to a public server, then forwarding a port back through it — is a
+    common way to reach an embedded device for debugging when it has no public IP or inbound access of
+    its own at all.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Remote embedded Linux board access —</strong> the default way to get a shell on a Raspberry Pi, an industrial gateway, or any embedded Linux target over the network.</li>
+    <li><strong>Git over SSH —</strong> <code>git@github.com:...</code> URLs authenticate and encrypt repository access using exactly the key-based flow above, no password involved.</li>
+    <li><strong>SFTP/SCP —</strong> secure file transfer protocols that reuse an SSH connection's authentication and encryption rather than inventing their own.</li>
+    <li><strong>IoT fleet debugging via reverse tunnels —</strong> devices deployed behind customer firewalls/NAT with no inbound access often maintain an outbound SSH tunnel to a management server specifically so support staff can reach them on demand.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>SSH refuses to use a private key file with overly permissive file permissions (world- or group-readable) — a "Permissions 0644 for 'id_rsa' are too open" error is fixed with <code>chmod 600</code>, not a real connectivity problem.</li>
+      <li>A "host key verification failed" warning should never be dismissed reflexively — it's correct behavior on a genuinely reimaged device, but it's also exactly what a real machine-in-the-middle attack looks like; confirm the change through a separate channel before accepting it.</li>
+      <li>Password authentication left enabled on an internet-facing device is a standing invitation to automated brute-force login attempts — disabling password auth entirely (key-only) removes an entire class of attack, not just slows it down.</li>
+      <li>A forgotten open reverse tunnel or forwarded port is a real, easy-to-miss attack surface — it's still a live network path even after the original debugging session is long forgotten.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/networking/https/index.html", "title": "HTTPS & TLS" },
+    { "href": "/networking/tcp/index.html", "title": "TCP" },
+    { "href": "/linux/index.html", "title": "Linux" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

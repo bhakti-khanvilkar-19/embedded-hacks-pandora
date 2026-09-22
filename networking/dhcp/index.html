@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DHCP — Networking — Embedded Pandora</title>
+<meta name="description" content="How a device gets an IP address automatically the moment it joins a network — the DORA handshake, lease renewal, and what else DHCP hands out besides an address." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>DHCP</h1>
+  <p class="lede">
+    <a href="/networking/ip/index.html">IP</a>'s own page answers "who assigns an address" with one
+    sentence: "usually your router, automatically, via a protocol called DHCP." This page is that
+    protocol — how a device that has never touched this network before gets a working IP address, a
+    default gateway, and a DNS server, all without a single manual setting.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The protocol a device uses to automatically request and receive an IP address (and other network config) from a server on the local network.</dd>
+      <dt>Mental model</dt><dd>Checking into a hotel: reception hands you a room key for the length of your stay (a lease), and you hand it back — or it simply expires — when you leave.</dd>
+      <dt>Key numbers</dt><dd>Runs over <a href="/networking/udp/index.html">UDP</a> ports 67 (server) and 68 (client); the handshake is 4 messages, nicknamed DORA.</dd>
+      <dt>Reach for it when</dt><dd>Never chosen directly — it runs automatically the instant a device's network interface comes up with no static configuration set.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#why-dhcp">Why this needs its own protocol</a></li>
+      <li><a href="#dora">The DORA handshake</a></li>
+      <li><a href="#lease">Leases and renewal</a></li>
+      <li><a href="#other-config">What else DHCP hands out</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="why-dhcp">Why this needs its own protocol</h2>
+  <p>
+    A device that has just joined a network has no IP address yet — and therefore can't do anything that
+    needs one, including asking for one the normal way. DHCP is built specifically to work around that
+    chicken-and-egg problem: its very first message is sent as an Ethernet
+    <a href="/networking/ethernet/index.html#cast-types">broadcast</a>, precisely because the device has
+    no unicast address of its own to be addressed by yet.
+  </p>
+
+  <h2 id="dora">The DORA handshake</h2>
+  <p>Four messages, all broadcast at first since neither side has confirmed anything yet:</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 640 260" role="img" aria-labelledby="dora-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="dora-title">DHCP DORA handshake: Discover, Offer, Request, Acknowledge, after which the client has a usable IP address</title>
+      <rect class="seq-actor-chip" x="20" y="4" width="120" height="28" rx="12" />
+      <text class="seq-actor-text" x="80" y="23" text-anchor="middle">Client (no IP yet)</text>
+      <rect class="seq-actor-chip" x="480" y="4" width="140" height="28" rx="12" />
+      <text class="seq-actor-text" x="550" y="23" text-anchor="middle">DHCP server</text>
+      <line x1="80" y1="40" x2="80" y2="248" class="seq-lifeline" />
+      <line x1="550" y1="40" x2="550" y2="248" class="seq-lifeline" />
+
+      <line x1="80" y1="68" x2="543" y2="68" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="550,68 538,63 538,73" />
+      <text class="seq-label" x="310" y="56" text-anchor="middle"><tspan class="seq-tag-con">DISCOVER</tspan></text>
+      <text class="seq-sub" x="310" y="84" text-anchor="middle">broadcast: "any DHCP server out there?"</text>
+
+      <line x1="550" y1="116" x2="87" y2="116" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="80,116 92,111 92,121" />
+      <text class="seq-label" x="310" y="104" text-anchor="middle"><tspan class="seq-tag-ack">OFFER</tspan></text>
+      <text class="seq-sub" x="310" y="132" text-anchor="middle">"you can have 192.168.1.42, lease 24h"</text>
+
+      <line x1="80" y1="164" x2="543" y2="164" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="550,164 538,159 538,169" />
+      <text class="seq-label" x="310" y="152" text-anchor="middle"><tspan class="seq-tag-con">REQUEST</tspan></text>
+      <text class="seq-sub" x="310" y="180" text-anchor="middle">broadcast: "I accept that offer" (other servers stand down)</text>
+
+      <line x1="550" y1="212" x2="87" y2="212" class="seq-arrow" stroke-width="2" />
+      <polygon class="seq-arrowhead" points="80,212 92,207 92,217" />
+      <text class="seq-label" x="310" y="200" text-anchor="middle"><tspan class="seq-tag-ack">ACK</tspan></text>
+      <text class="seq-sub" x="310" y="228" text-anchor="middle">lease confirmed — client can now use 192.168.1.42</text>
+    </svg>
+    <figcaption class="diagram__caption">REQUEST is broadcast too, not unicast to the chosen server — that's what tells every <em>other</em> server that offered an address that their offer wasn't taken.</figcaption>
+  </figure>
+
+  <h2 id="lease">Leases and renewal</h2>
+  <p>
+    An address isn't assigned forever — it's <strong>leased</strong> for a fixed duration (commonly hours
+    to days). At roughly the halfway point of the lease, the client quietly sends a new REQUEST directly
+    to the server (unicast this time, since it already has a working address) to renew it before it
+    expires. If the device leaves the network and never renews, the lease simply times out and the server
+    is free to hand that address to someone else.
+  </p>
+
+  <h2 id="other-config">What else DHCP hands out</h2>
+  <p>An IP address alone isn't enough to actually use a network — DHCP typically hands out several other settings in the same OFFER/ACK:</p>
+  <ul class="point-list">
+    <li><strong>Subnet mask —</strong> so the device knows which addresses are "local" — see <a href="/networking/ip/index.html#addressing">IP addressing</a>.</li>
+    <li><strong>Default gateway —</strong> the router address to send anything outside the local network to.</li>
+    <li><strong>DNS server addresses —</strong> without this, a device has an IP address but no way to turn a domain name into one.</li>
+    <li><strong>Lease time —</strong> how long the offered address is valid for before it must be renewed.</li>
+  </ul>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every home and office Wi-Fi network —</strong> the router itself is almost always also the DHCP server, which is why "my Wi-Fi router" and "my DHCP server" are usually the same box.</li>
+    <li><strong>IoT device onboarding —</strong> a new sensor joining a network gets a usable IP within milliseconds of associating, with zero manual configuration required from whoever installed it.</li>
+    <li><strong>DHCP reservations —</strong> many routers let you pin a specific device's MAC address to always receive the same IP — a middle ground between full static configuration and a normal dynamic lease, common for servers, printers, and always-on embedded devices.</li>
+    <li><strong>Enterprise/campus networks —</strong> large networks run dedicated DHCP servers (not just a home router) managing thousands of leases across many subnets.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li><strong>DHCP pool exhaustion —</strong> if every address in the configured range is leased out (common on a busy guest Wi-Fi network), new devices simply can't get an address at all until an old lease expires.</li>
+      <li><strong>Rogue DHCP servers —</strong> a second, unauthorized DHCP server on the same network (a misconfigured router plugged in the wrong port, or something malicious) can race the real one to answer DISCOVER messages, handing out a wrong gateway/DNS and silently redirecting traffic — a real and hard-to-diagnose class of network incident.</li>
+      <li>A device with a "self-assigned" address in the <code>169.254.x.x</code> range (link-local, APIPA) is a strong sign it never got a DHCP response at all — worth checking before debugging anything higher up the stack.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/networking/ip/index.html", "title": "IP" },
+  "related": [
+    { "href": "/networking/ip/index.html", "title": "IP" },
+    { "href": "/networking/ethernet/index.html", "title": "Ethernet" },
+    { "href": "/networking/udp/index.html", "title": "UDP" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

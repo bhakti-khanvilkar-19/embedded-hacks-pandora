@@ -565,6 +565,17 @@
     ]
   },
   {
+    "title": "DHCP — Networking",
+    "url": "/networking/dhcp/index.html",
+    "domain": "Networking",
+    "category": "Dhcp",
+    "description": "How a device gets an IP address automatically the moment it joins a network — the DORA handshake, lease renewal, and what else DHCP hands out besides an address.",
+    "tags": [
+      "networking",
+      "dhcp"
+    ]
+  },
+  {
     "title": "Ethernet — Networking",
     "url": "/networking/ethernet/index.html",
     "domain": "Networking",
@@ -573,6 +584,17 @@
     "tags": [
       "networking",
       "ethernet"
+    ]
+  },
+  {
+    "title": "HTTP — Networking",
+    "url": "/networking/http/index.html",
+    "domain": "Networking",
+    "category": "Http",
+    "description": "The request/response protocol underneath every web page and REST API: methods, status codes, headers, statelessness, and how HTTP/1.1, HTTP/2, and HTTP/3 differ.",
+    "tags": [
+      "networking",
+      "http"
     ]
   },
   {
@@ -671,6 +693,17 @@
     "tags": [
       "networking",
       "serialization"
+    ]
+  },
+  {
+    "title": "SSH — Networking",
+    "url": "/networking/ssh/index.html",
+    "domain": "Networking",
+    "category": "Ssh",
+    "description": "Encrypted remote shell access: why it replaced telnet, how key-based authentication proves identity without ever sending a secret, and how SSH tunneling reaches devices behind NAT.",
+    "tags": [
+      "networking",
+      "ssh"
     ]
   },
   {
