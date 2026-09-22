@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Constructors, Destructors & RAII — C++ — Embedded Pandora</title>
+<meta name="description" content="Automatic setup and teardown for an object's lifetime — constructors, destructors, and RAII, the idiom that ties a resource's lifetime to an object's, making 'forgot to clean up' a compile-time non-issue." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C++</p>
+  <h1>Constructors, Destructors &amp; RAII</h1>
+  <p class="lede">
+    <a href="/cpp/classes-and-objects/index.html">Classes &amp; Objects</a> introduced the constructor
+    briefly, as the method that runs automatically on creation. This chapter is the full picture: what runs
+    at the <em>other</em> end of an object's life too, and the single idiom — RAII — that both enable,
+    which quietly eliminates an entire category of bug that's constant, manual work in C.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A constructor runs automatically when an object is created; a destructor runs automatically when it's destroyed. RAII (Resource Acquisition Is Initialization) is the pattern of tying a resource's lifetime to an object's, using exactly these two.</dd>
+      <dt>Mental model</dt><dd>A constructor is move-in day — the object sets itself up. A destructor is move-out day — it happens automatically, even if you "forget," the moment the object's scope ends.</dd>
+      <dt>Key numbers</dt><dd>Every object gets exactly one destructor call, guaranteed, when it goes out of scope — no matter how many exit paths (early <code>return</code>, exception) the function has.</dd>
+      <dt>Reach for it when</dt><dd>An object owns a resource — memory, a file handle, a lock, a hardware peripheral — that must be released exactly once, no matter how the function exits.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#constructors">Constructors, in more depth</a></li>
+      <li><a href="#destructors">Destructors</a></li>
+      <li><a href="#raii">RAII — the idiom both enable</a></li>
+      <li><a href="#lifecycle-diagram">An object's full lifecycle</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="constructors">Constructors, in more depth</h2>
+  <pre><code>class Buffer {
+public:
+    Buffer(int size) {           // constructor — takes arguments like any function
+        data = new int[size];     // allocate on construction
+        capacity = size;
+        std::cout << "Buffer created\n";
+    }
+
+private:
+    int *data;
+    int capacity;
+};
+
+Buffer b(100);   // constructor runs immediately — data is allocated before the next line runs</code></pre>
+  <p>
+    A constructor can take parameters exactly like any function, letting an object configure itself at
+    creation time instead of needing a separate, easy-to-forget "init" call — a pattern C code has to write
+    by hand every time.
+  </p>
+
+  <h2 id="destructors">Destructors</h2>
+  <pre><code>class Buffer {
+public:
+    Buffer(int size) {
+        data = new int[size];
+        std::cout << "Buffer created\n";
+    }
+
+    ~Buffer() {                    // destructor — same name as the class, prefixed with ~
+        delete[] data;              // free exactly what the constructor allocated
+        std::cout << "Buffer destroyed\n";
+    }
+
+private:
+    int *data;
+};
+
+void useBuffer() {
+    Buffer b(100);
+    // ... use b ...
+}   // b goes out of scope HERE — ~Buffer() runs automatically, data is freed</code></pre>
+  <p>
+    The destructor runs the instant an object's scope ends — no explicit call needed, and no way to
+    accidentally skip it on a normal exit path. This is the direct C++ answer to the exact
+    <a href="/embedded-c/dynamic-memory/index.html">Dynamic Memory</a> problem of a forgotten
+    <code>free()</code>: pair every resource's acquisition with a matching release, in one place, guaranteed
+    to run.
+  </p>
+
+  <h2 id="raii">RAII — the idiom both enable</h2>
+  <p>
+    <strong>RAII (Resource Acquisition Is Initialization)</strong> is the practice of acquiring a resource in
+    a constructor and releasing it in the matching destructor — tying the resource's lifetime directly to an
+    object's lifetime, which C++ already guarantees is well-defined and automatic:
+  </p>
+  <pre><code>class FileHandle {
+public:
+    FileHandle(const char *path) {
+        file = fopen(path, "r");   // ACQUIRE in the constructor
+    }
+    ~FileHandle() {
+        if (file) fclose(file);     // RELEASE in the destructor — always runs
+    }
+    FILE *get() { return file; }
+
+private:
+    FILE *file;
+};
+
+void readConfig() {
+    FileHandle f("config.txt");   // file opened
+    // ... use f.get() ...
+    // even if an exception is thrown here, ~FileHandle() STILL runs
+}   // file closed automatically, guaranteed, right here</code></pre>
+  <p>
+    Compare this to the equivalent <a href="/c/file-io-and-stdlib/index.html">C file-handling code</a>, where
+    every single exit path — including an early <code>return</code> on an error — has to remember its own
+    matching <code>fclose</code>. RAII makes "forgetting to clean up" a non-issue by construction, not a
+    discipline problem.
+  </p>
+
+  <h2 id="lifecycle-diagram">An object's full lifecycle</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 620 140" role="img" aria-labelledby="lifecycle-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="lifecycle-title">An object's lifecycle: construction runs once at creation, the object is used for a while, and destruction runs automatically and exactly once when it goes out of scope</title>
+      <rect class="frame-box block-amber" x="10" y="35" width="150" height="55" rx="8" />
+      <text class="frame-label" x="85" y="60" text-anchor="middle" font-size="10">Constructor</text>
+      <text class="frame-caption" x="85" y="76" text-anchor="middle" font-size="8">runs once, on creation</text>
+
+      <line x1="160" y1="62" x2="206" y2="62" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="210,62 200,57 200,67" />
+
+      <rect class="frame-box block-teal" x="210" y="35" width="200" height="55" rx="8" />
+      <text class="frame-label" x="310" y="62" text-anchor="middle" font-size="10">Object in use</text>
+      <text class="frame-caption" x="310" y="78" text-anchor="middle" font-size="8">any number of method calls</text>
+
+      <line x1="410" y1="62" x2="456" y2="62" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="460,62 450,57 450,67" />
+
+      <rect class="frame-box block-green" x="460" y="35" width="150" height="55" rx="8" />
+      <text class="frame-label" x="535" y="60" text-anchor="middle" font-size="10">Destructor</text>
+      <text class="frame-caption" x="535" y="76" text-anchor="middle" font-size="8">runs once, automatically</text>
+
+      <text class="seq-note" x="310" y="120" text-anchor="middle" font-size="8.5">Guaranteed exactly once each — regardless of how many code paths lead to the end of scope</text>
+    </svg>
+    <figcaption class="diagram__caption">In C, the equivalent of the last box has to be written explicitly on every exit path by hand — here it's structural, not a habit to remember.</figcaption>
+  </figure>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Smart pointers —</strong> <code>std::unique_ptr</code> and <code>std::shared_ptr</code> (covered fully in the upcoming Memory Management chapter) are RAII applied to raw memory itself.</li>
+    <li><strong>Lock guards —</strong> a mutex lock acquired in a constructor and released in a destructor guarantees the lock is released even if an exception unwinds through the function — a real, common concurrency-safety pattern.</li>
+    <li><strong>Hardware peripheral wrappers —</strong> a class that enables a peripheral in its constructor and disables it in its destructor, ensuring a peripheral is never left powered on by a forgotten cleanup call.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A class managing a resource (like <code>Buffer</code> above) that doesn't also define a proper copy behavior can lead to <strong>double-free</strong> bugs — copying the object copies the raw pointer, and both copies' destructors then try to free the same memory. This is exactly what the upcoming Operator Overloading &amp; References chapter's coverage of copy semantics addresses.</li>
+      <li>A destructor should never throw an exception — if it does during the unwinding caused by another exception, the program terminates immediately, since C++ can't safely decide which exception should "win."</li>
+      <li>Global objects' constructors run before <code>main()</code> starts, and destructors after it returns — order between <em>different</em> global objects across files is not guaranteed, a genuine, sometimes-surprising source of bugs ("static initialization order fiasco").</li>
+      <li>RAII only protects resources actually owned by an object with a real destructor — a raw pointer assigned with plain <code>new</code> and never wrapped in a class gets none of these guarantees; see the upcoming Memory Management chapter.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/cpp/classes-and-objects/index.html", "title": "Classes & Objects" },
+  "next": { "href": "/cpp/inheritance-and-polymorphism/index.html", "title": "Inheritance & Polymorphism" },
+  "related": [
+    { "href": "/embedded-c/dynamic-memory/index.html", "title": "Dynamic Memory" },
+    { "href": "/c/file-io-and-stdlib/index.html", "title": "File I/O & Standard Library" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
