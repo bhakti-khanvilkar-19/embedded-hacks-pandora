@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OSI vs. TCP/IP Model — Networking — Embedded Pandora</title>
+<meta name="description" content="Why there are two different 'layer' models, what each of the 7 OSI layers and 4 TCP/IP layers actually are, how they map onto each other, and why 'TCP/IP' doesn't mean UDP is somehow excluded." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>OSI vs. TCP/IP Model</h1>
+  <p class="lede">
+    Every topic in this domain — <a href="/networking/ethernet/index.html">Ethernet</a>,
+    <a href="/networking/ip/index.html">IP</a>, <a href="/networking/tcp/index.html">TCP</a>,
+    <a href="/networking/udp/index.html">UDP</a>, and everything built on top — is organized around a
+    4-layer model. You may have also heard of a <em>7-layer</em> model (OSI). Both are real, both are
+    still used, and they describe the same stack of technology at different levels of detail. This page
+    exists to connect them, and to clear up the single most common point of confusion in networking:
+    what "TCP/IP" actually refers to.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Two different ways of naming the same layered stack — OSI (7 layers, a teaching/reference model) and TCP/IP (4 layers, what's actually implemented).</dd>
+      <dt>Mental model</dt><dd>OSI is a detailed textbook diagram of a car engine; TCP/IP is the four things you actually interact with as a driver — both describe the same engine.</dd>
+      <dt>Key numbers</dt><dd>OSI: 7 layers. TCP/IP: 4 layers (sometimes shown as 5, splitting Link into Data Link + Physical).</dd>
+      <dt>Reach for it when</dt><dd>You hear "Layer 3" or "Layer 7" in a job description, firewall setting, or load balancer doc and need to know what that number means.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#why-two">Why there are two models</a></li>
+      <li><a href="#osi-layers">The OSI model — 7 layers</a></li>
+      <li><a href="#tcpip-layers">The TCP/IP model — 4 layers</a></li>
+      <li><a href="#mapping">How they map onto each other</a></li>
+      <li><a href="#naming">Why it's called "TCP/IP" — and why that doesn't exclude UDP</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="why-two">Why there are two models</h2>
+  <p>
+    The <strong>OSI model</strong> (Open Systems Interconnection) was designed in the late 1970s as a
+    vendor-neutral, complete reference for how networking <em>could</em> be layered — seven distinct
+    responsibilities, each strictly separated. It was never fully implemented as designed.
+  </p>
+  <p>
+    The <strong>TCP/IP model</strong> is not a competing theory — it's a description of the stack that
+    actually won and became the internet, developed and deployed before OSI was finished. It compresses
+    several of OSI's layers together because, in practice, one piece of software (or one protocol) often
+    does what OSI splits into two or three separate layers.
+  </p>
+  <p>
+    Every page in this Networking domain — the diagram on the
+    <a href="/networking/index.html#how-they-fit">domain landing page</a> included — uses the 4-layer
+    TCP/IP model, because it matches what you'll actually find implemented on real hardware. OSI still
+    matters because its <em>vocabulary</em> ("Layer 2 switch," "Layer 7 firewall," "Layer 4 load
+    balancer") is everywhere in networking, security, and infrastructure job descriptions and tooling —
+    so it's worth knowing even though nothing on the wire literally has 7 separate headers.
+  </p>
+
+  <h2 id="osi-layers">The OSI model — 7 layers</h2>
+  <p>Read bottom to top — each layer is numbered, and the number is what people mean by "Layer 3" or "Layer 7":</p>
+  <dl class="kv">
+    <dt>7 — Application</dt><dd>What the user-facing software actually does — HTTP, MQTT, DNS. The only layer a typical app developer writes code against directly.</dd>
+    <dt>6 — Presentation</dt><dd>Data format/translation — encoding, compression, encryption formatting. In practice, this responsibility is usually folded into the application protocol itself (e.g. TLS, JSON encoding) rather than existing as a separate layer.</dd>
+    <dt>5 — Session</dt><dd>Establishing, managing, and tearing down a logical conversation between two applications. Also usually folded into the application or transport layer in real implementations (a TCP connection largely does this job).</dd>
+    <dt>4 — Transport</dt><dd>End-to-end delivery between two programs — <a href="/networking/tcp/index.html">TCP</a> and <a href="/networking/udp/index.html">UDP</a> live here.</dd>
+    <dt>3 — Network</dt><dd>Addressing and routing across multiple networks — <a href="/networking/ip/index.html">IP</a> lives here.</dd>
+    <dt>2 — Data Link</dt><dd>Framing and addressing on one local link — <a href="/networking/ethernet/index.html">Ethernet</a>'s MAC addressing lives here.</dd>
+    <dt>1 — Physical</dt><dd>The actual electrical signals, radio waves, or light pulses on the medium — voltage levels on a cable, the radio signal of Wi-Fi.</dd>
+  </dl>
+
+  <h2 id="tcpip-layers">The TCP/IP model — 4 layers</h2>
+  <p>
+    This is the model this entire domain is organized around. It merges OSI's top three layers
+    (Application, Presentation, Session) into one, and its bottom two (Data Link, Physical) into one —
+    because in real systems, no protocol cleanly draws those extra lines.
+  </p>
+  <dl class="kv">
+    <dt>Application</dt><dd>HTTP, HTTPS/TLS, DNS, MQTT, CoAP, AMQP, SSH, FTP, SMTP — every protocol built for one specific job, on top of a transport.</dd>
+    <dt>Transport</dt><dd><a href="/networking/tcp/index.html">TCP</a> and <a href="/networking/udp/index.html">UDP</a> — port numbers, and (for TCP only) reliability.</dd>
+    <dt>Internet (Network)</dt><dd><a href="/networking/ip/index.html">IP</a> — addressing and routing across networks.</dd>
+    <dt>Link</dt><dd><a href="/networking/ethernet/index.html">Ethernet</a> or Wi-Fi — local, one-hop delivery and the physical signal itself.</dd>
+  </dl>
+
+  <h2 id="mapping">How they map onto each other</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 400" role="img" aria-labelledby="osi-map-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="osi-map-title">OSI's seven layers mapped against the TCP/IP model's four layers — Application, Presentation, and Session collapse into TCP/IP's Application layer; Data Link and Physical collapse into TCP/IP's Link layer</title>
+
+      <text class="seq-sub" x="175" y="24" text-anchor="middle" font-weight="700">OSI (7 layers)</text>
+      <text class="seq-sub" x="525" y="24" text-anchor="middle" font-weight="700">TCP/IP (4 layers)</text>
+
+      <rect class="frame-box block-amber" x="20" y="36" width="310" height="34" rx="5" />
+      <text class="frame-label" x="175" y="58" text-anchor="middle" font-size="10">7 · Application</text>
+      <rect class="frame-box block-amber" x="20" y="74" width="310" height="34" rx="5" />
+      <text class="frame-label" x="175" y="96" text-anchor="middle" font-size="10">6 · Presentation</text>
+      <rect class="frame-box block-amber" x="20" y="112" width="310" height="34" rx="5" />
+      <text class="frame-label" x="175" y="134" text-anchor="middle" font-size="10">5 · Session</text>
+
+      <rect class="frame-box block-green" x="20" y="150" width="310" height="34" rx="5" />
+      <text class="frame-label" x="175" y="172" text-anchor="middle" font-size="10">4 · Transport</text>
+
+      <rect class="frame-box block-teal" x="20" y="188" width="310" height="34" rx="5" />
+      <text class="frame-label" x="175" y="210" text-anchor="middle" font-size="10">3 · Network</text>
+
+      <rect class="frame-box block-violet" x="20" y="226" width="310" height="34" rx="5" />
+      <text class="frame-label" x="175" y="248" text-anchor="middle" font-size="10">2 · Data Link</text>
+      <rect class="frame-box block-violet" x="20" y="264" width="310" height="34" rx="5" />
+      <text class="frame-label" x="175" y="286" text-anchor="middle" font-size="10">1 · Physical</text>
+
+      <rect class="frame-box block-amber" x="380" y="36" width="300" height="110" rx="6" />
+      <text class="frame-label" x="530" y="96" text-anchor="middle" font-size="12" font-weight="700">Application</text>
+      <text class="frame-caption" x="530" y="114" text-anchor="middle" font-size="9">HTTP, TLS, DNS, MQTT…</text>
+
+      <rect class="frame-box block-green" x="380" y="150" width="300" height="34" rx="6" />
+      <text class="frame-label" x="530" y="172" text-anchor="middle" font-size="11" font-weight="700">Transport — TCP / UDP</text>
+
+      <rect class="frame-box block-teal" x="380" y="188" width="300" height="34" rx="6" />
+      <text class="frame-label" x="530" y="210" text-anchor="middle" font-size="11" font-weight="700">Internet — IP</text>
+
+      <rect class="frame-box block-violet" x="380" y="226" width="300" height="72" rx="6" />
+      <text class="frame-label" x="530" y="256" text-anchor="middle" font-size="11" font-weight="700">Link</text>
+      <text class="frame-caption" x="530" y="274" text-anchor="middle" font-size="9">Ethernet / Wi-Fi</text>
+
+      <line x1="330" y1="53" x2="378" y2="60" class="seq-arrow" stroke-width="1" stroke-dasharray="3 2" />
+      <line x1="330" y1="91" x2="378" y2="80" class="seq-arrow" stroke-width="1" stroke-dasharray="3 2" />
+      <line x1="330" y1="129" x2="378" y2="100" class="seq-arrow" stroke-width="1" stroke-dasharray="3 2" />
+      <line x1="330" y1="167" x2="378" y2="167" class="seq-arrow" stroke-width="1" stroke-dasharray="3 2" />
+      <line x1="330" y1="205" x2="378" y2="205" class="seq-arrow" stroke-width="1" stroke-dasharray="3 2" />
+      <line x1="330" y1="243" x2="378" y2="248" class="seq-arrow" stroke-width="1" stroke-dasharray="3 2" />
+      <line x1="330" y1="281" x2="378" y2="268" class="seq-arrow" stroke-width="1" stroke-dasharray="3 2" />
+
+      <text class="seq-note" x="350" y="340" text-anchor="middle">OSI's top three layers collapse into one Application layer; its bottom two collapse into one Link layer.</text>
+      <text class="seq-note" x="350" y="358" text-anchor="middle">Transport and Network map one-to-one — this is why "Layer 3" always means IP, and "Layer 4" always means TCP/UDP.</text>
+    </svg>
+    <figcaption class="diagram__caption">Same stack, two different resolutions. Nothing is missing from either side — TCP/IP just doesn't draw lines OSI draws that no real protocol respects.</figcaption>
+  </figure>
+
+  <h2 id="naming">Why it's called "TCP/IP" — and why that doesn't exclude UDP</h2>
+  <p>
+    This is the single most common mix-up in networking, and it's an entirely reasonable one: the name
+    "TCP/IP" makes it sound like the model is specifically about <em>TCP</em> paired with <em>IP</em>, as
+    if UDP were something separate, off to the side.
+  </p>
+  <p>
+    It isn't. "TCP/IP" is simply the <strong>name of the whole protocol suite</strong>, coined because TCP
+    and IP were the first two protocols standardized as part of it, back in the 1970s — the same way a
+    company might get named after its first product and keep that name long after shipping a dozen more.
+    <strong>UDP is just as much a "TCP/IP" protocol as TCP is</strong> — it sits at the exact same
+    Transport layer, built on the exact same IP layer underneath. Neither one is "the real" transport
+    protocol with the other bolted on; they're two different, equally first-class answers to the same
+    transport-layer question, covered side by side in <a href="/networking/tcp/index.html#tcp-vs-udp">TCP
+    vs. UDP</a>.
+  </p>
+  <p>
+    A useful way to say it precisely: <strong>IP is the one constant every protocol here is built on.
+    TCP and UDP are the two choices for what to build on top of IP</strong> — not "TCP is IP's partner and
+    UDP is the odd one out."
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>"Layer 4 load balancer" vs. "Layer 7 load balancer" —</strong> an L4 balancer only looks at IP/port information (Transport layer and below) to route traffic; an L7 balancer reads the actual HTTP request (Application layer) to make smarter routing decisions.</li>
+    <li><strong>"Layer 2 switch" vs. "Layer 3 switch" —</strong> a plain switch forwards by MAC address only (Data Link); a "Layer 3 switch" also makes IP routing decisions (Network), blurring the line with a router.</li>
+    <li><strong>Firewall rules —</strong> "stateless packet filtering" typically operates at Layer 3/4 (IP address, port), while a "next-gen" or "application-aware" firewall inspects Layer 7 (the actual HTTP/DNS/etc. content).</li>
+    <li><strong>Network troubleshooting language —</strong> "it's a Layer 1 problem" (a bad cable) vs. "it's a Layer 3 problem" (routing) vs. "it's a Layer 7 problem" (the application itself) is how network engineers narrow down where in the stack a fault actually lives.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>OSI's Presentation and Session layers are frequently taught as if they map to real, separate protocols — in practice, almost nothing implements them as distinct layers; their jobs are absorbed into the application protocol (TLS handles what Presentation was meant to do) or the transport (a TCP connection largely does what Session was meant to do).</li>
+      <li>"TCP/IP" is sometimes used loosely to mean "the internet" or "networking in general," not literally the two protocols — context usually makes clear which meaning is intended.</li>
+      <li>A 5-layer variant of the TCP/IP model exists too (splitting Link into separate Data Link and Physical layers) — you'll see both 4-layer and 5-layer versions in different textbooks; this domain uses 4, matching OSI's Link-layer collapse.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "next": { "href": "/networking/ethernet/index.html", "title": "Ethernet" },
+  "related": [
+    { "href": "/networking/ethernet/index.html", "title": "Ethernet" },
+    { "href": "/networking/ip/index.html", "title": "IP" },
+    { "href": "/networking/tcp/index.html", "title": "TCP" },
+    { "href": "/networking/udp/index.html", "title": "UDP" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

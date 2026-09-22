@@ -148,7 +148,13 @@
   <p>
     Neither is "better" — they're opposite tradeoffs of the same problem,
     and the right choice depends entirely on what a dropped or
-    out-of-order packet should mean to the application.
+    out-of-order packet should mean to the application. A common early
+    misconception is that "TCP/IP" and "UDP" are somehow different families
+    — they're not. Both TCP and UDP sit at the exact same layer, built
+    directly on the exact same IP underneath; "TCP/IP" is just the
+    historical name of the whole suite, not a claim that UDP is somehow
+    separate from it. See <a href="/networking/osi-model/index.html#naming">OSI
+    vs. TCP/IP Model</a> for the full explanation of that naming.
   </p>
   <table>
     <thead><tr><th></th><th>TCP</th><th>UDP</th></tr></thead>
@@ -158,9 +164,26 @@
       <tr><td>Ordering</td><td>Guaranteed, reassembled by sequence number</td><td>None — datagrams can arrive in any order</td></tr>
       <tr><td>Message boundaries</td><td>None — byte stream</td><td>Preserved — one send is one receive</td></tr>
       <tr><td>Header overhead</td><td>20+ bytes</td><td>8 bytes</td></tr>
+      <tr><td>Congestion control</td><td>Built in — backs off automatically under network load</td><td>None by default — a UDP sender can keep blasting a congested link unless the application adds its own backoff</td></tr>
       <tr><td>Choose it when</td><td>Correctness of every byte matters more than latency (file transfer, control commands, FOTA)</td><td>Low, predictable overhead matters more than guaranteed delivery, or you'll build your own reliability (real-time media, telemetry, discovery)</td></tr>
     </tbody>
   </table>
+  <div class="callout callout--note">
+    <span class="callout__label">How to actually think about the tradeoff</span>
+    <p>
+      Ask one question: <strong>is a late retransmission worse than the original loss?</strong>
+    </p>
+    <ul>
+      <li><strong>Sending a 10 MB firmware image —</strong> a missing byte silently corrupts the whole image. A late-but-correct byte is always better than a fast-but-wrong one. TCP's retransmission is exactly what you want, and its extra round trips are a cost worth paying.</li>
+      <li><strong>Streaming a live video call —</strong> a frame that arrives 400ms late (because TCP is busy retransmitting an old, now-irrelevant frame) is worse than that frame never arriving at all — the viewer just wants the freshest frame available. UDP's willingness to simply drop it and move on is the correct behavior here, not a limitation.</li>
+    </ul>
+    <p>
+      Everything in the table above falls out of that one distinction. It's also why a newer transport,
+      <a href="/networking/quic/index.html">QUIC</a>, exists at all: it builds TCP-like reliability
+      <em>on top of</em> UDP instead of using TCP directly, to get reliability without inheriting some of
+      TCP's specific costs — see that page for why that's not a contradiction.
+    </p>
+  </div>
 
   <h2 id="applications">Real-world applications</h2>
   <ul class="point-list">
@@ -190,7 +213,9 @@
   "next": { "href": "/networking/udp/index.html", "title": "UDP" },
   "related": [
     { "href": "/networking/ip/index.html", "title": "IP" },
-    { "href": "/networking/udp/index.html", "title": "UDP" }
+    { "href": "/networking/udp/index.html", "title": "UDP" },
+    { "href": "/networking/quic/index.html", "title": "QUIC" },
+    { "href": "/networking/osi-model/index.html", "title": "OSI vs. TCP/IP Model" }
   ]
 }
 </script>

@@ -630,6 +630,28 @@
     ]
   },
   {
+    "title": "OSI vs. TCP/IP Model — Networking",
+    "url": "/networking/osi-model/index.html",
+    "domain": "Networking",
+    "category": "Osi Model",
+    "description": "Why there are two different 'layer' models, what each of the 7 OSI layers and 4 TCP/IP layers actually are, how they map onto each other, and why 'TCP/IP' doesn't mean UDP is somehow excluded.",
+    "tags": [
+      "networking",
+      "osi-model"
+    ]
+  },
+  {
+    "title": "QUIC — Networking",
+    "url": "/networking/quic/index.html",
+    "domain": "Networking",
+    "category": "Quic",
+    "description": "A modern transport protocol built on UDP that gets TCP-like reliability without TCP's head-of-line blocking or handshake latency — the foundation of HTTP/3.",
+    "tags": [
+      "networking",
+      "quic"
+    ]
+  },
+  {
     "title": "Serialization: Protobuf &amp; Base64 — Networking",
     "url": "/networking/serialization/index.html",
     "domain": "Networking",
