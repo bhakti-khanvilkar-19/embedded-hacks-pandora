@@ -565,6 +565,17 @@
     ]
   },
   {
+    "title": "Client-Server vs. P2P — Networking",
+    "url": "/networking/client-server-p2p/index.html",
+    "domain": "Networking",
+    "category": "Client Server P2p",
+    "description": "The two fundamental shapes an application's network communication can take — one central server everyone talks to, or every peer talking directly to every other peer.",
+    "tags": [
+      "networking",
+      "client-server-p2p"
+    ]
+  },
+  {
     "title": "CoAP — Networking",
     "url": "/networking/coap/index.html",
     "domain": "Networking",
@@ -650,6 +661,17 @@
     "tags": [
       "networking",
       "https"
+    ]
+  },
+  {
+    "title": "ICMP — Networking",
+    "url": "/networking/icmp/index.html",
+    "domain": "Networking",
+    "category": "Icmp",
+    "description": "The protocol behind ping and traceroute — how IP reports its own errors, and why 'no response' from ICMP doesn't always mean a device is actually down.",
+    "tags": [
+      "networking",
+      "icmp"
     ]
   },
   {
@@ -814,6 +836,17 @@
     "tags": [
       "networking",
       "tcp"
+    ]
+  },
+  {
+    "title": "Network Topologies &amp; Scope — Networking",
+    "url": "/networking/topologies/index.html",
+    "domain": "Networking",
+    "category": "Topologies",
+    "description": "LAN vs. WAN vs. PAN — networks classified by size — and star vs. bus vs. mesh, the physical/logical shapes a network's connections can take.",
+    "tags": [
+      "networking",
+      "topologies"
     ]
   },
   {

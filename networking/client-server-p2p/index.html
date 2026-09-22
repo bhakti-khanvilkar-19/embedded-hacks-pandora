@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Client-Server vs. P2P — Networking — Embedded Pandora</title>
+<meta name="description" content="The two fundamental shapes an application's network communication can take — one central server everyone talks to, or every peer talking directly to every other peer." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>Client-Server vs. P2P</h1>
+  <p class="lede">
+    Every protocol in this domain — <a href="/networking/http/index.html">HTTP</a>,
+    <a href="/networking/mqtt/index.html">MQTT</a>, <a href="/networking/dns/index.html">DNS</a> — assumes
+    one side asks and the other answers. That's a design choice, not a law of networking: this page is
+    about the two fundamental shapes an application's communication can take, and why nearly everything
+    covered so far picked one of them.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Two opposite architectures for how devices on a network talk to each other — one central authority everyone connects to, or every device talking directly to every other device.</dd>
+      <dt>Mental model</dt><dd>Client-server is a restaurant kitchen — one place everyone's order goes through. P2P is a potluck — everyone brings something and shares directly with everyone else, no central kitchen at all.</dd>
+      <dt>Key numbers</dt><dd>Client-server scales predictably by adding server capacity; P2P scales its raw capacity automatically as more peers join, at the cost of coordination complexity.</dd>
+      <dt>Reach for it when</dt><dd>Deciding whether a system needs one authoritative source of truth (client-server) or can tolerate — or wants — fully decentralized coordination (P2P).</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#client-server">Client-server</a></li>
+      <li><a href="#p2p">Peer-to-peer</a></li>
+      <li><a href="#tradeoffs">The real tradeoff</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="client-server">Client-server</h2>
+  <p>
+    One or a small number of servers hold the data and make the decisions; every client talks
+    <em>only</em> to a server, never directly to each other. Nearly every protocol on this domain —
+    <a href="/networking/http/index.html">HTTP</a>, <a href="/networking/dns/index.html">DNS</a>,
+    <a href="/networking/smtp/index.html">SMTP</a> — is built around exactly this shape, because it gives
+    one obvious place to enforce rules, keep data consistent, and control access.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 640 190" role="img" aria-labelledby="cs-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="cs-title">Client-server: every client connects only to the central server, never to each other</title>
+      <rect class="frame-box block-amber" x="270" y="75" width="100" height="45" rx="8" />
+      <text class="frame-label" x="320" y="103" text-anchor="middle" font-size="10">Server</text>
+
+      <circle class="frame-box block-teal" r="26" cx="60" cy="30" />
+      <text class="frame-label" x="60" y="34" text-anchor="middle" font-size="9">Client</text>
+      <circle class="frame-box block-teal" r="26" cx="580" cy="30" />
+      <text class="frame-label" x="580" y="34" text-anchor="middle" font-size="9">Client</text>
+      <circle class="frame-box block-teal" r="26" cx="60" cy="165" />
+      <text class="frame-label" x="60" y="169" text-anchor="middle" font-size="9">Client</text>
+      <circle class="frame-box block-teal" r="26" cx="580" cy="165" />
+      <text class="frame-label" x="580" y="169" text-anchor="middle" font-size="9">Client</text>
+
+      <line x1="85" y1="42" x2="272" y2="85" class="seq-arrow flow-path" stroke-width="1.2" />
+      <line x1="555" y1="42" x2="368" y2="85" class="seq-arrow flow-path" stroke-width="1.2" />
+      <line x1="85" y1="152" x2="272" y2="112" class="seq-arrow flow-path" stroke-width="1.2" />
+      <line x1="555" y1="152" x2="368" y2="112" class="seq-arrow flow-path" stroke-width="1.2" />
+    </svg>
+    <figcaption class="diagram__caption">One authority, one place to enforce rules and keep data consistent — and one bottleneck/single point of failure.</figcaption>
+  </figure>
+
+  <h2 id="p2p">Peer-to-peer</h2>
+  <p>
+    No central server at all — every participant (peer) can connect directly to others and exchange data
+    with them, with the responsibility for coordination spread across the peers themselves rather than
+    concentrated in one place.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 640 190" role="img" aria-labelledby="p2p-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="p2p-title">Peer-to-peer: every peer connects directly to several others, with no central server at all</title>
+      <circle class="frame-box block-violet" r="26" cx="60" cy="30" />
+      <text class="frame-label" x="60" y="34" text-anchor="middle" font-size="9">Peer</text>
+      <circle class="frame-box block-violet" r="26" cx="580" cy="30" />
+      <text class="frame-label" x="580" y="34" text-anchor="middle" font-size="9">Peer</text>
+      <circle class="frame-box block-violet" r="26" cx="60" cy="165" />
+      <text class="frame-label" x="60" y="169" text-anchor="middle" font-size="9">Peer</text>
+      <circle class="frame-box block-violet" r="26" cx="580" cy="165" />
+      <text class="frame-label" x="580" y="169" text-anchor="middle" font-size="9">Peer</text>
+      <circle class="frame-box block-violet" r="26" cx="320" cy="97" />
+      <text class="frame-label" x="320" y="101" text-anchor="middle" font-size="9">Peer</text>
+
+      <line x1="80" y1="42" x2="300" y2="85" class="seq-arrow flow-path" stroke-width="1.1" />
+      <line x1="560" y1="42" x2="340" y2="85" class="seq-arrow flow-path" stroke-width="1.1" />
+      <line x1="80" y1="152" x2="300" y2="109" class="seq-arrow flow-path" stroke-width="1.1" />
+      <line x1="560" y1="152" x2="340" y2="109" class="seq-arrow flow-path" stroke-width="1.1" />
+      <line x1="86" y1="45" x2="86" y2="150" class="seq-arrow flow-path" stroke-width="1.1" />
+      <line x1="554" y1="45" x2="554" y2="150" class="seq-arrow flow-path" stroke-width="1.1" />
+    </svg>
+    <figcaption class="diagram__caption">No single bottleneck and no single point of failure — but also no one place enforcing consistency, which every peer now has to handle cooperatively.</figcaption>
+  </figure>
+
+  <h2 id="tradeoffs">The real tradeoff</h2>
+  <table>
+    <thead><tr><th></th><th>Client-server</th><th>Peer-to-peer</th></tr></thead>
+    <tbody>
+      <tr><td>Consistency/control</td><td>Easy — one authority decides</td><td>Hard — peers must agree cooperatively</td></tr>
+      <tr><td>Single point of failure</td><td>Yes — the server</td><td>No — inherently redundant</td></tr>
+      <tr><td>Scaling raw capacity</td><td>Requires adding server capacity</td><td>Grows automatically as peers join</td></tr>
+      <tr><td>Simplicity</td><td>Simple to reason about and secure</td><td>Genuinely harder to design correctly</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Nearly every web/API service —</strong> client-server, almost without exception — <a href="/networking/http/index.html">HTTP</a> itself has no concept of one client talking to another.</li>
+    <li><strong>BitTorrent —</strong> the canonical P2P example — a file is assembled from pieces fetched directly from many other peers simultaneously, rather than one central download server.</li>
+    <li><strong>Blockchain networks —</strong> deliberately peer-to-peer by design, specifically to avoid any single controlling authority over the shared ledger.</li>
+    <li><strong>IoT mesh device coordination —</strong> some smart-home device meshes let devices relay for each other directly rather than every message round-tripping through a central hub.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Most "P2P" consumer apps are actually hybrid — a central server for discovery/coordination (finding other peers, authentication) with the bulk data transfer itself happening peer-to-peer; pure P2P with zero central coordination is rarer than the marketing term suggests.</li>
+      <li><a href="/networking/router/index.html#nat">NAT</a> makes true P2P connections genuinely harder — two peers both behind separate home routers often can't simply connect directly to each other without extra coordination (NAT traversal techniques) to punch through both.</li>
+      <li>Client-server's single point of failure is a real, well-understood risk — but it's also exactly why it's easier to secure, monitor, and reason about; P2P's resilience is not automatically a security or reliability upgrade.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/networking/http/index.html", "title": "HTTP" },
+    { "href": "/networking/router/index.html", "title": "Router & NAT" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
