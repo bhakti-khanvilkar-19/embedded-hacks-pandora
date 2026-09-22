@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Preprocessor & Macros — C — Embedded Pandora</title>
+<meta name="description" content="#include, #define, and conditional compilation — the text-substitution pass that runs before real compilation, header guards, function-like macros, and why macros need extra parentheses." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C</p>
+  <h1>Preprocessor &amp; Macros</h1>
+  <p class="lede">
+    <a href="/c/introduction/index.html#pipeline">Introduction to C</a> mentioned the preprocessor as the
+    first stage of compilation — a pure text-substitution pass with no understanding of C syntax at all. This
+    chapter is everything that pass actually does: <code>#include</code>, <code>#define</code>, macros, and
+    conditional compilation. This is also the final chapter of this domain — everything from here builds on
+    everything before it.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Directives (lines starting with <code>#</code>) processed by pure text substitution before real compilation begins.</dd>
+      <dt>Mental model</dt><dd>An aggressive find-and-replace pass over your source text — it has no idea what a variable or a function is, it just swaps text for other text, exactly as instructed.</dd>
+      <dt>Key numbers</dt><dd>Every directive starts with <code>#</code> and has no trailing semicolon — a stray semicolon on a <code>#define</code> line becomes part of the substituted text, a classic bug.</dd>
+      <dt>Reach for it when</dt><dd>Including other files, defining compile-time constants, writing small inlined helpers, or compiling different code for different targets/configurations.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#include">#include</a></li>
+      <li><a href="#define-constants">#define for constants</a></li>
+      <li><a href="#function-macros">Function-like macros</a></li>
+      <li><a href="#conditional">Conditional compilation</a></li>
+      <li><a href="#header-guards">Header guards</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="include">#include</h2>
+  <p>
+    <code>#include</code> is replaced, before compilation, by the entire contents of the named file — it's
+    literally a copy-paste operation performed by the preprocessor:
+  </p>
+  <pre><code>#include &lt;stdio.h&gt;    // angle brackets: search the compiler's standard include paths
+#include "myheader.h"  // quotes: search relative to this file first</code></pre>
+
+  <h2 id="define-constants">#define for constants</h2>
+  <pre><code>#define MAX_RETRIES 3
+#define PI 3.14159
+
+int attempts = 0;
+while (attempts < MAX_RETRIES) {   // becomes: while (attempts < 3)
+    attempts++;
+}</code></pre>
+  <p>
+    Every occurrence of <code>MAX_RETRIES</code> in the rest of the file is textually replaced with
+    <code>3</code> before the compiler ever sees it — the compiler never knows <code>MAX_RETRIES</code>
+    existed as a name at all. This is different from declaring <code>const int MAX_RETRIES = 3;</code>, which
+    creates a real, typed variable the compiler is aware of; a macro constant is pure text substitution with
+    zero type information.
+  </p>
+
+  <h2 id="function-macros">Function-like macros</h2>
+  <p>
+    A macro can also take arguments, making it look like a function call — but it's still pure text
+    substitution, not an actual function call:
+  </p>
+  <pre><code>#define SQUARE(x) ((x) * (x))
+
+int result = SQUARE(5);   // becomes: ((5) * (5)) → 25</code></pre>
+  <p>
+    Because it's textual, <em>every</em> parenthesis in a macro definition matters far more than it looks —
+    see Gotchas for exactly what goes wrong without them.
+  </p>
+
+  <h2 id="conditional">Conditional compilation</h2>
+  <p>
+    <code>#ifdef</code>/<code>#ifndef</code>/<code>#endif</code> let you include or exclude entire blocks of
+    code at compile time, based on whether a name is defined — the standard way to compile different code
+    for different targets or build configurations:
+  </p>
+  <pre><code>#define DEBUG_MODE
+
+#ifdef DEBUG_MODE
+    printf("Debug: entering main loop\n");
+#endif
+
+#ifndef DEBUG_MODE
+    // this block is entirely skipped — removed before compilation even sees it
+    fast_path_only();
+#endif</code></pre>
+  <p>
+    This is exactly how embedded firmware commonly compiles different code for different target boards from
+    one shared codebase, or strips out debug logging entirely from a release build with zero runtime cost —
+    the excluded code never even reaches the compiler.
+  </p>
+
+  <h2 id="header-guards">Header guards</h2>
+  <p>
+    A header file included by two different files (directly or indirectly) would otherwise get pasted in
+    twice, causing "redefinition" errors. A <strong>header guard</strong> uses conditional compilation to
+    make a header safe to include more than once:
+  </p>
+  <pre><code>// myheader.h
+#ifndef MYHEADER_H
+#define MYHEADER_H
+
+// ... declarations ...
+
+#endif   // MYHEADER_H</code></pre>
+  <p>
+    The first time this file is included, <code>MYHEADER_H</code> isn't defined yet, so its contents are
+    included and <code>MYHEADER_H</code> gets defined. Every subsequent <code>#include</code> of the same
+    file sees <code>MYHEADER_H</code> already defined and skips the contents entirely — every
+    <code>.h</code> file you write should have one of these.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Header guards —</strong> in every <code>.h</code> file in any real C codebase, without exception.</li>
+    <li><strong>Target-specific firmware builds —</strong> <code>#ifdef BOARD_REV_A</code> / <code>#ifdef BOARD_REV_B</code> blocks compiling different pin configurations from one shared source file.</li>
+    <li><strong>Debug vs. release builds —</strong> wrapping verbose logging in <code>#ifdef DEBUG</code> so it costs literally nothing (not even a skipped <code>if</code> check at runtime) in a release build.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li><strong>Missing parentheses in a macro</strong> is the single most notorious macro bug: <code>#define SQUARE(x) x * x</code> looks fine until called as <code>SQUARE(2 + 3)</code>, which expands to <code>2 + 3 * 2 + 3</code> — due to operator precedence, that's <code>11</code>, not the expected <code>25</code>. Always wrap both the whole macro body <em>and</em> every individual use of a parameter in parentheses, as the working example above does.</li>
+      <li>A macro has no scope and no type checking — it's replaced everywhere its name appears in the rest of the file, with zero regard for whether that use makes sense, which is exactly why an ordinary variable or function is almost always preferable when either would work equally well.</li>
+      <li>A trailing semicolon inside a <code>#define</code> becomes part of every substitution — <code>#define MAX 5;</code> used as <code>if (x < MAX)</code> expands to <code>if (x < 5;)</code>, a syntax error.</li>
+      <li>The preprocessor runs before the compiler sees any actual C syntax — a macro can produce text that's syntactically invalid C, and the resulting compiler error will point at the <em>expanded</em> code, not your original macro line, which can be genuinely confusing to debug.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/c/file-io-and-stdlib/index.html", "title": "File I/O & Standard Library" },
+  "related": [
+    { "href": "/embedded-c/compilation/index.html", "title": "Compilation & Linking" },
+    { "href": "/embedded-c/index.html", "title": "Embedded C" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

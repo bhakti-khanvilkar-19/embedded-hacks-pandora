@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>File I/O & Standard Library — C — Embedded Pandora</title>
+<meta name="description" content="Reading and writing files with fopen/fread/fwrite/fclose, and a tour of the standard library functions worth knowing by name — stdlib.h, math.h, and ctype.h — with a file-lifecycle diagram." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C</p>
+  <h1>File I/O &amp; Standard Library</h1>
+  <p class="lede">
+    Every C program so far has printed to the screen and read from the keyboard — both are, underneath,
+    just special cases of a more general idea: a <strong>stream</strong> you can read from or write to. This
+    chapter covers reading and writing actual files on disk, plus a tour of the wider standard library beyond
+    <code>stdio.h</code> worth knowing by name.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The <code>FILE*</code>-based API (<code>fopen</code>, <code>fread</code>, <code>fwrite</code>, <code>fclose</code>) for reading and writing files, plus the rest of C's standard library.</dd>
+      <dt>Mental model</dt><dd>A file, once opened, behaves like a one-directional (or two-directional) hose — you read bytes out of it or write bytes into it, in order, tracked by an internal position that advances as you go.</dd>
+      <dt>Key numbers</dt><dd>Every successful <code>fopen</code> must be matched by exactly one <code>fclose</code> — a leaked, never-closed file handle is a real, accumulating resource leak.</dd>
+      <dt>Reach for it when</dt><dd>Persisting data across program runs (logs, config, saved state) — anything that needs to survive after the program exits.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#file-lifecycle">Opening, using, and closing a file</a></li>
+      <li><a href="#modes">File modes</a></li>
+      <li><a href="#reading-writing">Reading and writing</a></li>
+      <li><a href="#stdlib-tour">A tour of the wider standard library</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="file-lifecycle">Opening, using, and closing a file</h2>
+  <pre><code>#include &lt;stdio.h&gt;
+
+int main(void) {
+    FILE *f = fopen("log.txt", "w");   // open for writing
+    if (f == NULL) {
+        printf("Failed to open file\n");
+        return 1;
+    }
+
+    fprintf(f, "Reading: %d\n", 42);   // works just like printf, but to a file
+    fclose(f);                          // ALWAYS close what you open
+    return 0;
+}</code></pre>
+  <figure class="diagram">
+    <svg viewBox="0 0 620 130" role="img" aria-labelledby="file-lifecycle-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="file-lifecycle-title">A file's lifecycle: fopen returns a FILE pointer, which is used for one or more reads or writes, then fclose releases it</title>
+      <rect class="frame-box block-amber" x="10" y="30" width="140" height="55" rx="8" />
+      <text class="frame-label" x="80" y="62" text-anchor="middle" font-size="10">fopen()</text>
+
+      <line x1="150" y1="57" x2="196" y2="57" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="200,57 190,52 190,62" />
+
+      <rect class="frame-box block-teal" x="200" y="30" width="200" height="55" rx="8" />
+      <text class="frame-label" x="300" y="57" text-anchor="middle" font-size="10">fread() / fwrite() / fprintf()</text>
+      <text class="frame-caption" x="300" y="73" text-anchor="middle" font-size="8">repeat as many times as needed</text>
+
+      <line x1="400" y1="57" x2="446" y2="57" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="450,57 440,52 440,62" />
+
+      <rect class="frame-box block-green" x="450" y="30" width="140" height="55" rx="8" />
+      <text class="frame-label" x="520" y="62" text-anchor="middle" font-size="10">fclose()</text>
+
+      <text class="seq-note" x="300" y="112" text-anchor="middle" font-size="8.5">If fopen returns NULL, skip straight to error handling — there's nothing valid to close</text>
+    </svg>
+    <figcaption class="diagram__caption">Every path through this sequence has to end in <code>fclose</code> — including the error path, if the file was actually opened before something else failed.</figcaption>
+  </figure>
+
+  <h2 id="modes">File modes</h2>
+  <table>
+    <thead><tr><th>Mode</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>"r"</code></td><td>Read — fails (<code>NULL</code>) if the file doesn't exist.</td></tr>
+      <tr><td><code>"w"</code></td><td>Write — creates the file if missing, <strong>erases existing contents</strong> if present.</td></tr>
+      <tr><td><code>"a"</code></td><td>Append — creates the file if missing, writes are added to the end without erasing.</td></tr>
+      <tr><td><code>"rb"</code>, <code>"wb"</code></td><td>Same as above, but binary mode — no text-mode newline translation.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="reading-writing">Reading and writing</h2>
+  <pre><code>// Writing raw bytes
+FILE *f = fopen("data.bin", "wb");
+int values[3] = {10, 20, 30};
+fwrite(values, sizeof(int), 3, f);   // write 3 ints
+fclose(f);
+
+// Reading them back
+FILE *in = fopen("data.bin", "rb");
+int loaded[3];
+fread(loaded, sizeof(int), 3, in);   // read 3 ints
+fclose(in);
+
+// Line-by-line text reading
+FILE *log = fopen("log.txt", "r");
+char line[256];
+while (fgets(line, sizeof(line), log) != NULL) {
+    printf("%s", line);
+}
+fclose(log);</code></pre>
+  <p>
+    <code>fread</code>/<code>fwrite</code> move raw bytes and are the natural fit for binary data;
+    <code>fgets</code>/<code>fprintf</code> work at the level of text and lines, the natural fit for
+    human-readable files.
+  </p>
+
+  <h2 id="stdlib-tour">A tour of the wider standard library</h2>
+  <p>
+    <a href="/c/introduction/index.html#stdlib">Introduction to C</a> listed these headers by name; here's
+    what actually lives in the ones beyond <code>stdio.h</code> and <code>string.h</code>:
+  </p>
+  <dl class="kv">
+    <dt><code>stdlib.h</code></dt><dd><code>atoi</code>/<code>atof</code> (string-to-number), <code>rand</code>/<code>srand</code> (pseudo-random numbers), <code>exit</code> (terminate immediately), <code>malloc</code>/<code>free</code> (covered fully in <a href="/embedded-c/dynamic-memory/index.html">Embedded C's Dynamic Memory</a>).</dd>
+    <dt><code>math.h</code></dt><dd><code>sqrt</code>, <code>pow</code>, <code>fabs</code>, <code>sin</code>/<code>cos</code>/<code>tan</code>, <code>floor</code>/<code>ceil</code> — floating-point math the language itself has no built-in operators for.</dd>
+    <dt><code>ctype.h</code></dt><dd><code>isdigit</code>, <code>isalpha</code>, <code>isspace</code> (character classification), <code>toupper</code>/<code>tolower</code> (case conversion) — one character at a time.</dd>
+    <dt><code>time.h</code></dt><dd><code>time</code> (current time), <code>clock</code> (CPU time elapsed) — the basis for timestamps and simple performance measurement.</dd>
+  </dl>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Configuration files —</strong> reading a settings file line by line at program startup with <code>fgets</code>.</li>
+    <li><strong>Data logging —</strong> appending sensor readings to a log file with <code>"a"</code> mode, common in any long-running data-collection program.</li>
+    <li><strong>Saving/loading program state —</strong> writing a struct's raw bytes with <code>fwrite</code> and reading them back later with <code>fread</code> is a simple (if fragile — see Gotchas) way to persist data.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Never assume <code>fopen</code> succeeded — a missing file, a permissions problem, or a full disk all make it return <code>NULL</code>, and dereferencing a <code>NULL</code> <code>FILE*</code> afterward is undefined behavior. Always check before using it.</li>
+      <li>Opening in <code>"w"</code> mode silently erases the file's existing contents the instant it's opened, even if you never actually write anything — a common source of accidental data loss.</li>
+      <li>Writing a struct's raw bytes with <code>fwrite</code> (as in the applications above) bakes in your specific compiler's padding/alignment and byte order — a file written this way isn't guaranteed portable to a different compiler, platform, or even a future version of the same program.</li>
+      <li>Forgetting <code>fclose</code> leaks the file handle for the life of the program — usually harmless in a short-lived script, but a genuine, accumulating resource problem in any long-running program (including nearly all embedded firmware).</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/c/structs-and-unions/index.html", "title": "Structs & Unions" },
+  "next": { "href": "/c/preprocessor-and-macros/index.html", "title": "Preprocessor & Macros" },
+  "related": [
+    { "href": "/embedded-c/dynamic-memory/index.html", "title": "Dynamic Memory" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
