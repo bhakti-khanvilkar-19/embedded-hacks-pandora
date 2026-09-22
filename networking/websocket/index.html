@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WebSocket — Networking — Embedded Pandora</title>
+<meta name="description" content="A persistent, full-duplex connection born from a single HTTP request — how the upgrade handshake works, why it beats polling, and what changes once a connection is stateful." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>WebSocket</h1>
+  <p class="lede">
+    <a href="/networking/http/index.html">HTTP</a> is one request, one response, then done — a client
+    always has to ask before a server can say anything. WebSocket exists for the opposite need: a
+    connection that stays open, over which either side can send a message at any moment, with no request
+    required first.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A persistent, full-duplex connection over a single <a href="/networking/tcp/index.html">TCP</a> connection, started via a normal HTTP handshake.</dd>
+      <dt>Mental model</dt><dd>A phone call instead of exchanging postcards — once connected, either side can speak whenever it wants, with no need to wait for a question first.</dd>
+      <dt>Key numbers</dt><dd><code>ws://</code> (plaintext, like port 80) or <code>wss://</code> (encrypted, like port 443) — begins life as an ordinary HTTP request.</dd>
+      <dt>Reach for it when</dt><dd>A server needs to push data to a client the moment something changes, without the client repeatedly asking "anything new yet?"</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#the-upgrade">Born from one HTTP request</a></li>
+      <li><a href="#full-duplex">Full-duplex — a genuine two-way street</a></li>
+      <li><a href="#vs-polling">WebSocket vs. polling</a></li>
+      <li><a href="#stateful">The cost: a stateful connection</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="the-upgrade">Born from one HTTP request</h2>
+  <p>
+    A WebSocket connection starts as an ordinary HTTP GET request carrying two special headers —
+    <code>Upgrade: websocket</code> and <code>Connection: Upgrade</code> — asking the server to repurpose
+    this same TCP connection for something other than HTTP. If the server agrees, it replies with status
+    <code>101 Switching Protocols</code> (the one practical use of HTTP's rarely-seen 1xx status range),
+    and from that exact point on, the connection stops speaking HTTP entirely and starts speaking the
+    WebSocket framing protocol instead.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 640 250" role="img" aria-labelledby="ws-upgrade-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="ws-upgrade-title">A client's HTTP request carrying Upgrade headers is answered with 101 Switching Protocols, after which the same TCP connection carries WebSocket frames independently in both directions</title>
+      <rect class="seq-actor-chip" x="10" y="30" width="110" height="36" rx="8" />
+      <text class="seq-actor-text" x="65" y="53" text-anchor="middle">Client</text>
+      <rect class="seq-actor-chip" x="520" y="30" width="110" height="36" rx="8" />
+      <text class="seq-actor-text" x="575" y="53" text-anchor="middle">Server</text>
+
+      <line class="seq-arrow" x1="120" y1="58" x2="512" y2="58" stroke-width="1.6" />
+      <polygon class="seq-arrowhead" points="520,58 508,53 508,63" />
+      <text class="seq-label" x="320" y="46" text-anchor="middle"><tspan class="seq-tag-con">GET /stream · Upgrade: websocket</tspan></text>
+
+      <line class="seq-arrow" x1="520" y1="98" x2="128" y2="98" stroke-width="1.6" />
+      <polygon class="seq-arrowhead" points="120,98 132,93 132,103" />
+      <text class="seq-label" x="320" y="86" text-anchor="middle"><tspan class="seq-tag-ack">101 Switching Protocols</tspan></text>
+
+      <rect x="40" y="120" width="560" height="34" class="block-green" rx="6" />
+      <text class="frame-label" x="320" y="142" text-anchor="middle" font-size="10">Same TCP connection — now carrying WebSocket frames, either direction, anytime</text>
+
+      <text class="seq-sub" x="320" y="178" text-anchor="middle" font-size="8">client → server, anytime</text>
+      <line class="seq-arrow" x1="150" y1="186" x2="502" y2="186" stroke-width="1.2" stroke-dasharray="3 2" />
+      <polygon class="seq-arrowhead" points="510,186 498,182 498,190" />
+
+      <line class="seq-arrow" x1="510" y1="210" x2="158" y2="210" stroke-width="1.2" stroke-dasharray="3 2" />
+      <polygon class="seq-arrowhead" points="150,210 162,206 162,214" />
+      <text class="seq-sub" x="320" y="228" text-anchor="middle" font-size="8">server → client, anytime</text>
+    </svg>
+    <figcaption class="diagram__caption">Only the handshake looks like HTTP — everything after "101 Switching Protocols" is a different wire format entirely.</figcaption>
+  </figure>
+
+  <h2 id="full-duplex">Full-duplex — a genuine two-way street</h2>
+  <p>
+    Once upgraded, there's no more request/response pairing at all. The server can push a message the
+    instant it has something new; the client can send one without prompting. Neither side is "waiting for
+    a reply" the way HTTP structurally requires — both directions are simply open, independently, for as
+    long as the connection lives.
+  </p>
+
+  <h2 id="vs-polling">WebSocket vs. polling</h2>
+  <p>
+    Before WebSocket, the only way to approximate "near real-time updates" over HTTP was
+    <strong>polling</strong> — the client repeatedly sends a GET every few seconds, and the server answers
+    "nothing new" almost every time. This wastes a full request/response cycle on every empty check, and
+    caps how fresh the data can ever be at the polling interval. WebSocket removes both costs at once: no
+    wasted empty requests, and updates arrive the instant the server has one to send, not up to N seconds
+    later.
+  </p>
+
+  <h2 id="stateful">The cost: a stateful connection</h2>
+  <p>
+    HTTP's statelessness (see <a href="/networking/http/index.html#statelessness">HTTP</a>) is what lets
+    any request be freely routed to any server behind a load balancer. A WebSocket connection breaks that
+    assumption — once open, it's pinned to one specific server process for its entire lifetime, since the
+    connection itself <em>is</em> the state. Scaling a WebSocket-heavy service means thinking about
+    connection distribution and server affinity in a way a purely stateless HTTP API never has to.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Live IoT dashboards —</strong> a web dashboard showing sensor readings update the instant a device reports new data, rather than refreshing on a timer.</li>
+    <li><strong>Chat and collaborative editing —</strong> both directions need to push updates with minimal latency, the canonical WebSocket use case.</li>
+    <li><strong>Financial ticker feeds —</strong> continuously changing values pushed to every connected client the moment they change.</li>
+    <li><strong>Some multiplayer game state sync —</strong> though the most latency-critical games often go further and use raw <a href="/networking/udp/index.html">UDP</a> directly, accepting occasional loss in exchange for lower overhead than even a WebSocket frame carries.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Older or misconfigured proxies that don't understand the <code>Upgrade</code> header can silently break a WebSocket handshake — a connection that works directly against a server but fails behind a particular proxy or load balancer is a very common symptom.</li>
+      <li>A dead WebSocket connection doesn't always fail loudly — an application needs its own periodic ping/pong heartbeat to detect a silently-dropped connection, since neither TCP nor WebSocket itself guarantees prompt failure notification.</li>
+      <li>Because a connection is pinned to one server, a server restart or deploy drops every WebSocket client connected to it at once — client-side reconnect logic isn't optional, it's required for a production-quality integration.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/networking/http/index.html", "title": "HTTP" },
+    { "href": "/networking/tcp/index.html", "title": "TCP" },
+    { "href": "/networking/mqtt/index.html", "title": "MQTT" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

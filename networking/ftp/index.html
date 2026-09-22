@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FTP — Networking — Embedded Pandora</title>
+<meta name="description" content="The original file-transfer protocol — unusual for using two separate TCP connections, why active vs. passive mode exists, and why SFTP isn't just 'FTP with encryption.'" />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>FTP — File Transfer Protocol</h1>
+  <p class="lede">
+    Nearly every other protocol on this domain uses one TCP connection for everything. FTP, one of the
+    internet's oldest protocols, does something different: it splits a session into a
+    <strong>control</strong> connection (commands) and a separate <strong>data</strong> connection (the
+    actual file bytes) — a design choice from an era before anyone had thought through what that would do
+    to firewalls and NAT decades later.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A file-transfer protocol using two separate TCP connections — one for commands, one for the actual file data.</dd>
+      <dt>Mental model</dt><dd>A phone call (the control connection, stays open, you give instructions on it) plus a separate delivery truck (the data connection, opened fresh for each file).</dd>
+      <dt>Key numbers</dt><dd>Port 21 for control; port 20 or a dynamically negotiated port for data, depending on mode.</dd>
+      <dt>Reach for it when</dt><dd>Rarely for new systems today — SFTP (over SSH) or plain HTTPS uploads are the modern default. Still shows up in legacy industrial and manufacturing tooling.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#two-channels">Two channels, one session</a></li>
+      <li><a href="#active-passive">Active vs. passive mode</a></li>
+      <li><a href="#why-legacy">Why FTP is increasingly legacy</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="two-channels">Two channels, one session</h2>
+  <p>
+    The client connects to the server's control port (21) and sends plain-text commands —
+    <code>USER</code>, <code>PASS</code>, <code>RETR filename</code> (download),
+    <code>STOR filename</code> (upload). The control connection stays open for the whole session, but it
+    never carries file bytes itself — every actual file transfer opens a brand new, separate TCP
+    connection just for that transfer's data.
+  </p>
+
+  <h2 id="active-passive">Active vs. passive mode</h2>
+  <p>
+    Who opens that second, data connection is the single most confusing part of FTP, and the direct
+    consequence of the protocol predating NAT and modern firewalls by decades.
+  </p>
+  <dl class="kv">
+    <dt>Active mode</dt><dd>The <em>server</em> initiates the data connection back to the client, on a port the client told it to use. This breaks immediately if the client is behind NAT or a firewall — the server is trying to open an unsolicited inbound connection to a machine that, from the internet's point of view, doesn't have a directly reachable address at all.</dd>
+    <dt>Passive mode</dt><dd>The <em>client</em> initiates both connections — it asks the server "which port should I use for data," and the server picks one and waits. This works through client-side NAT, which is why passive mode is the practical default almost everywhere today.</dd>
+  </dl>
+  <p>
+    Passive mode moves the problem rather than eliminating it: now the <em>server</em> needs a range of
+    ports open and reachable for incoming data connections — a real firewall configuration detail anyone
+    running an FTP server still has to handle.
+  </p>
+
+  <h2 id="why-legacy">Why FTP is increasingly legacy</h2>
+  <p>
+    Plain FTP sends everything — including the username and password in the initial handshake — completely
+    unencrypted, the same fundamental problem <a href="/networking/ssh/index.html#why-ssh">telnet had for
+    remote shells</a>. Two different fixes emerged, with confusingly similar names:
+  </p>
+  <ul class="point-list">
+    <li><strong>FTPS</strong> — FTP with TLS added on top, keeping FTP's original two-channel design.</li>
+    <li><strong>SFTP</strong> — <em>not</em> "FTP with encryption" despite the name. It's a completely
+    different protocol, a file-transfer subsystem built into <a href="/networking/ssh/index.html">SSH</a>,
+    sharing none of FTP's control/data-channel split — a single connection, SSH's own authentication, and
+    none of the active/passive complexity.</li>
+  </ul>
+  <p>
+    In practice, SFTP has mostly won for new systems, precisely because it avoids the dual-connection
+    firewall/NAT problem entirely.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Legacy industrial and manufacturing equipment —</strong> some test benches, PLCs, and factory-floor tooling still expose FTP as their only file-transfer option, simply because it predates the hardware's own software stack.</li>
+    <li><strong>ISP and shared-hosting file management —</strong> older web hosting control panels still commonly offer FTP/FTPS access alongside newer options.</li>
+    <li><strong>Anonymous FTP archives —</strong> some public software/firmware mirrors still serve files over anonymous (no-login) FTP, a holdover from the pre-web era of file distribution.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>"SFTP" and "FTPS" are not interchangeable and not the same protocol — mixing them up when configuring a client or firewall rule is a common, genuinely confusing mistake.</li>
+      <li>A working FTP connection that hangs specifically when listing a directory or transferring a file (but not when logging in) is the classic symptom of an active/passive mode mismatch with a firewall.</li>
+      <li>Plain FTP credentials sent over an untrusted network are exactly as exposed as a plaintext HTTP password — treat it accordingly.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/networking/ssh/index.html", "title": "SSH" },
+    { "href": "/networking/tcp/index.html", "title": "TCP" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

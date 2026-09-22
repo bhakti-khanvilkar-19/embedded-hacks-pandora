@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SMTP — Networking — Embedded Pandora</title>
+<meta name="description" content="The protocol that relays email from sender to recipient, hop by hop — why it only sends (never retrieves), the command sequence, and why port 587 exists alongside port 25." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>SMTP</h1>
+  <p class="lede">
+    An IoT gateway that emails an alert when a sensor crosses a threshold, or a web app that sends a
+    password-reset link, is doing exactly one thing: handing a message to an SMTP server and trusting it
+    to relay that message onward, hop by hop, until it reaches the recipient's mailbox.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The protocol for transferring email from a sender to a mail server, and between mail servers, toward a recipient.</dd>
+      <dt>Mental model</dt><dd>Physical postal relay — your letter moves from your local post office to the next, hop by hop, until it reaches the one that actually delivers to the recipient's address.</dd>
+      <dt>Key numbers</dt><dd>Port 25 for server-to-server relay; port 587 ("submission") for an authenticated client sending its own outbound mail.</dd>
+      <dt>Reach for it when</dt><dd>Any application or device that needs to send an outbound notification/alert email — never for reading a mailbox, which is a different protocol entirely.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#sending-vs-receiving">SMTP only sends — a common mix-up</a></li>
+      <li><a href="#commands">The command sequence</a></li>
+      <li><a href="#relay-hops">Relaying, hop by hop</a></li>
+      <li><a href="#port-587">Why port 587 exists alongside port 25</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="sending-vs-receiving">SMTP only sends — a common mix-up</h2>
+  <p>
+    SMTP moves mail <em>forward</em> — from a client to its outgoing server, and from server to server
+    toward the destination. It has no concept of "check my inbox." Retrieving mail from a mailbox is a
+    completely separate pair of protocols, <strong>POP3</strong> (downloads and typically removes messages
+    from the server) or <strong>IMAP</strong> (keeps mail on the server, syncing state like read/unread
+    across multiple devices) — an email client uses SMTP to send and one of those two to receive, and
+    mixing the two up is a very common source of confusion.
+  </p>
+
+  <h2 id="commands">The command sequence</h2>
+  <p>A session is a short, readable sequence of plain-text commands:</p>
+  <dl class="kv">
+    <dt>EHLO</dt><dd>Client greets the server and announces itself (the modern form of the older <code>HELO</code>).</dd>
+    <dt>MAIL FROM</dt><dd>Declares the sender's address.</dd>
+    <dt>RCPT TO</dt><dd>Declares one recipient — sent once per recipient for a multi-recipient message.</dd>
+    <dt>DATA</dt><dd>Everything that follows, until a line with just a single period, is the message headers and body.</dd>
+    <dt>QUIT</dt><dd>Ends the session.</dd>
+  </dl>
+
+  <h2 id="relay-hops">Relaying, hop by hop</h2>
+  <p>
+    A message often crosses more than one SMTP server before reaching its destination mailbox — each
+    server along the way is only responsible for handing it to the next one, not for guaranteeing
+    end-to-end delivery in the way <a href="/networking/tcp/index.html">TCP</a> guarantees byte delivery.
+    If a hop ultimately fails, the sender doesn't find out inline — a separate <strong>bounce
+    message</strong> arrives later, asynchronously, itself sent back over SMTP.
+  </p>
+
+  <h2 id="port-587">Why port 587 exists alongside port 25</h2>
+  <p>
+    Port 25 was SMTP's original port, meant for server-to-server relay — and because that made it a
+    favorite target for spam, most residential and many cloud ISPs now block outbound port 25 entirely for
+    ordinary customers. Port 587 ("submission") exists specifically for a legitimate client authenticating
+    and submitting its own outbound mail — it's expected to require a username/password and
+    <a href="/networking/https/index.html">TLS</a>, which is why an application sending alert emails almost
+    always connects to port 587, not port 25.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>IoT/monitoring alert emails —</strong> a device or backend service emailing "sensor X crossed threshold Y" is a direct SMTP submission, typically on port 587.</li>
+    <li><strong>Transactional email services —</strong> providers that handle account-notification, password-reset, and receipt emails on behalf of an application expose an SMTP relay (or an HTTP API that does the same job) so the application never has to run its own mail server.</li>
+    <li><strong>Server-to-server mail delivery —</strong> every email provider (Gmail, Outlook, and everything else) still ultimately exchanges messages with other providers over SMTP on port 25.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>An email that sends successfully but lands in spam is very often an SPF/DKIM/DMARC problem, not an SMTP one — these are DNS records that let a receiving server verify a message really came from who it claims to; a device or service sending alert emails from a domain without them configured is a common, easy-to-miss cause of "alerts stopped arriving."</li>
+      <li>A misconfigured "open relay" — an SMTP server that accepts and forwards mail from anyone, not just its own authenticated users — is a classic historical spam vector; modern SMTP servers require authentication for submission specifically to prevent this.</li>
+      <li>SMTP delivery is not instantaneous by design — queuing and retry delays at any hop are normal, not necessarily a sign something is broken.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/networking/https/index.html", "title": "HTTPS & TLS" },
+    { "href": "/networking/tcp/index.html", "title": "TCP" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

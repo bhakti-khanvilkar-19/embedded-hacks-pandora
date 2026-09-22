@@ -587,6 +587,17 @@
     ]
   },
   {
+    "title": "FTP — Networking",
+    "url": "/networking/ftp/index.html",
+    "domain": "Networking",
+    "category": "Ftp",
+    "description": "The original file-transfer protocol — unusual for using two separate TCP connections, why active vs. passive mode exists, and why SFTP isn't just 'FTP with encryption.'",
+    "tags": [
+      "networking",
+      "ftp"
+    ]
+  },
+  {
     "title": "HTTP — Networking",
     "url": "/networking/http/index.html",
     "domain": "Networking",
@@ -696,6 +707,17 @@
     ]
   },
   {
+    "title": "SMTP — Networking",
+    "url": "/networking/smtp/index.html",
+    "domain": "Networking",
+    "category": "Smtp",
+    "description": "The protocol that relays email from sender to recipient, hop by hop — why it only sends (never retrieves), the command sequence, and why port 587 exists alongside port 25.",
+    "tags": [
+      "networking",
+      "smtp"
+    ]
+  },
+  {
     "title": "SSH — Networking",
     "url": "/networking/ssh/index.html",
     "domain": "Networking",
@@ -726,6 +748,17 @@
     "tags": [
       "networking",
       "udp"
+    ]
+  },
+  {
+    "title": "WebSocket — Networking",
+    "url": "/networking/websocket/index.html",
+    "domain": "Networking",
+    "category": "Websocket",
+    "description": "A persistent, full-duplex connection born from a single HTTP request — how the upgrade handshake works, why it beats polling, and what changes once a connection is stateful.",
+    "tags": [
+      "networking",
+      "websocket"
     ]
   },
   {
