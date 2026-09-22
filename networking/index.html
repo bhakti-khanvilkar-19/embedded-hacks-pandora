@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Networking — Embedded Pandora</title>
-<meta name="description" content="TCP, IP, UDP, Ethernet, and DNS — layered networking concepts, each organized as its own topic." />
+<meta name="description" content="How Ethernet, IP, TCP/UDP, and application protocols like HTTPS, MQTT, and CoAP stack on top of each other — a map of the domain plus a recommended reading order." />
 <script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <link rel="stylesheet" href="/assets/css/base.css" />
 <link rel="stylesheet" href="/assets/css/components.css" />
@@ -17,21 +17,124 @@
   <p class="kicker">Domain</p>
   <h1>Networking</h1>
   <p class="lede">
-    How bytes get from one machine to another. Organized by protocol layer —
-    IP is not the same topic as TCP, and TCP is not the same topic as UDP,
-    even though they're often learned together.
+    How bytes get from one machine to another — and, just as importantly, how the dozen-odd protocols
+    below <em>stack on top of each other</em> to make that happen. None of them work alone: Ethernet
+    can't reach past your local network, IP can't tell one program on a machine from another, and TCP/UDP
+    don't know or care what's inside the message they're carrying. Each topic is written standalone, but
+    they were designed to be read in the order below the first time through.
   </p>
 
+  <h2 id="how-they-fit">How the pieces fit together</h2>
+  <p>
+    Every protocol here sits at one of four layers, each one solving exactly the problem the layer below
+    it can't. Application protocols never talk to Ethernet directly — they hand data down, one layer at a
+    time, and each layer only ever talks to the one immediately above or below it.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 390" role="img" aria-labelledby="net-stack-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="net-stack-title">Application protocols HTTPS, MQTT, and AMQP build on TCP; CoAP and DNS build on UDP; both TCP and UDP build on IP; and IP builds on Ethernet</title>
+
+      <rect class="frame-box block-amber" x="20" y="40" width="110" height="36" rx="6" />
+      <text class="frame-label" x="75" y="63" text-anchor="middle" font-size="10">HTTPS</text>
+      <rect class="frame-box block-amber" x="140" y="40" width="110" height="36" rx="6" />
+      <text class="frame-label" x="195" y="63" text-anchor="middle" font-size="10">MQTT</text>
+      <rect class="frame-box block-amber" x="260" y="40" width="110" height="36" rx="6" />
+      <text class="frame-label" x="315" y="63" text-anchor="middle" font-size="10">AMQP</text>
+      <rect class="frame-box block-amber" x="390" y="40" width="110" height="36" rx="6" />
+      <text class="frame-label" x="445" y="63" text-anchor="middle" font-size="10">CoAP</text>
+      <rect class="frame-box block-amber" x="510" y="40" width="110" height="36" rx="6" />
+      <text class="frame-label" x="565" y="63" text-anchor="middle" font-size="10">DNS</text>
+      <text class="seq-sub" x="660" y="63" text-anchor="end" font-size="9">application</text>
+
+      <line x1="75" y1="76" x2="170" y2="150" class="seq-arrow" stroke-width="1.2" />
+      <line x1="195" y1="76" x2="170" y2="150" class="seq-arrow" stroke-width="1.2" />
+      <line x1="315" y1="76" x2="170" y2="150" class="seq-arrow" stroke-width="1.2" />
+      <line x1="445" y1="76" x2="490" y2="150" class="seq-arrow" stroke-width="1.2" />
+      <line x1="565" y1="76" x2="490" y2="150" class="seq-arrow" stroke-width="1.2" />
+
+      <rect class="frame-box block-green" x="20" y="150" width="300" height="50" rx="6" />
+      <text class="frame-label" x="170" y="172" text-anchor="middle" font-size="12" font-weight="700">TCP</text>
+      <text class="frame-caption" x="170" y="188" text-anchor="middle" font-size="9">reliable, ordered</text>
+
+      <rect class="frame-box block-blue" x="340" y="150" width="300" height="50" rx="6" />
+      <text class="frame-label" x="490" y="172" text-anchor="middle" font-size="12" font-weight="700">UDP</text>
+      <text class="frame-caption" x="490" y="188" text-anchor="middle" font-size="9">low overhead, no guarantee</text>
+      <text class="seq-sub" x="660" y="178" text-anchor="end" font-size="9">transport</text>
+
+      <line x1="170" y1="200" x2="350" y2="230" class="seq-arrow" stroke-width="1.2" />
+      <line x1="490" y1="200" x2="350" y2="230" class="seq-arrow" stroke-width="1.2" />
+
+      <rect class="frame-box block-teal" x="20" y="230" width="660" height="50" rx="6" />
+      <text class="frame-label" x="350" y="252" text-anchor="middle" font-size="12" font-weight="700">IP</text>
+      <text class="frame-caption" x="350" y="268" text-anchor="middle" font-size="9">addressing &amp; routing across networks</text>
+      <text class="seq-sub" x="660" y="258" text-anchor="end" font-size="9">network</text>
+
+      <line x1="350" y1="280" x2="350" y2="300" class="seq-arrow" stroke-width="1.2" />
+
+      <rect class="frame-box block-violet" x="20" y="300" width="660" height="50" rx="6" />
+      <text class="frame-label" x="350" y="322" text-anchor="middle" font-size="12" font-weight="700">Ethernet</text>
+      <text class="frame-caption" x="350" y="338" text-anchor="middle" font-size="9">local, one-hop delivery by MAC address</text>
+      <text class="seq-sub" x="660" y="328" text-anchor="end" font-size="9">link</text>
+
+      <text class="seq-note" x="350" y="374" text-anchor="middle">Each layer only adds what the one below it can't do — nothing skips a layer, and nothing repeats one below's job.</text>
+    </svg>
+    <figcaption class="diagram__caption">The same shape as the encapsulation diagram on the <a href="/networking/ethernet/index.html#encapsulation">Ethernet</a> page — this is the map of which topic depends on which.</figcaption>
+  </figure>
+  <ul class="point-list">
+    <li><strong><a href="/networking/ethernet/index.html">Ethernet</a></strong> gets a frame to the next device over — nothing further. It has no idea what "the internet" is.</li>
+    <li><strong><a href="/networking/ip/index.html">IP</a></strong> solves what Ethernet can't: addressing and routing across many networks, hop by hop, with no delivery guarantee of its own.</li>
+    <li><strong><a href="/networking/tcp/index.html">TCP</a></strong> and <strong><a href="/networking/udp/index.html">UDP</a></strong> solve what IP can't: telling one program on a machine from another (via ports), and — for TCP only — turning IP's best-effort delivery into a reliable, ordered stream.</li>
+    <li>Everything above that is an <strong>application protocol</strong> — a message format and set of rules built on top of TCP or UDP for one specific job: encrypted web traffic (HTTPS), IoT pub/sub (MQTT), enterprise messaging (AMQP), constrained-device REST (CoAP), name lookup (DNS).</li>
+  </ul>
+
+  <h2 id="where-to-start">Where to start</h2>
+  <p>
+    If you're new to this domain, read in this order — each topic assumes you already understand the one
+    before it, and explicitly says so where it matters.
+  </p>
+  <ol class="point-list">
+    <li><strong><a href="/networking/ethernet/index.html">Ethernet</a></strong> — start at the bottom. Every topic above this one exists to solve a problem Ethernet by itself can't.</li>
+    <li><strong><a href="/networking/ip/index.html">IP</a></strong> — once you've seen Ethernet's "local only" limit, IP's whole reason for existing (addressing across networks) makes sense.</li>
+    <li><strong><a href="/networking/tcp/index.html">TCP</a></strong>, then <strong><a href="/networking/udp/index.html">UDP</a></strong> — read TCP first; UDP's own page explains itself largely by contrast with TCP's guarantees.</li>
+    <li>Pick an <strong>application protocol</strong> by what you're actually building:
+      <ul>
+        <li>Web traffic, general request/response → <a href="/networking/https/index.html">HTTPS &amp; TLS</a></li>
+        <li>IoT devices publishing to a broker → <a href="/networking/mqtt/index.html">MQTT</a></li>
+        <li>Constrained/battery-powered devices, REST-style → <a href="/networking/coap/index.html">CoAP</a></li>
+        <li>Enterprise messaging with routing rules → <a href="/networking/amqp/index.html">AMQP</a></li>
+      </ul>
+    </li>
+    <li>Then, as reference rather than reading order: <strong><a href="/networking/iot-architecture/index.html">IoT Architecture</a></strong> (how these pieces combine in a real device-to-cloud system), <strong><a href="/networking/serialization/index.html">Serialization</a></strong> (how the bytes inside any of these payloads are actually structured), and <strong><a href="/networking/linux-networking-tools/index.html">Linux Networking Tools</a></strong> (how to observe all of the above on a real running system).</li>
+  </ol>
+
   <h2>Topics</h2>
+
+  <h3>Link layer</h3>
   <ul class="topic-list">
     <li><a href="/networking/ethernet/index.html"><span>Ethernet — MAC addresses, framing, switching, ARP</span><span class="status">written</span></a></li>
+  </ul>
+
+  <h3>Network layer</h3>
+  <ul class="topic-list">
     <li><a href="/networking/ip/index.html"><span>IP — Internet Protocol (addressing &amp; routing)</span><span class="status">written</span></a></li>
+  </ul>
+
+  <h3>Transport layer</h3>
+  <ul class="topic-list">
     <li><a href="/networking/tcp/index.html"><span>TCP — reliable, connection-oriented transport</span><span class="status">written</span></a></li>
     <li><a href="/networking/udp/index.html"><span>UDP — connectionless transport</span><span class="status">written</span></a></li>
-    <li><a href="/networking/coap/index.html"><span>CoAP — REST over UDP for constrained devices</span><span class="status">written</span></a></li>
-    <li><a href="/networking/mqtt/index.html"><span>MQTT — publish/subscribe messaging over TCP</span><span class="status">written</span></a></li>
-    <li><a href="/networking/amqp/index.html"><span>AMQP — exchanges, queues, and bindings</span><span class="status">written</span></a></li>
+  </ul>
+
+  <h3>Application &amp; messaging layer</h3>
+  <ul class="topic-list">
     <li><a href="/networking/https/index.html"><span>HTTPS &amp; TLS — encrypting and authenticating a connection</span><span class="status">written</span></a></li>
+    <li><a href="/networking/mqtt/index.html"><span>MQTT — publish/subscribe messaging over TCP</span><span class="status">written</span></a></li>
+    <li><a href="/networking/coap/index.html"><span>CoAP — REST over UDP for constrained devices</span><span class="status">written</span></a></li>
+    <li><a href="/networking/amqp/index.html"><span>AMQP — exchanges, queues, and bindings</span><span class="status">written</span></a></li>
+  </ul>
+
+  <h3>Reference &amp; tooling</h3>
+  <ul class="topic-list">
     <li><a href="/networking/iot-architecture/index.html"><span>IoT Architecture — device, gateway, cloud, and application layers</span><span class="status">written</span></a></li>
     <li><a href="/networking/serialization/index.html"><span>Serialization — Protobuf &amp; Base64</span><span class="status">written</span></a></li>
     <li><a href="/networking/linux-networking-tools/index.html"><span>Linux Networking Tools — ip, arp, ping, ss/netstat, ethtool</span><span class="status">written</span></a></li>
