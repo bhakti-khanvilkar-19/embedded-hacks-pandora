@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Switch — Networking — Embedded Pandora</title>
+<meta name="description" content="The hardware behind Ethernet's own forwarding rule: hub vs. switch, how a MAC address table gets learned, collision domains, and managed vs. unmanaged switches." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>Switch</h1>
+  <p class="lede">
+    <a href="/networking/ethernet/index.html#switching">Ethernet's own page</a> covers switching in a
+    couple of sentences: a switch learns which MAC address lives on which port, and forwards accordingly.
+    This page is that same idea, but as a physical box — including the classic beginner mix-up between a
+    switch and a <a href="/networking/router/index.html">router</a>, and the older, now-obsolete device
+    (the hub) a switch actually replaced.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A device that connects multiple devices on the same LAN, forwarding each Ethernet frame only to the port where its destination MAC address actually lives.</dd>
+      <dt>Mental model</dt><dd>A receptionist who knows exactly which desk each person sits at, and walks a message directly there — instead of a hub, which shouts every message across the entire floor.</dd>
+      <dt>Key numbers</dt><dd>Operates at the <a href="/networking/osi-model/index.html">Data Link layer</a>; learned MAC-to-port entries typically age out after a few minutes of inactivity.</dd>
+      <dt>Reach for it when</dt><dd>Never chosen directly by an application — it's the physical infrastructure that lets more than two wired devices share the same local network.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#hub-vs-switch">Hub vs. switch</a></li>
+      <li><a href="#mac-learning">Learning the MAC address table</a></li>
+      <li><a href="#collision-domains">Collision domains</a></li>
+      <li><a href="#managed-vs-unmanaged">Managed vs. unmanaged switches</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="hub-vs-switch">Hub vs. switch</h2>
+  <p>
+    A <strong>hub</strong> — essentially obsolete today — is a dumb electrical repeater: whatever arrives
+    on one port gets copied out to every other port, with no awareness of MAC addresses or destinations at
+    all. Every device on a hub shares one collision domain and one slice of total bandwidth. A
+    <strong>switch</strong> replaces that with actual intelligence: it inspects each frame's destination
+    MAC address and forwards it only out the one port that address is known to live on.
+  </p>
+
+  <h2 id="mac-learning">Learning the MAC address table</h2>
+  <p>A switch builds its forwarding table with no configuration at all, just by watching traffic:</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 640 245" role="img" aria-labelledby="switch-learn-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="switch-learn-title">A switch learns which MAC address lives on which port by recording the source MAC of every frame it receives, building a forwarding table with no manual configuration</title>
+      <rect class="frame-box block-amber" x="260" y="80" width="120" height="60" rx="8" />
+      <text class="frame-label" x="320" y="106" text-anchor="middle" font-size="11" font-weight="700">Switch</text>
+      <text class="frame-caption" x="320" y="124" text-anchor="middle" font-size="8">MAC table</text>
+
+      <rect class="frame-box block-teal" x="20" y="20" width="140" height="44" rx="6" />
+      <text class="frame-label" x="90" y="46" text-anchor="middle" font-size="9">A — MAC ..:01</text>
+      <rect class="frame-box block-teal" x="20" y="88" width="140" height="44" rx="6" />
+      <text class="frame-label" x="90" y="114" text-anchor="middle" font-size="9">B — MAC ..:02</text>
+      <rect class="frame-box block-teal" x="20" y="156" width="140" height="44" rx="6" />
+      <text class="frame-label" x="90" y="182" text-anchor="middle" font-size="9">C — MAC ..:03</text>
+
+      <line x1="160" y1="42" x2="256" y2="90" class="seq-arrow" stroke-width="1.2" />
+      <line x1="160" y1="110" x2="256" y2="110" class="seq-arrow" stroke-width="1.2" />
+      <line x1="160" y1="178" x2="256" y2="130" class="seq-arrow" stroke-width="1.2" />
+
+      <rect class="frame-box" x="440" y="60" width="180" height="100" rx="6" />
+      <text class="frame-label" x="530" y="80" text-anchor="middle" font-size="9" font-weight="700">port → MAC</text>
+      <text class="frame-caption" x="530" y="100" text-anchor="middle" font-size="9">1 → ..:01</text>
+      <text class="frame-caption" x="530" y="118" text-anchor="middle" font-size="9">2 → ..:02</text>
+      <text class="frame-caption" x="530" y="136" text-anchor="middle" font-size="9">3 → ..:03</text>
+      <line x1="380" y1="110" x2="436" y2="110" class="seq-arrow" stroke-width="1.2" stroke-dasharray="3 2" />
+
+      <text class="seq-note" x="320" y="222" text-anchor="middle">The very first frame from a new device teaches the switch its port — nothing needs to be typed in by hand.</text>
+    </svg>
+    <figcaption class="diagram__caption">A frame to an address not yet in the table is the one case still flooded to every port — same fallback a hub always used.</figcaption>
+  </figure>
+
+  <h2 id="collision-domains">Collision domains</h2>
+  <p>
+    On a hub, every device shares one <strong>collision domain</strong> — if two devices transmit at the
+    same instant, the signals corrupt each other and both have to retry, exactly the shared-medium problem
+    a hub's design guarantees. A switch gives every port its own separate collision domain, which is what
+    makes full-duplex operation possible — a device can send and receive at the same time without ever
+    colliding with anything, since it isn't sharing the wire with anyone else at all.
+  </p>
+
+  <h2 id="managed-vs-unmanaged">Managed vs. unmanaged switches</h2>
+  <dl class="kv">
+    <dt>Unmanaged</dt><dd>Plug in a cable, it works — no configuration interface, no settings, the common case for a home network.</dd>
+    <dt>Managed</dt><dd>Exposes configuration — VLANs (splitting one physical switch into multiple logically separate networks), port mirroring (copying one port's traffic to another for monitoring/debugging), QoS prioritization, and SNMP-based monitoring — the standard choice once a network is large or important enough to need visibility and control.</dd>
+  </dl>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every wired home and office network —</strong> the switch is the physical hub-and-spoke point every wired device plugs into.</li>
+    <li><strong>Industrial control networks —</strong> managed switches with VLANs are commonly used to isolate a factory floor's PLC/sensor traffic from the corporate office network sharing the same physical cabling.</li>
+    <li><strong>Data center top-of-rack switching —</strong> every server in a rack connects to a switch dedicated to that rack, which then uplinks to the rest of the data center network.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li><strong>Switching loops —</strong> accidentally connecting two switches together with two separate cables (instead of one) creates a loop that floods broadcast traffic infinitely, capable of taking down an entire network in seconds — Spanning Tree Protocol (STP) exists on managed switches specifically to detect and block redundant paths before this happens.</li>
+      <li>A switch alone cannot reach the internet — it has no concept of IP addresses or routing at all; that's exclusively a <a href="/networking/router/index.html">router</a>'s job, one layer up.</li>
+      <li>A MAC address table entry that's gone stale (the device moved to a different port, or its network card changed) can cause a few seconds of failed delivery until the switch relearns — usually invisible, but a real, brief cause of "it worked, then didn't, then worked again."</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/networking/ethernet/index.html", "title": "Ethernet" },
+    { "href": "/networking/router/index.html", "title": "Router & NAT" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

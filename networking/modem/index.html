@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Modem — Networking — Embedded Pandora</title>
+<meta name="description" content="The narrow, often-misunderstood job of a modem: translating an ISP's physical-layer signal into Ethernet — and why 'modem' and 'router' get used interchangeably even though they're not the same device." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>Modem</h1>
+  <p class="lede">
+    "Modem" and "<a href="/networking/router/index.html">router</a>" get used interchangeably in everyday
+    conversation, but they're not the same device doing the same job — a modem's job is much narrower, and
+    understanding exactly where it ends clarifies a lot of home-network troubleshooting.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A device that translates between an ISP's physical-layer signal (over phone line, coax cable, or fiber) and standard Ethernet.</dd>
+      <dt>Mental model</dt><dd>A translator at a border crossing — it converts the language spoken on the ISP's side of the wire into the language your home network speaks, and makes zero decisions about where anything actually goes.</dd>
+      <dt>Key numbers</dt><dd>DSL, cable (DOCSIS), and fiber (PON) each use a completely different physical-layer encoding — the reason a modem is tied to one specific type of ISP connection.</dd>
+      <dt>Reach for it when</dt><dd>Never chosen directly — it's supplied by, and matched to, your specific ISP connection type.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#modulation">Where the name comes from</a></li>
+      <li><a href="#modem-vs-router">Modem vs. router</a></li>
+      <li><a href="#combo-devices">Why one box today does both</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="modulation">Where the name comes from</h2>
+  <p>
+    "Modem" is short for <strong>mo</strong>dulator-<strong>dem</strong>odulator: it takes your home
+    network's digital Ethernet frames and modulates them onto whatever physical signal your specific ISP
+    connection uses — DOCSIS over a coax cable, DSL over a phone line, PON over fiber — and demodulates the
+    incoming signal back into ordinary Ethernet frames in the other direction. Every one of those signaling
+    standards is completely different from the others, which is why a cable modem can't be swapped for a
+    DSL modem even though both eventually hand your router the exact same kind of Ethernet frame.
+  </p>
+
+  <h2 id="modem-vs-router">Modem vs. router</h2>
+  <dl class="kv">
+    <dt>A modem</dt><dd>Translates a signal. It has no concept of multiple devices, no <a href="/networking/dhcp/index.html">DHCP</a>, no <a href="/networking/router/index.html#nat">NAT</a>, and usually no way to plug in more than one device — historically, one Ethernet port out, feeding a separate router.</dd>
+    <dt>A router</dt><dd>Makes the actual decisions — assigning private addresses, translating them via NAT, and routing traffic between your LAN and whatever the modem hands it. This is the part that actually creates "your network."</dd>
+  </dl>
+  <p>
+    A modem plugged directly into a single computer, with no router at all, still works — but that
+    computer is now directly exposed on the ISP's network with no NAT translation standing between it and
+    the public internet.
+  </p>
+
+  <h2 id="combo-devices">Why one box today does both</h2>
+  <p>
+    Nearly every ISP-provided device today bundles a modem, a router, a <a href="/networking/switch/index.html">switch</a>,
+    and a Wi-Fi access point into one enclosure — a "gateway" device, in ISP marketing language. That
+    bundling is exactly why "the modem" and "the router" get used as if they mean the same physical box in
+    casual conversation, even though internally it's still doing two conceptually separate jobs, one right
+    after the other.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Cable, DSL, and fiber home internet —</strong> the standard entry point for a residential internet connection.</li>
+    <li><strong>Cellular modems in IoT devices —</strong> an embedded device with cellular connectivity (LTE-M, NB-IoT, standard LTE) contains a cellular modem module that does the exact same conceptual job — translating a radio-based ISP signal into a standard interface (often serial or USB) the rest of the device's software can use like any other network connection.</li>
+    <li><strong>Enterprise WAN links —</strong> larger organizations use carrier-grade modems/terminating equipment matched to whatever physical medium their internet service provider delivers over (leased fiber, microwave links, satellite).</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>"Turn it off and on again" fixing an internet outage is very often a modem-layer sync issue with the ISP, not a routing problem — power-cycling the whole combo device resets both layers at once, which is part of why the advice works so reliably without anyone needing to know which layer actually broke.</li>
+      <li>A modem's own status lights (often labeled something like "sync" or "online," separate from a Wi-Fi or LAN light) indicate whether the physical-layer link to the ISP is even up — worth checking before assuming a problem is inside your own home network at all.</li>
+      <li>Replacing an ISP-provided combo gateway with your own separate modem and router is a real option some users take — it requires making sure the modem is explicitly set to "bridge mode" so it stops trying to do any routing/NAT of its own and simply passes the connection through.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/networking/router/index.html", "title": "Router & NAT" },
+    { "href": "/networking/ethernet/index.html", "title": "Ethernet" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
