@@ -36,6 +36,10 @@ the content or picking a vaguer shared folder.
 │   └── <topic>/
 ├── embedded/                  the microcontroller itself: pins, cores, timing
 │   └── <topic>/
+├── c/                           the C language itself, taught from first
+│                                principles: variables, control flow, functions,
+│                                arrays, strings, pointers, structs
+│   └── <topic>/
 ├── embedded-c/                  the C language on bare metal: storage classes,
 │                                integer behavior, memory, pointers, data structures
 │   └── <topic>/
@@ -74,13 +78,20 @@ Each topic is a subfolder of exactly one domain, with its own `index.html`.
   reads before a datasheet.
 - **Embedded** — the microcontroller/SoC itself, in isolation: cores, pins,
   interrupts, timers, memory, debugging. Not the protocols it speaks.
+- **C** — the C language itself, taught from first principles for someone
+  with only basic exposure: variables/types/operators, control flow,
+  loops, functions, arrays, strings, pointers, structs, file I/O, and the
+  preprocessor. This is the prerequisite Embedded C explicitly assumes —
+  kept as its own domain rather than folded into Embedded C because it's
+  general-purpose language instruction, not bare-metal-specific
+  discipline.
 - **Embedded C** — the C language as it actually behaves on bare metal:
   storage classes, integer representation/overflow, the compile/link
   pipeline, dynamic memory, pointers, register access, and data
   structures implemented from scratch. Kept separate from Embedded
-  (the hardware) because this is language/software-engineering
-  discipline that applies to any target, not a specific chip's
-  peripherals.
+  (the hardware) and from C (the language in general) because this is
+  specifically where bare-metal C diverges from C as taught in a general
+  programming course.
 - **Sensors** — the sensing element itself and the physics or math behind
   what it measures (GNSS trilateration, MEMS accelerometers, thermocouples).
   Not the wire it's read over — that's Protocols — and not the

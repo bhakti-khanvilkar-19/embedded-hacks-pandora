@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>C — Embedded Pandora</title>
+<meta name="description" content="The C language itself, taught from first principles for someone with only basic exposure — variables, control flow, functions, arrays, strings, pointers, structs, and the standard library. The foundation Embedded C, C++, and Go all assume." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Domain</p>
+  <h1>C</h1>
+  <p class="lede">
+    A ground-up walk through the C language itself — written for someone who already knows there are
+    variables and loops somewhere in programming, but wants every concept actually explained, in order, with
+    working examples. This is deliberately <em>not</em> the same material as
+    <a href="/embedded-c/index.html">Embedded C</a>: this domain is "what does this language do," Embedded C
+    is "how does this language behave on a chip with 2KB of RAM and no operating system to catch a mistake."
+    Read this domain first if any of that felt unfamiliar.
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">Why this domain is separate from Embedded C</span>
+    <p>
+      <a href="/embedded-c/index.html">Embedded C</a> explicitly assumes you already know the language and
+      focuses on where bare-metal C diverges from general-purpose C — integer overflow on tiny types,
+      <code>volatile</code>, linker sections, memory-mapped registers. This domain is the prerequisite: plain
+      C, taught as its own subject, with nothing assumed. Once you're comfortable here, Embedded C is where
+      that knowledge gets specialized for firmware, and C++ is where it gets extended with object-oriented
+      and generic-programming features built directly on top of C's own rules.
+    </p>
+  </div>
+
+  <h2>Topics</h2>
+  <ul class="topic-list">
+    <li><a href="/c/introduction/index.html"><span>Introduction to C — what it is, the compilation pipeline, your first program</span><span class="status">written</span></a></li>
+    <li><a href="/c/variables-types-operators/index.html"><span>Variables, Data Types &amp; Operators — declaring values, the built-in types, and how to combine them</span><span class="status">written</span></a></li>
+  </ul>
+
+  <h2>Planned</h2>
+  <p>
+    <span class="badge">control-flow</span>
+    <span class="badge">loops</span>
+    <span class="badge">functions</span>
+    <span class="badge">arrays</span>
+    <span class="badge">strings</span>
+    <span class="badge">pointers</span>
+    <span class="badge">structs-and-unions</span>
+    <span class="badge">file-io-and-stdlib</span>
+    <span class="badge">preprocessor-and-macros</span>
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">Scope note</span>
+    <p>
+      Read top to bottom the first time through — each chapter is written assuming you've read the ones
+      before it, and says so explicitly wherever it matters. Once this domain is complete, it's meant to be
+      the thing you read once and then never need to reread, the same way
+      <a href="/electronics/index.html">Electronics</a> works for circuit fundamentals.
+    </p>
+  </div>
+</main>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

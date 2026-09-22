@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Variables, Data Types & Operators — C — Embedded Pandora</title>
+<meta name="description" content="How C stores values in memory as fixed-size typed variables, the built-in types, sizeof, type conversion, and the operators that combine values — with a full precedence table." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C</p>
+  <h1>Variables, Data Types &amp; Operators</h1>
+  <p class="lede">
+    A variable is C's basic unit of storage: a named, fixed-size chunk of memory holding one value of one
+    specific type. This chapter covers how to declare one, what types are actually available, how big each
+    one is, and the operators you use to combine and compare them — the vocabulary every single line of C
+    code after this chapter depends on.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Fixed-size, typed storage locations, plus the operators (arithmetic, relational, logical, bitwise) used to compute with them.</dd>
+      <dt>Mental model</dt><dd>A variable is a labeled box of a fixed size; its type is what's printed on the box telling you how to interpret the bits inside — the same 4 bytes mean something completely different labeled <code>int</code> vs. <code>float</code>.</dd>
+      <dt>Key numbers</dt><dd><code>char</code> = 1 byte, <code>int</code> commonly 4 bytes, <code>float</code> = 4 bytes, <code>double</code> = 8 bytes — always platform-dependent; <code>sizeof</code> is the only source of truth.</dd>
+      <dt>Reach for it when</dt><dd>Any time a value needs to be stored or computed — the very first design decision inside any function.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#declaring">Declaring a variable</a></li>
+      <li><a href="#types">The basic data types</a></li>
+      <li><a href="#sizeof">sizeof — and why it matters</a></li>
+      <li><a href="#conversion">Type conversion &amp; casting</a></li>
+      <li><a href="#operators">Operators</a></li>
+      <li><a href="#precedence">Operator precedence</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="declaring">Declaring a variable</h2>
+  <p>
+    Declaring a variable in C always states its <strong>type</strong> first, then its <strong>name</strong>,
+    optionally followed by an initial value:
+  </p>
+  <pre><code>int age = 25;       // type: int,    name: age,    value: 25
+char grade = 'B';    // type: char,   name: grade,  value: 'B'
+float price = 9.99f; // type: float,  name: price,  value: 9.99
+double pi = 3.14159265358979; // type: double, name: pi</code></pre>
+  <figure class="diagram">
+    <svg viewBox="0 0 420 130" role="img" aria-labelledby="var-box-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="var-box-title">The declaration int age = 25 reserves 4 bytes of memory, labels that location "age", and stores the bit pattern for 25 in it</title>
+      <text class="seq-note" x="210" y="16" text-anchor="middle" font-size="9">int age = 25;</text>
+      <rect class="frame-box block-teal" x="130" y="30" width="160" height="55" rx="8" />
+      <text class="frame-label" x="210" y="60" text-anchor="middle" font-size="14" font-weight="700">25</text>
+      <text class="frame-caption" x="210" y="76" text-anchor="middle" font-size="8">4 bytes, address 0x1000</text>
+      <line x1="210" y1="92" x2="210" y2="108" class="seq-arrow" stroke-width="1.2" />
+      <text class="seq-sub" x="210" y="120" text-anchor="middle" font-size="9">name: age — type: int</text>
+    </svg>
+    <figcaption class="diagram__caption">The compiler reserves the box's size based on the type, and from that point on "age" is just a convenient name for that specific memory address.</figcaption>
+  </figure>
+  <p>
+    Once declared, a variable's <strong>type never changes</strong> — this is what makes C
+    <strong>statically typed</strong>. You can change the value stored inside the box, but not what kind of
+    box it is.
+  </p>
+
+  <h2 id="types">The basic data types</h2>
+  <table>
+    <thead><tr><th>Type</th><th>Stores</th><th>Typical size</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td><code>char</code></td><td>A single character (or small integer)</td><td>1 byte</td><td><code>char c = 'A';</code></td></tr>
+      <tr><td><code>int</code></td><td>A whole number</td><td>4 bytes</td><td><code>int count = 42;</code></td></tr>
+      <tr><td><code>float</code></td><td>A decimal number, single precision</td><td>4 bytes</td><td><code>float f = 3.14f;</code></td></tr>
+      <tr><td><code>double</code></td><td>A decimal number, double precision</td><td>8 bytes</td><td><code>double d = 3.14159;</code></td></tr>
+      <tr><td><code>short</code></td><td>A smaller whole number</td><td>2 bytes</td><td><code>short s = 100;</code></td></tr>
+      <tr><td><code>long</code></td><td>A larger whole number</td><td>8 bytes (platform-dependent)</td><td><code>long l = 100000L;</code></td></tr>
+    </tbody>
+  </table>
+  <p>
+    Any of the integer types (<code>char</code>, <code>short</code>, <code>int</code>, <code>long</code>) can
+    be prefixed with <code>unsigned</code> to store only non-negative numbers, doubling the positive range in
+    exchange for losing negative values entirely — <code>unsigned int</code> instead of <code>int</code>. The
+    exact bit-level consequences of that trade-off, and the fixed-width types (<code>uint8_t</code>,
+    <code>int32_t</code>, …) that remove the "typical size" guesswork entirely, are covered properly in
+    <a href="/embedded-c/data-types/index.html">Embedded C's Data Types &amp; Integer Overflow</a> — worth
+    reading once you're comfortable here, since exact sizes matter far more on a microcontroller than on a
+    desktop.
+  </p>
+
+  <h2 id="sizeof">sizeof — and why it matters</h2>
+  <p>
+    "Typical size" above is deliberately vague, because C never actually guarantees exact sizes — only
+    minimums. The one way to know for certain, on your specific compiler and target, is the built-in
+    <code>sizeof</code> operator:
+  </p>
+  <pre><code>#include &lt;stdio.h&gt;
+
+int main(void) {
+    printf("int is %zu bytes\n", sizeof(int));
+    printf("double is %zu bytes\n", sizeof(double));
+    return 0;
+}
+// int is 4 bytes
+// double is 8 bytes</code></pre>
+  <p>
+    This isn't a pedantic detail — code that assumes <code>int</code> is always 4 bytes has genuinely broken
+    on real, shipped hardware where it wasn't. <code>sizeof</code> is how you stop guessing.
+  </p>
+
+  <h2 id="conversion">Type conversion &amp; casting</h2>
+  <p>
+    C will sometimes convert one type to another automatically (<strong>implicit conversion</strong>), and
+    you can always force one explicitly (<strong>casting</strong>):
+  </p>
+  <pre><code>int a = 7;
+int b = 2;
+float result = a / b;          // 3.0 — integer division happened BEFORE the assignment
+float fixed  = (float)a / b;   // 3.5 — casting a to float first forces floating-point division</code></pre>
+  <p>
+    <code>(float)a</code> is an explicit cast: "treat this <code>int</code> as a <code>float</code> from this
+    point forward." Without it, C evaluates <code>a / b</code> using integer division first — both operands
+    are integers, so the result is truncated to an integer <em>before</em> it's ever assigned to
+    <code>result</code>.
+  </p>
+
+  <h2 id="operators">Operators</h2>
+  <table>
+    <thead><tr><th>Category</th><th>Operators</th><th>Example</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Arithmetic</td><td><code>+ - * / %</code></td><td><code>a % b</code></td><td>Remainder after dividing <code>a</code> by <code>b</code></td></tr>
+      <tr><td>Relational</td><td><code>== != &gt; &lt; &gt;= &lt;=</code></td><td><code>a == b</code></td><td>True if <code>a</code> and <code>b</code> are equal</td></tr>
+      <tr><td>Logical</td><td><code>&amp;&amp; || !</code></td><td><code>a &gt; 0 &amp;&amp; b &gt; 0</code></td><td>True only if both conditions are true</td></tr>
+      <tr><td>Bitwise</td><td><code>&amp; | ^ ~ &lt;&lt; &gt;&gt;</code></td><td><code>flags &amp; 0x04</code></td><td>Tests bit 2 of <code>flags</code> directly</td></tr>
+      <tr><td>Assignment</td><td><code>= += -= *= /=</code></td><td><code>total += 5</code></td><td>Shorthand for <code>total = total + 5</code></td></tr>
+    </tbody>
+  </table>
+  <p>
+    Bitwise operators work on the individual bits of a value rather than its numeric meaning — they look
+    unfamiliar at first, but they're the exact tool used to set, clear, and test individual bits in a
+    hardware register, which is why <a href="/embedded-c/registers/index.html">Embedded C's Registers &amp;
+    volatile</a> chapter leans on them constantly.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 420 110" role="img" aria-labelledby="bitwise-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="bitwise-title">flags & 0x04 masks out every bit except bit 2, leaving a nonzero result only if that bit was set</title>
+      <text class="seq-note" x="210" y="16" text-anchor="middle" font-size="9">flags &amp; 0x04 — testing whether bit 2 is set</text>
+      <rect class="frame-box block-teal" x="30" y="30" width="240" height="30" rx="4" />
+      <text class="frame-label" x="150" y="50" text-anchor="middle" font-size="10" font-family="monospace">0 0 0 0 1 1 0 1</text>
+      <text class="frame-caption" x="30" y="24" text-anchor="start" font-size="7.5">flags</text>
+      <rect class="frame-box block-amber" x="30" y="66" width="240" height="30" rx="4" />
+      <text class="frame-label" x="150" y="86" text-anchor="middle" font-size="10" font-family="monospace">0 0 0 0 0 1 0 0</text>
+      <text class="frame-caption" x="30" y="102" text-anchor="start" font-size="7.5">0x04 (the mask)</text>
+      <text class="seq-sub" x="330" y="60" text-anchor="start" font-size="9">bit 2 is 1 → result is nonzero (true)</text>
+    </svg>
+    <figcaption class="diagram__caption">The AND operator keeps a bit only where <em>both</em> inputs have a 1 — everywhere the mask is 0, the result is forced to 0 regardless of <code>flags</code>.</figcaption>
+  </figure>
+
+  <h2 id="precedence">Operator precedence</h2>
+  <p>
+    When an expression mixes several operators, C evaluates them in a fixed order — not strictly left to
+    right. The rules that matter most day to day:
+  </p>
+  <ol class="point-list">
+    <li><code>*</code>, <code>/</code>, <code>%</code> bind tighter than <code>+</code>, <code>-</code> — exactly like ordinary arithmetic (<code>2 + 3 * 4</code> is <code>14</code>, not <code>20</code>).</li>
+    <li>Relational (<code>&gt;</code>, <code>==</code>) bind looser than arithmetic, so <code>a + b &gt; c</code> means <code>(a + b) &gt; c</code>.</li>
+    <li>Logical <code>&amp;&amp;</code> binds tighter than logical <code>||</code>.</li>
+    <li>Bitwise <code>&amp;</code>, <code>^</code>, <code>|</code> bind <strong>looser</strong> than relational operators — the single most common precedence mistake in real C code (see Gotchas).</li>
+    <li>When genuinely unsure, add parentheses — they cost nothing at runtime and remove all ambiguity for the next reader, including future you.</li>
+  </ol>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Sensor reading pipelines —</strong> a raw ADC value read as an <code>int</code> is almost always cast to <code>float</code> before being scaled into a real-world unit like volts or degrees.</li>
+    <li><strong>Status/flag registers —</strong> a single <code>uint8_t</code> or <code>uint32_t</code> variable where each individual bit represents one on/off condition, tested and set with bitwise operators.</li>
+    <li><strong>Loop counters and array indices —</strong> almost universally plain <code>int</code>, the most common variable type written in any C program.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li><code>int a = 7 / 2;</code> gives <code>3</code>, not <code>3.5</code> — integer division always truncates toward zero, it never rounds. Getting a fractional result requires at least one operand to already be a floating-point type.</li>
+      <li><code>=</code> (assignment) and <code>==</code> (equality test) are easy to type wrong for each other — <code>if (x = 5)</code> compiles, assigns <code>5</code> to <code>x</code>, and is <em>always true</em>, which is a famously hard-to-spot bug.</li>
+      <li>Bitwise <code>&amp;</code> binding looser than <code>==</code> means <code>if (flags &amp; 0x04 == 0x04)</code> does <strong>not</strong> do what it looks like — <code>==</code> binds first, so this actually evaluates as <code>flags &amp; (0x04 == 0x04)</code>, i.e. <code>flags &amp; 1</code>. Always parenthesize: <code>if ((flags &amp; 0x04) == 0x04)</code>.</li>
+      <li>Signed/unsigned comparisons can silently convert a negative signed value into a huge unsigned one before comparing — a full treatment of exactly how and why is in <a href="/embedded-c/data-types/index.html">Embedded C's Data Types &amp; Integer Overflow</a>.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/c/introduction/index.html", "title": "Introduction to C" },
+  "related": [
+    { "href": "/embedded-c/data-types/index.html", "title": "Data Types & Integer Overflow" },
+    { "href": "/embedded-c/registers/index.html", "title": "Registers & volatile" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
