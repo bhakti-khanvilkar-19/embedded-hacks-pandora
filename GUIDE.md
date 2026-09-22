@@ -43,6 +43,9 @@ the content or picking a vaguer shared folder.
 ├── embedded-c/                  the C language on bare metal: storage classes,
 │                                integer behavior, memory, pointers, data structures
 │   └── <topic>/
+├── cpp/                         C++ built on top of C: classes, inheritance,
+│                                templates, the STL, smart pointers
+│   └── <topic>/
 ├── sensors/                    the sensing element and the physics behind it
 │   └── <topic>/
 ├── protocols/                 wire-level buses: SPI, I2C, UART, CAN, ...
@@ -92,6 +95,13 @@ Each topic is a subfolder of exactly one domain, with its own `index.html`.
   (the hardware) and from C (the language in general) because this is
   specifically where bare-metal C diverges from C as taught in a general
   programming course.
+- **C++** — C++ as a strict superset of C: classes and objects,
+  constructors/destructors and RAII, inheritance and polymorphism,
+  operator overloading, templates, the STL, smart pointers, and
+  exceptions, closing with what a bare-metal C++ codebase typically
+  avoids from that list and why. Kept separate from C because these are
+  a genuinely different set of language features and design idioms
+  layered on top, not a deeper look at C's own.
 - **Sensors** — the sensing element itself and the physics or math behind
   what it measures (GNSS trilateration, MEMS accelerometers, thermocouples).
   Not the wire it's read over — that's Protocols — and not the

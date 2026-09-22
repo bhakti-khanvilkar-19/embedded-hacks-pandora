@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>C++ — Embedded Pandora</title>
+<meta name="description" content="C++ built directly on top of the C domain's foundation — classes and objects, constructors and RAII, inheritance and polymorphism, templates, the STL, smart pointers, exceptions, and what embedded C++ deliberately avoids." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Domain</p>
+  <h1>C++</h1>
+  <p class="lede">
+    C++ started as "C with classes" and is still, today, a strict superset built directly on top of
+    everything in the <a href="/c/index.html">C</a> domain — every C concept you already know (variables,
+    pointers, structs, functions) is still exactly true in C++, with a large set of new features layered on
+    top: object-oriented programming, generic programming with templates, and a rich standard library. This
+    domain assumes you've read <a href="/c/index.html">C</a> already and picks up from there.
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">Why this domain is separate from C</span>
+    <p>
+      Nothing in <a href="/c/index.html">C</a> stops being true here — a C++ compiler compiles almost all
+      valid C code unchanged. This domain is specifically the <em>additions</em>: classes, constructors and
+      destructors, inheritance, templates, the Standard Template Library, and smart pointers, none of which
+      exist in C at all. It's kept separate rather than folded into C because these are a genuinely different
+      set of language features and design idioms, not a deeper look at the same ones.
+    </p>
+  </div>
+
+  <h2>Topics</h2>
+  <ul class="topic-list">
+    <li><a href="/cpp/introduction/index.html"><span>Introduction to C++ — what's different from C, compiling, your first class</span><span class="status">written</span></a></li>
+    <li><a href="/cpp/classes-and-objects/index.html"><span>Classes &amp; Objects — encapsulation, methods, and access control</span><span class="status">written</span></a></li>
+  </ul>
+
+  <h2>Planned</h2>
+  <p>
+    <span class="badge">constructors-destructors-raii</span>
+    <span class="badge">inheritance-and-polymorphism</span>
+    <span class="badge">operator-overloading-and-references</span>
+    <span class="badge">templates</span>
+    <span class="badge">stl-containers-and-algorithms</span>
+    <span class="badge">memory-management</span>
+    <span class="badge">exception-handling</span>
+    <span class="badge">cpp-in-embedded-systems</span>
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">Scope note</span>
+    <p>
+      Read top to bottom the first time through, the same way as <a href="/c/index.html">C</a> — each
+      chapter here assumes the ones before it, including all of C. The final planned chapter, C++ in Embedded
+      Systems, closes the loop back to <a href="/embedded-c/index.html">Embedded C</a> by covering exactly
+      what a bare-metal C++ codebase typically avoids, and why.
+    </p>
+  </div>
+</main>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

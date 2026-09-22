@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Introduction to C++ — C++ — Embedded Pandora</title>
+<meta name="description" content="What C++ actually adds on top of C — a first class walked through line by line, compiling with g++, and a map of the big features this domain covers next." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C++</p>
+  <h1>Introduction to C++</h1>
+  <p class="lede">
+    Every single thing in the <a href="/c/index.html">C</a> domain is still true here — C++ is a superset,
+    not a different language. This chapter is specifically about what's <em>added</em>: a first look at a
+    class, how compiling C++ differs slightly from C, and a map of the bigger features the rest of this
+    domain covers one at a time.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A language built as a strict superset of C, adding object-oriented programming, generic programming (templates), and a large standard library (the STL) on top.</dd>
+      <dt>Mental model</dt><dd>C gives you data and the functions that operate on it as two separate things you connect by hand; C++'s biggest addition is letting you bundle them together into one unit — a class.</dd>
+      <dt>Key numbers</dt><dd>Files conventionally use <code>.cpp</code>/<code>.cc</code> (not <code>.c</code>) and <code>.hpp</code>/<code>.h</code> for headers; compiled with <code>g++</code>/<code>clang++</code> rather than <code>gcc</code>.</dd>
+      <dt>Reach for it when</dt><dd>A C codebase's manual "struct + functions that take it as the first argument" pattern is common enough that bundling them directly would simplify the code, or when templates/STL containers would remove real, repeated boilerplate.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#whats-different">What's actually different from C</a></li>
+      <li><a href="#first-class">A first class, line by line</a></li>
+      <li><a href="#compiling">Compiling C++</a></li>
+      <li><a href="#the-map">A map of what's ahead</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="whats-different">What's actually different from C</h2>
+  <p>
+    C already lets you group data with <a href="/c/structs-and-unions/index.html"><code>struct</code></a>
+    and write <a href="/c/functions/index.html">functions</a> that operate on it — the pattern is just
+    manual: you pass the struct as the function's first argument every single time, and nothing stops an
+    unrelated function from reaching in and modifying fields it shouldn't. C++'s core addition,
+    <strong>classes</strong>, bundles data and the functions that operate on it into one unit, with real,
+    compiler-enforced control over what's accessible from outside.
+  </p>
+
+  <h2 id="first-class">A first class, line by line</h2>
+  <pre><code>class Counter {
+public:
+    Counter() { count = 0; }        // constructor — runs automatically on creation
+    void increment() { count++; }    // a method — a function that belongs to the class
+    int getValue() { return count; }
+
+private:
+    int count;                        // data only this class's own methods can touch
+};
+
+int main() {
+    Counter c;              // no "struct" keyword needed, and the constructor runs automatically
+    c.increment();
+    c.increment();
+    std::cout << c.getValue() << std::endl;   // 2
+    return 0;
+}</code></pre>
+  <dl class="kv">
+    <dt><code>class Counter { ... };</code></dt><dd>Declares a new type, <code>Counter</code> — like <code>struct</code>, but with methods and access control built in directly.</dd>
+    <dt><code>public:</code> / <code>private:</code></dt><dd>Everything after <code>public:</code> is accessible from outside the class; everything after <code>private:</code> is only accessible from the class's own methods. This is real, compiler-enforced encapsulation, covered fully in <a href="/cpp/classes-and-objects/index.html">Classes &amp; Objects</a>.</dd>
+    <dt><code>Counter()</code></dt><dd>A <strong>constructor</strong> — a special method with the same name as the class, run automatically the instant an object is created. No separate "init" call needed.</dd>
+    <dt><code>std::cout</code></dt><dd>C++'s standard output stream — the idiomatic replacement for C's <code>printf</code>, from the <code>&lt;iostream&gt;</code> header.</dd>
+  </dl>
+
+  <h2 id="compiling">Compiling C++</h2>
+  <pre><code>#include &lt;iostream&gt;
+
+int main() {
+    std::cout << "Hello, C++!" << std::endl;
+    return 0;
+}</code></pre>
+  <pre><code>g++ hello.cpp -o hello
+./hello
+# Hello, C++!</code></pre>
+  <p>
+    The same four-stage pipeline from <a href="/c/introduction/index.html#pipeline">C's Introduction</a>
+    (preprocess, compile, assemble, link) applies unchanged — <code>g++</code> is simply the C++ front end
+    for the same underlying toolchain, understanding the additional syntax and linking against the C++
+    standard library automatically.
+  </p>
+
+  <h2 id="the-map">A map of what's ahead</h2>
+  <ul class="point-list">
+    <li><strong><a href="/cpp/classes-and-objects/index.html">Classes &amp; Objects</a> —</strong> the encapsulation idea above, in full depth.</li>
+    <li><strong>Constructors, Destructors &amp; RAII —</strong> automatic setup and teardown, and the resource-management idiom built on it.</li>
+    <li><strong>Inheritance &amp; Polymorphism —</strong> building one class on top of another, and calling the right version of a method automatically.</li>
+    <li><strong>Operator Overloading &amp; References —</strong> making custom types work with <code>+</code>, <code>==</code>, and similar, plus an alias-like alternative to pointers.</li>
+    <li><strong>Templates —</strong> writing one function or class that works across many types, without repeating code per type.</li>
+    <li><strong>STL Containers &amp; Algorithms —</strong> ready-made, templated data structures (<code>vector</code>, <code>map</code>) replacing much of what C makes you hand-roll.</li>
+    <li><strong>Memory Management —</strong> <code>new</code>/<code>delete</code> and smart pointers, built on top of everything <a href="/embedded-c/dynamic-memory/index.html">Embedded C's Dynamic Memory</a> already covers about <code>malloc</code>/<code>free</code>.</li>
+    <li><strong>Exception Handling —</strong> a structured alternative to C's manual error-code checking.</li>
+    <li><strong>C++ in Embedded Systems —</strong> what a bare-metal C++ codebase typically avoids from this whole list, and why.</li>
+  </ul>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Game engines —</strong> Unreal Engine and most AAA game engines are written in C++ for the combination of low-level control and object-oriented structure.</li>
+    <li><strong>High-performance desktop/server software —</strong> Chrome, most database engines' query planners, and large portions of major operating systems' userspace tooling.</li>
+    <li><strong>Robotics and embedded systems with real complexity —</strong> ROS (Robot Operating System) is written substantially in C++, valued for combining C-level performance with classes for organizing genuinely large codebases.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>C++ is <em>almost</em> a strict superset of C, not a perfect one — a handful of edge cases differ (most notably, C++ requires more explicit casting than C does in a few places). In practice this rarely matters for typical code.</li>
+      <li>A <code>.c</code> file and a <code>.cpp</code> file with otherwise-identical code can behave subtly differently once compiled by their respective compilers — always use the file extension matching the language you're actually writing.</li>
+      <li>C++ is a genuinely large language — nobody uses every feature, and production C++ codebases very commonly adopt a deliberately restricted subset (see <a href="/cpp/index.html">this domain's</a> eventual C++ in Embedded Systems chapter for exactly what and why on constrained targets).</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "next": { "href": "/cpp/classes-and-objects/index.html", "title": "Classes & Objects" },
+  "related": [
+    { "href": "/c/introduction/index.html", "title": "Introduction to C" },
+    { "href": "/c/functions/index.html", "title": "Functions" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

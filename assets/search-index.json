@@ -359,6 +359,38 @@
     ]
   },
   {
+    "title": "Classes & Objects — C++",
+    "url": "/cpp/classes-and-objects/index.html",
+    "domain": "Cpp",
+    "category": "Classes And Objects",
+    "description": "Encapsulation in depth — public vs. private access, member functions, the difference between a class and an object, and class vs. struct in C++, with a memory diagram of an object's layout.",
+    "tags": [
+      "cpp",
+      "classes-and-objects"
+    ]
+  },
+  {
+    "title": "C++",
+    "url": "/cpp/index.html",
+    "domain": "Cpp",
+    "category": "Overview",
+    "description": "C++ built directly on top of the C domain's foundation — classes and objects, constructors and RAII, inheritance and polymorphism, templates, the STL, smart pointers, exceptions, and what embedded C++ deliberately avoids.",
+    "tags": [
+      "cpp"
+    ]
+  },
+  {
+    "title": "Introduction to C++ — C++",
+    "url": "/cpp/introduction/index.html",
+    "domain": "Cpp",
+    "category": "Introduction",
+    "description": "What C++ actually adds on top of C — a first class walked through line by line, compiling with g++, and a map of the big features this domain covers next.",
+    "tags": [
+      "cpp",
+      "introduction"
+    ]
+  },
+  {
     "title": "Analog vs. Digital Electronics — Electronics",
     "url": "/electronics/analog-digital/index.html",
     "domain": "Electronics",
