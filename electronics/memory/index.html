@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Memory (RAM) — Electronics — Embedded Pandora</title>
+<meta name="description" content="The CPU's fast, volatile working space — DRAM vs. SRAM, why more RAM helps, and where memory sits in the speed-vs-capacity hierarchy between cache and storage." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Electronics</p>
+  <h1>Memory (RAM)</h1>
+  <p class="lede">
+    When someone says "this machine has 16 GB of RAM," this is what they mean — the fast, working memory a
+    <a href="/electronics/cpu/index.html">CPU</a> actively reads and writes while a program runs. It's a
+    completely different thing from <a href="/electronics/storage/index.html">storage</a>, in one way that
+    matters more than any speed or capacity number: what happens when the power goes off.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Fast, volatile working memory the CPU actively uses while running — cleared entirely on power loss.</dd>
+      <dt>Mental model</dt><dd>A desk you're actively working at — everything within arm's reach for as long as you're there, but cleared the moment you leave the room.</dd>
+      <dt>Key numbers</dt><dd>Measured in GB; current generations are DDR4/DDR5. Volatile: content is gone the instant power is lost.</dd>
+      <dt>Reach for it when</dt><dd>Describing how much active data/how many running programs a system can hold at once — not how much it can permanently keep.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#volatile">Volatile — the defining property</a></li>
+      <li><a href="#dram-vs-sram">DRAM vs. SRAM</a></li>
+      <li><a href="#why-more-helps">Why more RAM helps</a></li>
+      <li><a href="#hierarchy">Where memory sits in the hierarchy</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="volatile">Volatile — the defining property</h2>
+  <p>
+    RAM's single defining trait is that it's <strong>volatile</strong>: every bit it holds vanishes the
+    instant power is removed. That's the direct, deliberate contrast with
+    <a href="/electronics/storage/index.html">ROM and storage</a> — this page is fast <em>because</em> it
+    doesn't have to guarantee anything survives past the next power cycle, a guarantee non-volatile memory
+    has to work much harder (and slower) to provide.
+  </p>
+
+  <h2 id="dram-vs-sram">DRAM vs. SRAM</h2>
+  <dl class="kv">
+    <dt>DRAM</dt><dd>What "RAM" almost always means in practice — a capacitor per bit that leaks charge and must be constantly refreshed thousands of times a second. Cheap and dense, which is why it's used for a system's main memory, measured in GB.</dd>
+    <dt>SRAM</dt><dd>Built from transistor latches instead of capacitors — no refresh needed, meaningfully faster, but far more expensive and less dense per chip area. Used for <a href="/electronics/cpu/index.html#cache">CPU cache</a> and for a microcontroller's own small internal RAM, where every extra nanosecond of latency and every microwatt of power actually matters.</dd>
+  </dl>
+
+  <h2 id="why-more-helps">Why more RAM helps</h2>
+  <p>
+    When active data no longer fits in RAM, the operating system starts <strong>swapping</strong> —
+    temporarily writing some of it out to much slower <a href="/electronics/storage/index.html">storage</a>
+    to make room, then reading it back when needed again. This is the actual mechanism behind "why is my
+    computer crawling with 50 browser tabs open" — not the CPU struggling, but RAM running out and the
+    system falling back to a component hundreds of times slower to compensate.
+  </p>
+
+  <h2 id="hierarchy">Where memory sits in the hierarchy</h2>
+  <p>
+    <a href="/electronics/cpu/index.html#cache">CPU registers and cache</a> are faster and smaller than
+    RAM; <a href="/electronics/storage/index.html">storage</a> is far larger and far slower. RAM is the
+    middle tier — big enough to hold an entire running program's active data, fast enough that the CPU
+    isn't constantly stalled waiting on it, but not fast enough to skip cache, and not persistent enough to
+    skip storage.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every general-purpose computer —</strong> desktops, laptops, servers, phones — measured directly in the GB spec sheets advertise.</li>
+    <li><strong>Database and cache servers —</strong> systems specifically built to hold enormous datasets in RAM for the speed of never having to touch disk during normal operation.</li>
+    <li><strong>Embedded microcontrollers —</strong> a tiny amount of on-chip SRAM (often just KB, not GB) holds a running firmware's variables and stack — see the <a href="/embedded-c/storage-classes/index.html">Embedded C</a> domain for how that space actually gets divided up in a running program.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>RAM is not storage — unsaved work vanishing after a crash or power loss is RAM's volatility working exactly as designed, not a bug.</li>
+      <li>RAM speed (MHz, timings like CL) matters far less than capacity for most workloads, right up until a system actually runs out — at which point capacity dominates every other consideration.</li>
+      <li>ECC (error-correcting) RAM exists specifically for systems — servers, safety-relevant embedded devices — where a single cosmic-ray-induced bit flip is unacceptable; consumer RAM has no such protection, and it's invisible until it very occasionally isn't.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/electronics/cpu/index.html", "title": "CPU" },
+  "next": { "href": "/electronics/storage/index.html", "title": "ROM & Storage" },
+  "related": [
+    { "href": "/electronics/cpu/index.html", "title": "CPU" },
+    { "href": "/electronics/storage/index.html", "title": "ROM & Storage" },
+    { "href": "/embedded-c/storage-classes/index.html", "title": "Storage Classes" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

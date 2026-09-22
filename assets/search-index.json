@@ -250,6 +250,17 @@
     ]
   },
   {
+    "title": "CPU — Electronics",
+    "url": "/electronics/cpu/index.html",
+    "domain": "Electronics",
+    "category": "Cpu",
+    "description": "The fetch-decode-execute cycle every processor repeats, what clock speed and core count actually mean, and the cache hierarchy that keeps a fast CPU fed.",
+    "tags": [
+      "electronics",
+      "cpu"
+    ]
+  },
+  {
     "title": "Fundamentals — Electronics",
     "url": "/electronics/fundamentals/index.html",
     "domain": "Electronics",
@@ -268,6 +279,17 @@
     "description": "The circuit-level fundamentals everything else in this notebook is built on: voltage, current, resistance, passive components, semiconductors, and data converters.",
     "tags": [
       "electronics"
+    ]
+  },
+  {
+    "title": "Memory (RAM) — Electronics",
+    "url": "/electronics/memory/index.html",
+    "domain": "Electronics",
+    "category": "Memory",
+    "description": "The CPU's fast, volatile working space — DRAM vs. SRAM, why more RAM helps, and where memory sits in the speed-vs-capacity hierarchy between cache and storage.",
+    "tags": [
+      "electronics",
+      "memory"
     ]
   },
   {
@@ -290,6 +312,17 @@
     "tags": [
       "electronics",
       "semiconductors"
+    ]
+  },
+  {
+    "title": "ROM &amp; Storage — Electronics",
+    "url": "/electronics/storage/index.html",
+    "domain": "Electronics",
+    "category": "Storage",
+    "description": "Non-volatile memory in its two forms — small, fixed ROM/firmware and large, general-purpose HDD/SSD storage — and why the very first code a device runs always lives in the first kind.",
+    "tags": [
+      "electronics",
+      "storage"
     ]
   },
   {

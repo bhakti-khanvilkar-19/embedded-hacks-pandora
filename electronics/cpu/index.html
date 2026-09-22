@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CPU — Electronics — Embedded Pandora</title>
+<meta name="description" content="The fetch-decode-execute cycle every processor repeats, what clock speed and core count actually mean, and the cache hierarchy that keeps a fast CPU fed." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Electronics</p>
+  <h1>CPU — Central Processing Unit</h1>
+  <p class="lede">
+    Every microcontroller in the <a href="/embedded/index.html">Embedded</a> domain has one of these at
+    its center, just a much smaller, simpler version. This page is the general concept — the processor
+    that actually executes instructions, one at a time, extremely fast, with no understanding of what any
+    of them are "for."
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The processor that fetches, decodes, and executes instructions — the component actually performing computation.</dd>
+      <dt>Mental model</dt><dd>An extremely fast, extremely literal reader following a recipe one step at a time — never skipping ahead, never improvising beyond exactly what the instruction says.</dd>
+      <dt>Key numbers</dt><dd>Clock speed in GHz (billions of cycles/second); core count; cache measured in KB (L1) to MB (L2/L3).</dd>
+      <dt>Reach for it when</dt><dd>Describing raw sequential/general-purpose compute capability — not massively parallel work, which is a GPU's job.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#fetch-decode-execute">The fetch-decode-execute cycle</a></li>
+      <li><a href="#clock-speed">Clock speed — and why GHz alone doesn't tell the whole story</a></li>
+      <li><a href="#cores">Cores and threads</a></li>
+      <li><a href="#cache">The cache hierarchy</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="fetch-decode-execute">The fetch-decode-execute cycle</h2>
+  <p>Every single instruction a CPU ever runs goes through the same basic loop:</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 170" role="img" aria-labelledby="fde-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="fde-title">The fetch, decode, execute, write-back cycle every CPU instruction goes through, repeating continuously</title>
+      <rect class="frame-box block-teal" x="20" y="40" width="140" height="55" rx="8" />
+      <text class="frame-label" x="90" y="72" text-anchor="middle" font-size="11">Fetch</text>
+      <text class="frame-caption" x="90" y="88" text-anchor="middle" font-size="8">get the next instruction</text>
+
+      <rect class="frame-box block-amber" x="200" y="40" width="140" height="55" rx="8" />
+      <text class="frame-label" x="270" y="72" text-anchor="middle" font-size="11">Decode</text>
+      <text class="frame-caption" x="270" y="88" text-anchor="middle" font-size="8">figure out what it means</text>
+
+      <rect class="frame-box block-green" x="380" y="40" width="140" height="55" rx="8" />
+      <text class="frame-label" x="450" y="72" text-anchor="middle" font-size="11">Execute</text>
+      <text class="frame-caption" x="450" y="88" text-anchor="middle" font-size="8">actually do it</text>
+
+      <rect class="frame-box block-violet" x="560" y="40" width="120" height="55" rx="8" />
+      <text class="frame-label" x="620" y="72" text-anchor="middle" font-size="11">Write back</text>
+      <text class="frame-caption" x="620" y="88" text-anchor="middle" font-size="8">store the result</text>
+
+      <line x1="160" y1="67" x2="196" y2="67" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="200,67 190,62 190,72" />
+      <line x1="340" y1="67" x2="376" y2="67" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="380,67 370,62 370,72" />
+      <line x1="520" y1="67" x2="556" y2="67" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="560,67 550,62 550,72" />
+
+      <path d="M 620,95 Q 620,140 90,140 Q 20,140 20,95" fill="none" class="seq-arrow flow-path" stroke-width="1.2" />
+      <polygon class="seq-arrowhead" points="20,95 14,108 26,108" />
+      <text class="seq-note" x="350" y="158" text-anchor="middle" font-size="9">…then straight back to fetching the next one, billions of times a second</text>
+    </svg>
+    <figcaption class="diagram__caption">This loop is the entire job — a CPU has no higher-level understanding of the program it's running, only this cycle, repeated relentlessly.</figcaption>
+  </figure>
+
+  <h2 id="clock-speed">Clock speed — and why GHz alone doesn't tell the whole story</h2>
+  <p>
+    Clock speed, measured in GHz, is how many of those cycles the CPU completes per second — a 3 GHz CPU
+    completes 3 billion cycles every second. But different CPU architectures accomplish different amounts
+    of real work per cycle (<strong>IPC</strong>, instructions per cycle), which is exactly why a 3 GHz
+    chip from one generation can outperform a 4 GHz chip from an older one — clock speed alone is only half
+    the story.
+  </p>
+
+  <h2 id="cores">Cores and threads</h2>
+  <p>
+    A single-core CPU runs one instruction stream at a time. A multi-core CPU has several genuinely
+    independent execution units on one chip, capable of running that many separate instruction streams
+    truly in parallel — the reason "how many cores" matters for anything that can actually be split into
+    independent pieces of work. Software that can't be split this way sees no benefit from extra cores at
+    all, no matter how many are available.
+  </p>
+
+  <h2 id="cache">The cache hierarchy</h2>
+  <p>
+    Fetching data from main system memory takes far longer, in CPU-cycle terms, than the CPU itself runs —
+    so every modern CPU keeps small, extremely fast copies of recently-used data close by:
+  </p>
+  <dl class="kv">
+    <dt>L1 cache</dt><dd>Smallest and fastest, private to each core — tens of KB.</dd>
+    <dt>L2 cache</dt><dd>Larger, still fast, usually private per core or shared by a small cluster — hundreds of KB to a few MB.</dd>
+    <dt>L3 cache</dt><dd>Largest and slowest of the three, shared across all cores — several MB to tens of MB.</dd>
+  </dl>
+  <p>
+    Missing all three levels and having to fetch from main <a href="/electronics/memory/index.html">RAM</a>
+    is dramatically slower than a cache hit — this hierarchy exists specifically to hide that gap as much
+    as possible.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Desktop, laptop, and server processors —</strong> the general-purpose case this page describes directly.</li>
+    <li><strong>Phone/tablet SoCs —</strong> a mobile CPU is the same fetch-decode-execute concept, tuned hard for power efficiency over raw peak speed.</li>
+    <li><strong>Microcontroller cores —</strong> see the <a href="/embedded/index.html">Embedded</a> domain — a microcontroller's own core is a tiny, often single-instruction-per-cycle, extremely power-conscious relative of everything on this page.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Comparing two CPUs by clock speed alone, across different architectures or generations, is a common and genuinely misleading shortcut — real-world benchmarks account for IPC differences clock speed can't capture.</li>
+      <li>More cores doesn't help a workload that's fundamentally single-threaded — the classic "why isn't my 16-core machine faster at this one task" question almost always traces back to software that simply can't use the extra cores.</li>
+      <li>Sustained heavy load causes real heat, and a CPU will deliberately reduce its own clock speed to stay within safe operating temperature — protective behavior, not a fault.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "next": { "href": "/electronics/memory/index.html", "title": "Memory (RAM)" },
+  "related": [
+    { "href": "/electronics/memory/index.html", "title": "Memory (RAM)" },
+    { "href": "/embedded/index.html", "title": "Embedded" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
