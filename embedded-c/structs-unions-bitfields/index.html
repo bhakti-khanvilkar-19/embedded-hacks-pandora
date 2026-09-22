@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Structs, Unions & Bit-Fields — Embedded C — Embedded Pandora</title>
+<meta name="description" content="Structs and unions at bare-metal depth — matching a struct's layout to a hardware register map, packed structs for wire protocols, and bit-fields for describing individual bits without hand-written masks." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Embedded C</p>
+  <h1>Structs, Unions &amp; Bit-Fields</h1>
+  <p class="lede">
+    <a href="/c/structs-and-unions/index.html">C's Structs &amp; Unions</a> chapter covers the general
+    concept — bundling fields, or sharing memory between interpretations. On real hardware, both get used
+    for something more specific: making a C type's memory layout match something outside the compiler's
+    control exactly — a hardware register map, a wire protocol's byte layout, or a single bit inside a status
+    word — which is where <strong>bit-fields</strong> come in, a C feature that fundamentals-level coverage
+    skips entirely.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Structs and unions used to mirror an externally-defined memory layout exactly, plus bit-fields, a struct member syntax for describing individual bits.</dd>
+      <dt>Mental model</dt><dd>A normal struct describes memory your program owns; a hardware-mapped struct describes memory your program has to match, byte for byte, to something it doesn't control at all.</dd>
+      <dt>Key numbers</dt><dd>A bit-field's width is stated in bits, not bytes (<code>unsigned int flag : 1;</code> is exactly 1 bit); compilers commonly pack several bit-fields into one storage unit.</dd>
+      <dt>Reach for it when</dt><dd>Describing a hardware register's individual bits, a network/file format's exact byte layout, or any case where memory layout is dictated by something other than your own code.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#register-map-structs">Structs as register maps</a></li>
+      <li><a href="#packed-structs">Packed structs for wire protocols</a></li>
+      <li><a href="#bit-fields">Bit-fields</a></li>
+      <li><a href="#bit-fields-vs-masks">Bit-fields vs. manual masking</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="register-map-structs">Structs as register maps</h2>
+  <p>
+    A microcontroller's peripheral registers often sit at consecutive addresses — a struct whose fields
+    match that layout exactly lets you address them by name instead of raw offsets, building directly on the
+    memory-mapped-I/O idea from <a href="/embedded-c/registers/index.html">Registers &amp; volatile</a>:
+  </p>
+  <pre><code>typedef struct {
+    volatile uint32_t CTRL;    // offset 0x00 — control register
+    volatile uint32_t STATUS;  // offset 0x04 — status register
+    volatile uint32_t DATA;    // offset 0x08 — data register
+} UART_TypeDef;
+
+#define UART1 ((UART_TypeDef *)0x40011000)
+
+UART1->CTRL = 0x01;              // write to the real control register
+uint32_t s = UART1->STATUS;      // read the real status register</code></pre>
+  <p>
+    This only works because the struct's field <em>order</em> and each field's <em>size</em> exactly match
+    the hardware's real memory layout — get either wrong and every field after the mistake reads or writes
+    the wrong address, a bug that compiles cleanly and fails silently.
+  </p>
+
+  <h2 id="packed-structs">Packed structs for wire protocols</h2>
+  <p>
+    <a href="/embedded-c/alignment-padding/index.html">Alignment &amp; Padding</a> covers why the compiler normally inserts
+    invisible gaps between struct fields for performance. When a struct describes an exact byte layout
+    defined by something external — a network packet, a file format — that padding breaks the match. A
+    compiler extension forces the layout to be exactly as written, with no gaps:
+  </p>
+  <pre><code>#pragma pack(push, 1)
+typedef struct {
+    uint8_t  version;
+    uint16_t length;
+    uint8_t  flags;
+} PacketHeader;   // exactly 4 bytes, no padding — matches the wire format exactly
+#pragma pack(pop)</code></pre>
+
+  <h2 id="bit-fields">Bit-fields</h2>
+  <p>
+    A bit-field declares a struct member with an explicit width in <em>bits</em>, not bytes — the compiler
+    packs several of them together into shared storage:
+  </p>
+  <pre><code>typedef struct {
+    unsigned int power_on   : 1;   // 1 bit
+    unsigned int error_flag : 1;   // 1 bit
+    unsigned int mode       : 2;   // 2 bits, values 0-3
+    unsigned int reserved   : 4;   // unused padding bits
+} StatusRegister;   // all 4 fields fit in a single byte
+
+StatusRegister status = {0};
+status.power_on = 1;
+status.mode = 2;
+
+if (status.error_flag) {
+    handle_error();
+}</code></pre>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 100" role="img" aria-labelledby="bitfield-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="bitfield-title">One byte split into bit-fields: bit 0 is power_on, bit 1 is error_flag, bits 2-3 are mode, and bits 4-7 are reserved padding</title>
+      <rect class="frame-box block-teal" x="20" y="30" width="85" height="45" rx="4" />
+      <text class="frame-label" x="62" y="57" text-anchor="middle" font-size="8">power_on</text>
+      <rect class="frame-box block-amber" x="105" y="30" width="85" height="45" rx="4" />
+      <text class="frame-label" x="147" y="57" text-anchor="middle" font-size="8">error_flag</text>
+      <rect class="frame-box block-green" x="190" y="30" width="110" height="45" rx="4" />
+      <text class="frame-label" x="245" y="57" text-anchor="middle" font-size="9">mode (2 bits)</text>
+      <rect x="300" y="30" width="220" height="45" rx="4" fill="none" stroke="var(--ink-faint)" stroke-width="1.3" stroke-dasharray="5 4" />
+      <text class="frame-caption" x="410" y="57" text-anchor="middle" font-size="9">reserved (4 bits, unused)</text>
+      <text class="seq-sub" x="62" y="88" text-anchor="middle" font-size="7">bit 0</text>
+      <text class="seq-sub" x="147" y="88" text-anchor="middle" font-size="7">bit 1</text>
+      <text class="seq-sub" x="245" y="88" text-anchor="middle" font-size="7">bits 2-3</text>
+      <text class="seq-sub" x="410" y="88" text-anchor="middle" font-size="7">bits 4-7</text>
+    </svg>
+    <figcaption class="diagram__caption">All four fields share one physical byte — the compiler generates the shifting and masking for you every time you read or write one.</figcaption>
+  </figure>
+
+  <h2 id="bit-fields-vs-masks">Bit-fields vs. manual masking</h2>
+  <p>
+    Everything a bit-field does can also be written by hand with bitwise operators (see
+    <a href="/c/variables-types-operators/index.html#operators">C's Variables, Data Types &amp; Operators</a>
+    for the bitwise basics):
+  </p>
+  <pre><code>// Manual masking — explicit, portable, and predictable
+#define POWER_ON_MASK 0x01
+status_byte |= POWER_ON_MASK;              // set the bit
+int is_on = (status_byte & POWER_ON_MASK) != 0;   // test the bit
+
+// Bit-field — more readable, but with layout caveats (see Gotchas)
+status.power_on = 1;
+int is_on = status.power_on;</code></pre>
+  <p>
+    Bit-fields read better, but manual masking gives full, guaranteed control over exactly which physical
+    bit gets set — many embedded codebases deliberately prefer manual masking for anything that has to match
+    an external, fixed specification exactly, for reasons covered next.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Peripheral register maps —</strong> the <code>UART_TypeDef</code>-style struct above is exactly how vendor-supplied hardware abstraction layers (CMSIS, HAL headers) expose every microcontroller peripheral.</li>
+    <li><strong>Network/file format headers —</strong> a packed struct matching a protocol's exact byte layout, used throughout <a href="/networking/index.html">Networking</a>-adjacent embedded code (custom framing over UART, simple binary file formats).</li>
+    <li><strong>Status and configuration registers —</strong> bit-fields (or manual masks) representing a device's individual on/off flags in one compact word.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li><strong>Bit-field layout (which bit is "first") is compiler- and platform-defined</strong>, not guaranteed by the C standard — code relying on a specific bit-field layout to match an external hardware or protocol specification can silently break when recompiled for a different target. Manual masking with explicit, documented bit numbers is the safer choice whenever exact bit position genuinely matters.</li>
+      <li><code>#pragma pack</code> is a widely-supported compiler extension, not standard C — always verify your specific toolchain's exact packing syntax and behavior rather than assuming it matches another compiler's.</li>
+      <li>A register-map struct without <code>volatile</code> on every field reintroduces exactly the compiler-caching bug covered in <a href="/embedded-c/registers/index.html">Registers &amp; volatile</a> — every field mapped to real hardware needs it, not just the struct as a whole.</li>
+      <li>Taking the address of a bit-field member (<code>&amp;status.power_on</code>) is not allowed in standard C — a bit-field doesn't necessarily start at a byte boundary, so it has no well-defined address to take.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/embedded-c/stacks-queues/index.html", "title": "Stacks, Queues & Ring Buffers" },
+  "next": { "href": "/embedded-c/alignment-padding/index.html", "title": "Alignment & Padding" },
+  "related": [
+    { "href": "/embedded-c/registers/index.html", "title": "Registers & volatile" },
+    { "href": "/c/structs-and-unions/index.html", "title": "Structs & Unions" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

@@ -501,6 +501,17 @@
     ]
   },
   {
+    "title": "Alignment & Padding — Embedded C",
+    "url": "/embedded-c/alignment-padding/index.html",
+    "domain": "Embedded C",
+    "category": "Alignment Padding",
+    "description": "Why a struct's size is often larger than the sum of its fields — CPU alignment requirements, the compiler-inserted padding that satisfies them, and how field order changes a struct's total size.",
+    "tags": [
+      "embedded-c",
+      "alignment-padding"
+    ]
+  },
+  {
     "title": "Arrays & Strings — Embedded C",
     "url": "/embedded-c/arrays-strings/index.html",
     "domain": "Embedded C",
@@ -520,6 +531,17 @@
     "tags": [
       "embedded-c",
       "compilation"
+    ]
+  },
+  {
+    "title": "const Correctness — Embedded C",
+    "url": "/embedded-c/const-correctness/index.html",
+    "domain": "Embedded C",
+    "category": "Const Correctness",
+    "description": "const as a real compiler-enforced promise, not documentation — top-level const, const pointers vs. pointers to const, why const data belongs in flash instead of RAM, and reading the declarations right to left.",
+    "tags": [
+      "embedded-c",
+      "const-correctness"
     ]
   },
   {
@@ -607,6 +629,17 @@
     "tags": [
       "embedded-c",
       "storage-classes"
+    ]
+  },
+  {
+    "title": "Structs, Unions & Bit-Fields — Embedded C",
+    "url": "/embedded-c/structs-unions-bitfields/index.html",
+    "domain": "Embedded C",
+    "category": "Structs Unions Bitfields",
+    "description": "Structs and unions at bare-metal depth — matching a struct's layout to a hardware register map, packed structs for wire protocols, and bit-fields for describing individual bits without hand-written masks.",
+    "tags": [
+      "embedded-c",
+      "structs-unions-bitfields"
     ]
   },
   {
