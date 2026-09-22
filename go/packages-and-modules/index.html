@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Packages & Modules — Go — Embedded Pandora</title>
+<meta name="description" content="How Go code is organized and shared — packages as the unit of organization, modules as the unit of dependency management, go.mod, and import paths, contrasted with C's #include and the header/source split." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Go</p>
+  <h1>Packages &amp; Modules</h1>
+  <p class="lede">
+    Every Go file you've seen in this domain started with <code>package main</code> —
+    <a href="/go/introduction/index.html#first-program">Introduction to Go</a> mentioned it without explaining
+    it. This chapter is the full picture: how Go organizes code into packages, and how modules manage
+    dependencies between them, a structurally different approach from
+    <a href="/c/preprocessor-and-macros/index.html">C's <code>#include</code></a>-based system.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A package is Go's unit of code organization — every file in a directory belongs to one. A module is a versioned collection of packages, Go's unit of dependency management.</dd>
+      <dt>Mental model</dt><dd>Where C's <code>#include</code> textually pastes a header's contents into your file, Go's <code>import</code> brings in a real, separately-compiled package by name — no text substitution involved at all.</dd>
+      <dt>Key numbers</dt><dd>One <code>go.mod</code> file per module, at the project root, naming the module and pinning every dependency's exact version.</dd>
+      <dt>Reach for it when</dt><dd>Organizing any Go project beyond a single file — which is to say, nearly every real Go project.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#packages">Packages</a></li>
+      <li><a href="#import">import — not #include</a></li>
+      <li><a href="#modules">Modules and go.mod</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="packages">Packages</h2>
+  <pre><code>// file: mathutils/mathutils.go
+package mathutils
+
+func Square(n int) int {   // capitalized — EXPORTED, visible outside this package
+    return n * n
+}
+
+func square2(n int) int {   // lowercase — unexported, only visible inside mathutils
+    return n * n
+}</code></pre>
+  <p>
+    Every <code>.go</code> file in the same directory belongs to the same package — there's no per-file
+    boundary the way each <code>.c</code> file is its own translation unit in
+    <a href="/embedded-c/compilation/index.html">C's compilation model</a>. Capitalization is, again, the
+    entire access control mechanism, exactly as in <a href="/go/structs-and-methods/index.html#structs">struct
+    fields</a>.
+  </p>
+
+  <h2 id="import">import — not #include</h2>
+  <pre><code>import (
+    "fmt"                          // standard library package
+    "myproject/mathutils"           // a package within your own module
+)
+
+func main() {
+    fmt.Println(mathutils.Square(5))   // 25
+}</code></pre>
+  <p>
+    <code>import</code> is not text substitution — unlike <a href="/c/preprocessor-and-macros/index.html#include">C's
+    <code>#include</code></a>, which pastes a header's literal contents into your file before real
+    compilation starts, Go's <code>import</code> brings in an already-compiled, real package the compiler
+    understands directly. There are no header files, no forward declarations, and no risk of the double-inclusion
+    problem <a href="/c/preprocessor-and-macros/index.html#header-guards">header guards</a> exist to solve —
+    Go's package system doesn't have that category of bug at all.
+  </p>
+
+  <h2 id="modules">Modules and go.mod</h2>
+  <pre><code>go mod init myproject     # creates go.mod, declaring this directory as a module
+
+go get github.com/some/dependency   # adds a dependency, recorded in go.mod with an exact version</code></pre>
+  <pre><code>// go.mod
+module myproject
+
+go 1.21
+
+require github.com/some/dependency v1.2.3</code></pre>
+  <p>
+    A module is a versioned collection of one or more packages — <code>go.mod</code> names the module and
+    pins every dependency to an exact version, so a build is reproducible across machines. This solves a
+    real, historically painful problem: C has no standard, built-in equivalent, and dependency management in
+    C/C++ projects is often handled ad hoc, per-project (a git submodule, a vendored copy, a system package
+    manager).
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every real Go project —</strong> a <code>go.mod</code> at the root is close to universal in any Go codebase beyond a single-file script.</li>
+    <li><strong>Internal packages —</strong> splitting a large service into packages by responsibility (<code>handlers</code>, <code>database</code>, <code>config</code>) is standard Go project structure.</li>
+    <li><strong>Reusable libraries —</strong> a well-scoped, exported package API (capitalized names only for what's genuinely meant to be used externally) is how Go libraries are shared on sites like pkg.go.dev.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Go's package name and its import path don't have to match exactly, which occasionally confuses newcomers — the import path is the directory/module path, while the package name is whatever's declared with <code>package</code> at the top of the file.</li>
+      <li>Circular imports (package A imports package B, which imports package A) are a compile error in Go — unlike C, where circular <code>#include</code>s are technically possible to work around with guards, Go simply disallows the cycle outright.</li>
+      <li>An unused import is a compile error (see <a href="/go/introduction/index.html#gotchas">Introduction to Go's gotchas</a>) — the same strictness applied here as with unused variables.</li>
+      <li>Committing a <code>go.sum</code> file alongside <code>go.mod</code> is standard practice — it records cryptographic checksums of every dependency, protecting against a dependency silently changing content at the same version number.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/go/error-handling/index.html", "title": "Error Handling" },
+  "next": { "href": "/go/go-for-embedded-iot/index.html", "title": "Go for Embedded/IoT" },
+  "related": [
+    { "href": "/c/preprocessor-and-macros/index.html", "title": "Preprocessor & Macros" },
+    { "href": "/embedded-c/compilation/index.html", "title": "Compilation & Linking" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
