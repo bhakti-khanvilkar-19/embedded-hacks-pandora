@@ -370,6 +370,17 @@
     ]
   },
   {
+    "title": "Constructors, Destructors & RAII — C++",
+    "url": "/cpp/constructors-destructors-raii/index.html",
+    "domain": "Cpp",
+    "category": "Constructors Destructors Raii",
+    "description": "Automatic setup and teardown for an object's lifetime — constructors, destructors, and RAII, the idiom that ties a resource's lifetime to an object's, making 'forgot to clean up' a compile-time non-issue.",
+    "tags": [
+      "cpp",
+      "constructors-destructors-raii"
+    ]
+  },
+  {
     "title": "C++",
     "url": "/cpp/index.html",
     "domain": "Cpp",
@@ -377,6 +388,17 @@
     "description": "C++ built directly on top of the C domain's foundation — classes and objects, constructors and RAII, inheritance and polymorphism, templates, the STL, smart pointers, exceptions, and what embedded C++ deliberately avoids.",
     "tags": [
       "cpp"
+    ]
+  },
+  {
+    "title": "Inheritance & Polymorphism — C++",
+    "url": "/cpp/inheritance-and-polymorphism/index.html",
+    "domain": "Cpp",
+    "category": "Inheritance And Polymorphism",
+    "description": "Building one class on top of another with inheritance, and letting the right version of a method run automatically with virtual functions and polymorphism — with a class-hierarchy diagram.",
+    "tags": [
+      "cpp",
+      "inheritance-and-polymorphism"
     ]
   },
   {

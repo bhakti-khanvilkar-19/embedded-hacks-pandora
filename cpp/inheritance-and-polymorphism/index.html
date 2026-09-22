@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Inheritance & Polymorphism — C++ — Embedded Pandora</title>
+<meta name="description" content="Building one class on top of another with inheritance, and letting the right version of a method run automatically with virtual functions and polymorphism — with a class-hierarchy diagram." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C++</p>
+  <h1>Inheritance &amp; Polymorphism</h1>
+  <p class="lede">
+    Inheritance lets one class be built directly on top of another, reusing its data and behavior instead of
+    duplicating it. Polymorphism is what makes that genuinely useful in practice: code written against the
+    general, base version can automatically run the correct, more specific behavior for whatever actual type
+    it's handed — without ever needing to know which one it is.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Inheritance: a class ("derived") built on top of another ("base"), automatically getting its members. Polymorphism: calling a method through a base-class reference and having the correct derived-class version actually run.</dd>
+      <dt>Mental model</dt><dd>Inheritance is "a Car <em>is a</em> Vehicle" — every car has everything a vehicle has, plus more. Polymorphism is being handed a box labeled "Vehicle" and having it behave correctly whether the actual thing inside is a Car or a Truck, without you checking which.</dd>
+      <dt>Key numbers</dt><dd>A method must be declared <code>virtual</code> in the base class for polymorphism to work — without it, C++ silently calls the base version instead of the derived one, a very common beginner surprise.</dd>
+      <dt>Reach for it when</dt><dd>Several related types share common data/behavior but each also needs its own distinct version of specific behavior — a family of related shapes, sensors, or UI widgets is the classic case.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#inheritance-basics">Inheritance, in a worked example</a></li>
+      <li><a href="#virtual-functions">virtual functions and polymorphism</a></li>
+      <li><a href="#hierarchy-diagram">The hierarchy, visually</a></li>
+      <li><a href="#pure-virtual">Pure virtual functions and abstract classes</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="inheritance-basics">Inheritance, in a worked example</h2>
+  <pre><code>class Sensor {
+public:
+    Sensor(const char *name) : name(name) {}
+    void printName() { std::cout << name << std::endl; }
+
+protected:
+    const char *name;   // "protected" — accessible to Sensor AND anything derived from it
+};
+
+class TemperatureSensor : public Sensor {   // TemperatureSensor IS-A Sensor
+public:
+    TemperatureSensor() : Sensor("Temperature") {}   // calls the base constructor
+    float readCelsius() { return 23.5f; }             // NEW behavior, specific to this sensor
+};
+
+TemperatureSensor t;
+t.printName();          // inherited from Sensor, unchanged
+t.readCelsius();         // TemperatureSensor's own, new method</code></pre>
+  <p>
+    <code>TemperatureSensor</code> automatically has everything <code>Sensor</code> has (<code>name</code>,
+    <code>printName()</code>) without rewriting either, plus its own additional method. This is the direct
+    reuse benefit of inheritance — the same relationship as a more specific
+    <a href="/c/structs-and-unions/index.html">C struct</a> that happens to start with the exact same first
+    fields as a more general one, except the compiler tracks and enforces the relationship for you.
+  </p>
+
+  <h2 id="virtual-functions">virtual functions and polymorphism</h2>
+  <p>
+    Without <code>virtual</code>, calling a method through a base-class pointer always runs the base
+    class's version, even if the actual object is a derived type — often not what you want:
+  </p>
+  <pre><code>class Shape {
+public:
+    virtual float area() { return 0; }   // virtual — enables polymorphism
+};
+
+class Circle : public Shape {
+public:
+    Circle(float r) : radius(r) {}
+    float area() override { return 3.14159f * radius * radius; }   // overrides Shape's version
+private:
+    float radius;
+};
+
+class Square : public Shape {
+public:
+    Square(float s) : side(s) {}
+    float area() override { return side * side; }
+private:
+    float side;
+};
+
+Shape *shapes[2] = { new Circle(5), new Square(4) };
+for (int i = 0; i < 2; i++) {
+    std::cout << shapes[i]->area() << std::endl;   // calls the RIGHT version for each, automatically
+}
+// 78.5397 (Circle), 16 (Square)</code></pre>
+  <p>
+    Every element of <code>shapes</code> is declared as a plain <code>Shape*</code>, but
+    <code>area()</code> still runs each one's own real, specific implementation — that dispatch, decided at
+    runtime based on the object's actual type, is exactly what "polymorphism" means.
+  </p>
+
+  <h2 id="hierarchy-diagram">The hierarchy, visually</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 460 170" role="img" aria-labelledby="hierarchy-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="hierarchy-title">Shape is the base class; Circle and Square both derive from it, each overriding area() with their own implementation</title>
+      <rect class="frame-box block-violet" x="150" y="20" width="160" height="55" rx="8" />
+      <text class="frame-label" x="230" y="45" text-anchor="middle" font-size="11" font-weight="700">Shape</text>
+      <text class="frame-caption" x="230" y="61" text-anchor="middle" font-size="8">virtual area()</text>
+
+      <line x1="230" y1="75" x2="130" y2="115" class="seq-arrow" stroke-width="1.3" />
+      <line x1="230" y1="75" x2="330" y2="115" class="seq-arrow" stroke-width="1.3" />
+
+      <rect class="frame-box block-teal" x="40" y="118" width="160" height="45" rx="8" />
+      <text class="frame-label" x="120" y="138" text-anchor="middle" font-size="10">Circle</text>
+      <text class="frame-caption" x="120" y="154" text-anchor="middle" font-size="8">area() override</text>
+
+      <rect class="frame-box block-amber" x="260" y="118" width="160" height="45" rx="8" />
+      <text class="frame-label" x="340" y="138" text-anchor="middle" font-size="10">Square</text>
+      <text class="frame-caption" x="340" y="154" text-anchor="middle" font-size="8">area() override</text>
+    </svg>
+    <figcaption class="diagram__caption">Calling <code>area()</code> on a <code>Shape*</code> pointing at a <code>Circle</code> runs Circle's version — the base class only defines the shared contract, not the actual behavior.</figcaption>
+  </figure>
+
+  <h2 id="pure-virtual">Pure virtual functions and abstract classes</h2>
+  <p>
+    <code>Shape::area()</code> above had a (fairly meaningless) default implementation returning
+    <code>0</code>. A <strong>pure virtual function</strong> (<code>= 0</code>) instead says "every derived
+    class <em>must</em> provide its own implementation — there is no sensible default":
+  </p>
+  <pre><code>class Shape {
+public:
+    virtual float area() = 0;   // pure virtual — no implementation at all
+};
+// Shape shape;   // COMPILE ERROR — Shape is now "abstract," cannot be instantiated directly
+Circle c(5);        // fine — Circle provides area(), so it CAN be instantiated</code></pre>
+  <p>
+    A class with at least one pure virtual function is an <strong>abstract class</strong> — it exists purely
+    to define a shared interface that concrete derived classes must fill in, and can never be instantiated
+    on its own.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Sensor driver interfaces —</strong> an abstract <code>Sensor</code> base class with a pure virtual <code>read()</code>, implemented differently by <code>TemperatureSensor</code>, <code>PressureSensor</code>, etc., letting the rest of a program treat every sensor uniformly.</li>
+    <li><strong>GUI widget hierarchies —</strong> a base <code>Widget</code> class with a virtual <code>draw()</code>, overridden by <code>Button</code>, <code>Checkbox</code>, and every other concrete widget type.</li>
+    <li><strong>Game entity systems —</strong> a base <code>Enemy</code> class with virtual <code>attack()</code>/<code>update()</code>, overridden per enemy type, so the game loop can treat an entire mixed army uniformly.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Forgetting <code>virtual</code> on the base class method is the single most common polymorphism bug — the code compiles fine and silently always calls the base version, never the derived override, which is easy to miss since there's no error.</li>
+      <li>A base class with any <code>virtual</code> function should almost always also have a <code>virtual</code> destructor — without one, deleting a derived object through a base-class pointer skips the derived class's own destructor, a real resource leak.</li>
+      <li>Deep inheritance hierarchies (many levels of "derives from") get hard to reason about fast — favor a small number of levels, and consider whether composition ("has-a") fits better than inheritance ("is-a") before adding another layer.</li>
+      <li>The <code>override</code> keyword (as used above) isn't required by the language, but it's cheap insurance — if the base method's signature doesn't actually match, <code>override</code> turns a silent "this doesn't override anything" mistake into a compile error.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/cpp/constructors-destructors-raii/index.html", "title": "Constructors, Destructors & RAII" },
+  "related": [
+    { "href": "/c/structs-and-unions/index.html", "title": "Structs & Unions" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
