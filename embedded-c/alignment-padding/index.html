@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Alignment & Padding — Embedded C — Embedded Pandora</title>
+<meta name="description" content="Why a struct's size is often larger than the sum of its fields — CPU alignment requirements, the compiler-inserted padding that satisfies them, and how field order changes a struct's total size." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Embedded C</p>
+  <h1>Alignment &amp; Padding</h1>
+  <p class="lede">
+    <a href="/c/structs-and-unions/index.html#gotchas">C's Structs &amp; Unions</a> mentioned, as a gotcha,
+    that a struct's size is often larger than the sum of its fields. This chapter is why: CPUs read memory
+    fastest — sometimes exclusively — at specific address boundaries, and the compiler inserts invisible
+    filler bytes to guarantee every field lands on one, whether you asked for it or not.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The rule that a type's address must be a multiple of its own alignment requirement, and the compiler-inserted padding bytes that make that true inside a struct.</dd>
+      <dt>Mental model</dt><dd>Parking spaces painted only every 4 meters — a car (a 4-byte <code>int</code>) can only park on a painted line, even if that leaves an empty gap behind the car in front of it.</dd>
+      <dt>Key numbers</dt><dd>A type's alignment requirement commonly equals its own size (a 4-byte <code>int</code> wants a 4-byte-aligned address); a struct's overall alignment is the strictest of any of its members.</dd>
+      <dt>Reach for it when</dt><dd>Minimizing a struct's memory footprint on a RAM-constrained target, or explaining an unexpectedly large <code>sizeof(struct ...)</code>.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#why-alignment">Why alignment exists</a></li>
+      <li><a href="#padding-example">Padding, in a worked example</a></li>
+      <li><a href="#reordering">Reordering fields to save space</a></li>
+      <li><a href="#checking">Checking a struct's real size</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="why-alignment">Why alignment exists</h2>
+  <p>
+    Many CPUs read memory in fixed-size chunks (words) starting only at addresses that are multiples of that
+    chunk size. Reading a 4-byte <code>int</code> that happens to start at an address that <em>isn't</em> a
+    multiple of 4 either costs extra CPU cycles (the processor fetches two words and stitches the value
+    together) or, on some architectures, isn't allowed at all and faults immediately. The compiler avoids
+    both outcomes by never placing a field at a misaligned address in the first place.
+  </p>
+
+  <h2 id="padding-example">Padding, in a worked example</h2>
+  <pre><code>struct Example {
+    char  a;   // 1 byte
+    int   b;   // 4 bytes — needs a 4-byte-aligned address
+    char  c;   // 1 byte
+};
+
+printf("%zu\n", sizeof(struct Example));   // 12, not 1 + 4 + 1 = 6</code></pre>
+  <figure class="diagram">
+    <svg viewBox="0 0 500 120" role="img" aria-labelledby="padding-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="padding-title">struct Example lays out as a (1 byte), 3 padding bytes, b (4 bytes), c (1 byte), then 3 more padding bytes, totaling 12 bytes</title>
+      <text class="seq-note" x="250" y="14" text-anchor="middle" font-size="9">struct Example — 12 bytes total, not 6</text>
+      <rect class="frame-box block-teal" x="20" y="30" width="60" height="50" rx="4" />
+      <text class="frame-label" x="50" y="60" text-anchor="middle" font-size="10">a</text>
+      <rect x="80" y="30" width="180" height="50" rx="4" fill="none" stroke="var(--ink-faint)" stroke-width="1.2" stroke-dasharray="5 4" />
+      <text class="frame-caption" x="170" y="53" text-anchor="middle" font-size="8">3 bytes padding</text>
+      <text class="frame-caption" x="170" y="65" text-anchor="middle" font-size="8">(aligns b to 4 bytes)</text>
+      <rect class="frame-box block-amber" x="260" y="30" width="100" height="50" rx="4" />
+      <text class="frame-label" x="310" y="60" text-anchor="middle" font-size="10">b</text>
+      <rect class="frame-box block-teal" x="360" y="30" width="60" height="50" rx="4" />
+      <text class="frame-label" x="390" y="60" text-anchor="middle" font-size="10">c</text>
+      <rect x="420" y="30" width="60" height="50" rx="4" fill="none" stroke="var(--ink-faint)" stroke-width="1.2" stroke-dasharray="5 4" />
+      <text class="frame-caption" x="450" y="60" text-anchor="middle" font-size="7">padding</text>
+      <text class="seq-note" x="250" y="100" text-anchor="middle" font-size="8">The trailing padding exists so an ARRAY of Example keeps every element's own "b" field aligned too</text>
+    </svg>
+    <figcaption class="diagram__caption">Two separate padding regions, both invisible in the struct definition itself — one to align <code>b</code>, one so a second element in an array would also start aligned.</figcaption>
+  </figure>
+
+  <h2 id="reordering">Reordering fields to save space</h2>
+  <p>
+    The compiler is not allowed to reorder your struct's fields — but you can, and doing so can meaningfully
+    shrink a struct by grouping same-size (or naturally-aligned) fields together:
+  </p>
+  <pre><code>struct Wasteful {
+    char  a;   // 1 byte + 3 padding
+    int   b;   // 4 bytes
+    char  c;   // 1 byte + 3 padding
+};   // sizeof = 12
+
+struct Tight {
+    int   b;   // 4 bytes
+    char  a;   // 1 byte
+    char  c;   // 1 byte + 2 padding (to keep the struct itself 4-byte aligned)
+};   // sizeof = 8 — same fields, smaller struct</code></pre>
+  <p>
+    A simple, reliable rule of thumb: declare a struct's fields from largest to smallest.
+  </p>
+
+  <h2 id="checking">Checking a struct's real size</h2>
+  <p>
+    Never guess a struct's size — measure it, and on a target where every byte of RAM matters, treat an
+    unexpectedly large <code>sizeof</code> result as worth investigating:
+  </p>
+  <pre><code>printf("Wasteful: %zu bytes\n", sizeof(struct Wasteful));   // 12
+printf("Tight:    %zu bytes\n", sizeof(struct Tight));       // 8</code></pre>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>RAM-constrained firmware —</strong> reordering a handful of frequently-instantiated structs (a sensor reading, a queue entry) for tighter packing is a real, measurable win on a device with only a few KB of RAM total.</li>
+    <li><strong>Arrays of structs —</strong> padding waste multiplies by the array length — a struct with 4 wasted bytes costs 4KB across a 1000-element array, not just 4 bytes.</li>
+    <li><strong>Matching an external layout —</strong> when a struct must match a hardware register map or wire format exactly, padding is the enemy, not a neutral side effect — see <a href="/embedded-c/structs-unions-bitfields/index.html#packed-structs">Structs, Unions &amp; Bit-Fields' packed structs section</a>.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Padding bytes contain <strong>unspecified, uninitialized garbage</strong> — comparing two otherwise-identical structs byte-by-byte with <code>memcmp</code> can report them as different purely because of differing padding content, even when every actual field matches.</li>
+      <li>Field reordering for size is a real, measurable optimization, but it's also a genuine readability/grouping tradeoff — reordering fields purely by size can scramble a struct's logical grouping; weigh both before reordering a struct that's read by other engineers.</li>
+      <li>Alignment requirements and default padding rules are not identical across every compiler and architecture — a struct's exact size on one target is not guaranteed on another, which matters whenever binary data crosses that boundary (see <a href="/networking/serialization/index.html">Serialization</a> for the standard fix: define an explicit wire format instead of relying on a struct's native in-memory layout).</li>
+      <li>Forcing a packed layout with <code>#pragma pack</code> to eliminate padding can reintroduce the exact misaligned-access cost (or fault) alignment exists to prevent — only pack a struct when matching an external layout genuinely requires it, not as a default habit.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/embedded-c/structs-unions-bitfields/index.html", "title": "Structs, Unions & Bit-Fields" },
+  "next": { "href": "/embedded-c/const-correctness/index.html", "title": "const Correctness" },
+  "related": [
+    { "href": "/embedded-c/structs-unions-bitfields/index.html", "title": "Structs, Unions & Bit-Fields" },
+    { "href": "/networking/serialization/index.html", "title": "Serialization" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

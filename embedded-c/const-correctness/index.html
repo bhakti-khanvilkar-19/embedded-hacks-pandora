@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>const Correctness — Embedded C — Embedded Pandora</title>
+<meta name="description" content="const as a real compiler-enforced promise, not documentation — top-level const, const pointers vs. pointers to const, why const data belongs in flash instead of RAM, and reading the declarations right to left." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Embedded C</p>
+  <h1>const Correctness</h1>
+  <p class="lede">
+    <code>const</code> looks like a small keyword, but it's a real, compiler-enforced promise — "this won't
+    be modified through this name" — checked at compile time, not just a comment for other humans. On a
+    microcontroller, that promise also has a physical consequence: <code>const</code> data can often live in
+    flash instead of RAM, which on a device with far more flash than RAM is a genuinely significant space
+    saving.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A type qualifier meaning "this value is not to be modified through this particular name" — enforced by the compiler as a real error, not a suggestion.</dd>
+      <dt>Mental model</dt><dd>A promise you make to the compiler, which it then checks on every line for you — the earliest, cheapest possible place to catch an accidental write to something that shouldn't change.</dd>
+      <dt>Key numbers</dt><dd>Two independent things a pointer can be const about: the pointer itself, and what it points to — four total combinations, covered below.</dd>
+      <dt>Reach for it when</dt><dd>A value genuinely never changes after initialization, or a function parameter is read-only and callers should be free to pass read-only data to it.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#basic-const">const on an ordinary variable</a></li>
+      <li><a href="#const-pointers">const and pointers — four combinations</a></li>
+      <li><a href="#reading-declarations">Reading a const pointer declaration</a></li>
+      <li><a href="#flash-placement">Why const data can live in flash</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="basic-const">const on an ordinary variable</h2>
+  <pre><code>const int MAX_RETRIES = 3;
+MAX_RETRIES = 5;   // COMPILE ERROR — assignment of read-only variable</code></pre>
+  <p>
+    Unlike a <a href="/c/preprocessor-and-macros/index.html#define-constants">preprocessor <code>#define</code></a>,
+    a <code>const</code> variable is a real, typed value the compiler is fully aware of — it can be
+    type-checked, it has an actual address you can take with <code>&amp;</code>, and it shows up properly in
+    a debugger by name.
+  </p>
+
+  <h2 id="const-pointers">const and pointers — four combinations</h2>
+  <p>
+    A pointer has two separate things that can independently be <code>const</code>: the pointer's own value
+    (which address it holds), and the data it points to. This is genuinely where most beginners' confusion
+    with <code>const</code> comes from — there are four distinct combinations:
+  </p>
+  <table>
+    <thead><tr><th>Declaration</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>int *p</code></td><td>Neither is const — can reassign <code>p</code>, can modify <code>*p</code>.</td></tr>
+      <tr><td><code>const int *p</code></td><td>Pointer <em>to</em> const — can reassign <code>p</code> to point elsewhere, cannot modify <code>*p</code> through it.</td></tr>
+      <tr><td><code>int *const p</code></td><td>Const pointer — cannot reassign <code>p</code>, can freely modify <code>*p</code>.</td></tr>
+      <tr><td><code>const int *const p</code></td><td>Both — cannot reassign <code>p</code>, cannot modify <code>*p</code> either.</td></tr>
+    </tbody>
+  </table>
+  <pre><code>int x = 5, y = 10;
+
+const int *p1 = &x;
+p1 = &y;        // OK — p1 itself isn't const
+// *p1 = 20;    // ERROR — the pointed-to int is const through p1
+
+int *const p2 = &x;
+*p2 = 20;       // OK — the int isn't const
+// p2 = &y;     // ERROR — p2 itself is const, can't be reassigned</code></pre>
+
+  <h2 id="reading-declarations">Reading a const pointer declaration</h2>
+  <p>
+    The reliable trick: read the declaration <strong>right to left</strong> starting from the variable name.
+    <code>const int *p1</code> reads as "<code>p1</code> is a pointer to an <code>int</code> that is
+    const" — the <code>const</code> applies to whatever is immediately to its right (here, effectively the
+    <code>int</code>, since <code>const int</code> and <code>int const</code> mean the same thing).
+    <code>int *const p2</code> reads as "<code>p2</code> is a const pointer to an <code>int</code>" — the
+    <code>const</code> applies to <code>p2</code> itself, immediately to its left this time.
+  </p>
+
+  <h2 id="flash-placement">Why const data can live in flash</h2>
+  <p>
+    A microcontroller's flash storage is typically far larger than its RAM, and flash is non-volatile — see
+    <a href="/electronics/storage/index.html">ROM &amp; Storage</a> for that general distinction. Data
+    declared <code>const</code> and initialized at compile time never needs to be writable, so many toolchains
+    place it directly in flash instead of copying it into RAM at startup, freeing that RAM entirely:
+  </p>
+  <pre><code>const char version_string[] = "v2.4.1";     // can live entirely in flash
+const uint16_t lookup_table[256] = { ... };  // a large table costing zero RAM</code></pre>
+  <p>
+    This is exactly the memory-hierarchy tradeoff introduced in
+    <a href="/embedded-c/storage-classes/index.html#memory-map">Storage Classes &amp; Scope's memory
+    map</a> — <code>const</code> global data typically lands in <code>.rodata</code>, distinct from
+    <code>.data</code>'s writable, RAM-resident globals.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Lookup tables —</strong> a large precomputed table (a sine table, a CRC table, a font bitmap) declared <code>const</code> costs flash instead of scarce RAM.</li>
+    <li><strong>Read-only function parameters —</strong> a function that only reads a buffer, declared <code>void process(const uint8_t *data, size_t len)</code>, documents and enforces "this function won't modify your data" at the call site.</li>
+    <li><strong>Firmware version strings and configuration defaults —</strong> fixed at compile time, never meant to change at runtime, and a natural fit for flash-resident <code>const</code> storage.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Casting away <code>const</code> (<code>(int*)p1</code> on a <code>const int *</code>) compiles, but then modifying the underlying value is undefined behavior if the original object was genuinely declared <code>const</code> — the cast defeats the compiler's check, it doesn't change reality.</li>
+      <li>Placing <code>const</code> data in flash means it genuinely cannot be modified at runtime, even if a bug somehow tried — on some architectures, attempting to write to flash-mapped memory directly faults, which can turn a logic bug into a hard crash instead of silent corruption.</li>
+      <li>A function parameter declared as a plain (non-const) pointer signals to every caller "this function might modify what you pass in" — even when it doesn't. Marking read-only parameters <code>const</code> is genuinely valuable self-documentation, not just style preference.</li>
+      <li>Whether <code>const</code> data actually ends up in flash instead of RAM is a toolchain and linker-script decision, not guaranteed by the C standard — always verify with your specific build's <code>.map</code> file (see <a href="/embedded-c/compilation/index.html">Compilation &amp; Linking</a>) rather than assuming.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/embedded-c/alignment-padding/index.html", "title": "Alignment & Padding" },
+  "related": [
+    { "href": "/embedded-c/storage-classes/index.html", "title": "Storage Classes & Scope" },
+    { "href": "/electronics/storage/index.html", "title": "ROM & Storage" },
+    { "href": "/embedded-c/compilation/index.html", "title": "Compilation & Linking" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
