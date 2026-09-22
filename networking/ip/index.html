@@ -221,11 +221,51 @@
 
   <h2 id="ipv6">IPv4 vs. IPv6</h2>
   <p>
-    IPv6 uses 128-bit addresses (written as eight groups of hex digits, e.g.
-    <code>2001:db8::1</code>) mainly to solve IPv4 address exhaustion, and
-    drops some legacy IPv4 header complexity (like router-performed
-    fragmentation). The addressing model changes, but IP's core job —
-    best-effort packet delivery — stays the same.
+    IPv4's 32-bit address space allows roughly 4.3 billion unique addresses.
+    That sounded limitless in the 1980s; it doesn't in a world with billions
+    of phones, laptops, servers, and IoT devices all needing one. IANA
+    formally handed out the last free blocks of IPv4 address space in 2011 —
+    since then, the internet has run almost entirely on
+    <a href="#gotchas">NAT</a> to make one public IPv4 address serve an
+    entire household or company's worth of devices. <strong>IPv6 exists
+    specifically to make that workaround unnecessary again</strong>, by
+    making the address space so large that giving every device its own
+    globally unique address stops being a scarce resource.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 130" role="img" aria-labelledby="addr-space-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="addr-space-title">IPv4's 32-bit address space compared to IPv6's 128-bit address space — IPv6 is not merely bigger, it is a different order of magnitude entirely</title>
+      <text class="seq-sub" x="20" y="20">IPv4 — 32 bits — ~4.3 billion addresses</text>
+      <rect class="frame-box block-teal" x="20" y="28" width="60" height="24" rx="4" />
+      <text class="seq-note" x="90" y="44">← the entire IPv4 space fits in a bar this short</text>
+
+      <text class="seq-sub" x="20" y="86">IPv6 — 128 bits — ~340 undecillion addresses</text>
+      <rect class="frame-box block-violet" x="20" y="94" width="660" height="24" rx="4" />
+      <text class="seq-note" x="350" y="128" text-anchor="middle">enough to give every atom on the surface of the Earth its own IPv6 address, many times over</text>
+    </svg>
+    <figcaption class="diagram__caption">128 bits isn't "IPv4 but a bit bigger" — each additional bit doubles the space, so 96 more bits is a change of roughly 29 orders of magnitude.</figcaption>
+  </figure>
+  <p>IPv6 also simplifies the packet itself, not just the address:</p>
+  <table>
+    <thead><tr><th></th><th>IPv4</th><th>IPv6</th></tr></thead>
+    <tbody>
+      <tr><td>Address length</td><td>32 bits</td><td>128 bits</td></tr>
+      <tr><td>Address format</td><td>Dotted decimal — <code>192.168.1.10</code></td><td>Colon-separated hex groups — <code>2001:db8::1</code> (<code>::</code> compresses a run of zeros)</td></tr>
+      <tr><td>Header size</td><td>Variable, 20–60 bytes (options field)</td><td>Fixed 40 bytes — simpler and faster for routers to process</td></tr>
+      <tr><td>Fragmentation</td><td>Routers may fragment packets in flight</td><td>Only the sending host fragments; routers never do — pushes the cost to the endpoint that can best absorb it</td></tr>
+      <tr><td>Header checksum</td><td>Present — recomputed at every hop</td><td>Removed — left to the link and transport layers, since re-checksumming at every router added cost for little real benefit</td></tr>
+      <tr><td>Broadcast</td><td>Supported (e.g. <code>255.255.255.255</code>)</td><td>Removed entirely — replaced by more targeted multicast</td></tr>
+      <tr><td>Address configuration</td><td>Manual or DHCP</td><td>DHCPv6, or built-in stateless autoconfiguration (SLAAC) — a device can generate its own address without asking anyone</td></tr>
+      <tr><td>NAT</td><td>Effectively required at internet scale</td><td>Not needed for address scarcity — though still sometimes used for other reasons (privacy, topology hiding)</td></tr>
+    </tbody>
+  </table>
+  <p>
+    The two are <strong>not backward compatible</strong> — an IPv4-only device cannot talk directly to an
+    IPv6-only one; something has to translate or tunnel between them. In practice, most networks run
+    <strong>dual-stack</strong> (both protocols active side by side, picking whichever the other end
+    supports) during what has turned into a multi-decade transition, with techniques like NAT64 and 6to4
+    bridging the two where dual-stack isn't available. IP's core job — best-effort packet delivery — is
+    identical in both; only the addressing and header details change.
   </p>
 
   <h2 id="applications">Real-world applications</h2>

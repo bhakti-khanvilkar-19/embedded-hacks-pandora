@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QUIC — Networking — Embedded Pandora</title>
+<meta name="description" content="A modern transport protocol built on UDP that gets TCP-like reliability without TCP's head-of-line blocking or handshake latency — the foundation of HTTP/3." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>QUIC</h1>
+  <p class="lede">
+    QUIC's existence looks like a contradiction at first: it's a <em>reliable, ordered</em> transport —
+    exactly what <a href="/networking/tcp/index.html">TCP</a> already provides — built on top of
+    <a href="/networking/udp/index.html">UDP</a>, the protocol with no reliability at all. It isn't a
+    contradiction; it's reliability rebuilt from scratch, in software, specifically to avoid a few
+    structural costs that are baked into TCP itself and can't be fixed without replacing it.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A reliable, ordered, encrypted transport protocol built on top of UDP instead of using TCP.</dd>
+      <dt>Mental model</dt><dd>TCP's reliability guarantees, rebuilt in user-space software instead of the OS kernel, and per-stream instead of per-connection.</dd>
+      <dt>Key numbers</dt><dd>0-RTT or 1-RTT connection setup (vs. TCP+TLS's 2-3 RTT); runs over UDP port 443 for HTTP/3.</dd>
+      <dt>Reach for it when</dt><dd>You're serving many small, independent requests over a lossy or high-latency link (mobile networks) where TCP's head-of-line blocking and handshake cost actually show up as user-visible delay.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#problem">The problem QUIC exists to fix</a></li>
+      <li><a href="#hol-blocking">Head-of-line blocking</a></li>
+      <li><a href="#streams">Independent streams, one connection</a></li>
+      <li><a href="#handshake">Faster handshake — and built-in encryption</a></li>
+      <li><a href="#why-udp">Why build this on UDP instead of just fixing TCP</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="problem">The problem QUIC exists to fix</h2>
+  <p>
+    A modern web page isn't one request — it's dozens, fetched over the same TCP connection to avoid
+    paying for a new handshake every time. That reuse is good, but it creates a new problem: TCP delivers
+    bytes to the application strictly in the order they were sent, across the <em>entire</em> connection,
+    even when those bytes belong to completely unrelated requests.
+  </p>
+
+  <h2 id="hol-blocking">Head-of-line blocking</h2>
+  <p>
+    If a packet carrying part of request #1 is lost, TCP holds up <em>everything</em> behind it — including
+    already-arrived data for requests #2 through #10 — until the lost packet is retransmitted and its
+    place in the sequence is filled. The application can't see request #2's data yet, even though it's
+    sitting right there in the OS's receive buffer, purely because TCP won't hand over anything out of
+    order.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 640 190" role="img" aria-labelledby="hol-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="hol-title">A single lost TCP segment for one request blocks delivery of already-arrived data for unrelated requests behind it in the same byte stream</title>
+      <rect class="frame-box" x="20" y="30" width="80" height="40" rx="6" />
+      <text class="frame-label" x="60" y="54" text-anchor="middle" font-size="10">req 1</text>
+      <rect class="frame-box block-amber" x="110" y="30" width="80" height="40" rx="6" />
+      <text class="frame-label" x="150" y="50" text-anchor="middle" font-size="9">req 2</text>
+      <text class="frame-caption" x="150" y="63" text-anchor="middle" font-size="8">lost!</text>
+      <rect class="frame-box block-green" x="200" y="30" width="80" height="40" rx="6" />
+      <text class="frame-label" x="240" y="54" text-anchor="middle" font-size="10">req 3</text>
+      <rect class="frame-box block-green" x="290" y="30" width="80" height="40" rx="6" />
+      <text class="frame-label" x="330" y="54" text-anchor="middle" font-size="10">req 4</text>
+      <text class="seq-note" x="330" y="16" text-anchor="middle">one TCP byte stream — req 3 and 4 already arrived, but can't be delivered yet</text>
+      <line x1="330" y1="80" x2="330" y2="110" class="seq-arrow" stroke-width="1.2" />
+      <text class="seq-sub" x="330" y="128" text-anchor="middle">blocked until req 2's retransmit arrives — even though req 3 and 4 are fine</text>
+
+      <text class="seq-note" x="330" y="160" text-anchor="middle">QUIC gives each request its own independent stream — req 2's loss only blocks req 2</text>
+    </svg>
+    <figcaption class="diagram__caption">TCP's ordering guarantee applies to the whole connection, not per-request — QUIC's does not.</figcaption>
+  </figure>
+
+  <h2 id="streams">Independent streams, one connection</h2>
+  <p>
+    QUIC solves this by multiplexing multiple independent <strong>streams</strong> inside one QUIC
+    connection, each with its own ordering guarantee. A lost packet only blocks the one stream it belonged
+    to — every other stream keeps delivering data to the application the instant it arrives. This is the
+    single biggest practical difference from TCP, and the reason QUIC was built as a new protocol instead
+    of a patch to TCP: stream-level ordering isn't something you can retrofit onto a byte-stream protocol
+    without breaking compatibility with every existing TCP implementation.
+  </p>
+
+  <h2 id="handshake">Faster handshake — and built-in encryption</h2>
+  <p>
+    Plain TCP needs one round trip before <a href="/networking/https/index.html">TLS</a> even starts its
+    own handshake on top — two separate negotiations, stacked. QUIC folds transport <em>and</em> encryption
+    setup into a single handshake, because QUIC is encrypted by design; there's no such thing as
+    unencrypted QUIC in practice. A returning client that has talked to a server recently can often skip
+    the round trip entirely (0-RTT), sending encrypted application data in its very first packet.
+  </p>
+
+  <h2 id="why-udp">Why build this on UDP instead of just fixing TCP</h2>
+  <p>
+    TCP is implemented deep inside operating system kernels, and middleboxes across the internet
+    (firewalls, NAT gateways, corporate proxies) have decades of hard-coded assumptions about what a TCP
+    segment looks like. Changing TCP's core behavior would mean waiting for every OS and every piece of
+    middlebox hardware on the internet to update — effectively never. UDP, by contrast, is deliberately
+    minimal — the network mostly just forwards UDP datagrams as opaque payloads. Building the new
+    reliability logic <em>inside</em> that payload, as ordinary application-layer software, means QUIC can
+    evolve at the pace of a library update instead of an operating-system release cycle.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>HTTP/3 —</strong> the latest HTTP version runs entirely over QUIC instead of TCP; most major browsers and CDNs (Google, Cloudflare, Meta) support it today.</li>
+    <li><strong>Mobile web browsing —</strong> QUIC's connection migration (a connection survives switching from Wi-Fi to cellular, since it's identified by a connection ID rather than an IP/port tuple) avoids the dropped-connection stall TCP suffers on a network change.</li>
+    <li><strong>Video conferencing and gaming platforms —</strong> some latency-sensitive platforms have adopted QUIC-based transports for the same head-of-line-blocking reasons that push simpler cases straight to <a href="/networking/udp/index.html">UDP</a>.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>QUIC's reliability logic runs in user-space (inside the application or its library), not the kernel — meaningfully more CPU cost per byte than kernel-level TCP, a real tradeoff against its latency wins, and one worth measuring on a constrained embedded target before assuming QUIC is strictly better.</li>
+      <li>Some restrictive networks and firewalls block or throttle UDP traffic outright (having been tuned for decades around TCP-shaped traffic), which can make QUIC connections silently fall back to TCP — an app relying on QUIC needs that fallback path to actually work.</li>
+      <li>"Built on UDP" doesn't mean "as simple as UDP" — QUIC's own framing, encryption, and stream multiplexing make it substantially more complex to implement correctly than either TCP or plain UDP.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/networking/udp/index.html", "title": "UDP" },
+  "related": [
+    { "href": "/networking/tcp/index.html", "title": "TCP" },
+    { "href": "/networking/udp/index.html", "title": "UDP" },
+    { "href": "/networking/https/index.html", "title": "HTTPS & TLS" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
