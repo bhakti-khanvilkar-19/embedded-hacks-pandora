@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Networking — Embedded Pandora</title>
-<meta name="description" content="How Ethernet, IP, TCP/UDP/QUIC, and a dozen application protocols (HTTP, HTTPS, DHCP, SSH, FTP, SMTP, WebSocket, MQTT, CoAP, AMQP) stack on top of each other — a map of the domain, the OSI/TCP-IP layering model, and a recommended reading order." />
+<meta name="description" content="How Ethernet, IP, TCP/UDP/QUIC, a dozen application protocols, and the hardware (routers, switches, modems, Wi-Fi) and infrastructure (firewalls, VPNs, proxies) around them all fit together — a map of the domain and a recommended reading order." />
 <script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <link rel="stylesheet" href="/assets/css/base.css" />
 <link rel="stylesheet" href="/assets/css/components.css" />
@@ -17,11 +17,12 @@
   <p class="kicker">Domain</p>
   <h1>Networking</h1>
   <p class="lede">
-    How bytes get from one machine to another — and, just as importantly, how the dozen-odd protocols
-    below <em>stack on top of each other</em> to make that happen. None of them work alone: Ethernet
-    can't reach past your local network, IP can't tell one program on a machine from another, and TCP/UDP
-    don't know or care what's inside the message they're carrying. Each topic is written standalone, but
-    they were designed to be read in the order below the first time through.
+    How bytes get from one machine to another — the protocols, the physical hardware that actually carries
+    them (routers, switches, modems, Wi-Fi), and the infrastructure built around both (firewalls, VPNs,
+    proxies). None of it works alone: Ethernet can't reach past your local network, IP can't tell one
+    program on a machine from another, and a router is a different device doing a different job from a
+    switch or a modem, no matter how often one box in the corner does all three. Each topic is written
+    standalone, but they were designed to be read in the order below the first time through.
   </p>
 
   <h2 id="how-they-fit">How the pieces fit together</h2>
@@ -84,10 +85,11 @@
     <figcaption class="diagram__caption">The same shape as the encapsulation diagram on the <a href="/networking/ethernet/index.html#encapsulation">Ethernet</a> page — this is the map of which topic depends on which.</figcaption>
   </figure>
   <ul class="point-list">
-    <li><strong><a href="/networking/ethernet/index.html">Ethernet</a></strong> gets a frame to the next device over — nothing further. It has no idea what "the internet" is.</li>
-    <li><strong><a href="/networking/ip/index.html">IP</a></strong> solves what Ethernet can't: addressing and routing across many networks, hop by hop, with no delivery guarantee of its own. (<a href="/networking/bgp/index.html">BGP</a> is the protocol that actually builds those routing tables at internet scale — it technically runs over TCP, one layer up, even though its job is squarely about this layer.)</li>
+    <li><strong><a href="/networking/ethernet/index.html">Ethernet</a></strong> (or <a href="/networking/wifi/index.html">Wi-Fi</a>, the same job over radio) gets a frame to the next device over — nothing further. It has no idea what "the internet" is. A <a href="/networking/switch/index.html">switch</a> and a <a href="/networking/modem/index.html">modem</a> are the physical hardware doing this layer's job.</li>
+    <li><strong><a href="/networking/ip/index.html">IP</a></strong> solves what Ethernet can't: addressing and routing across many networks, hop by hop, with no delivery guarantee of its own — resolved from a name in the first place by <a href="/networking/dns/index.html">DNS</a>, one layer up. A <strong><a href="/networking/router/index.html">router</a></strong> is the hardware making this layer's decisions; <a href="/networking/bgp/index.html">BGP</a> is how routers agree on those decisions at internet scale.</li>
     <li><strong><a href="/networking/tcp/index.html">TCP</a></strong> and <strong><a href="/networking/udp/index.html">UDP</a></strong> solve what IP can't: telling one program on a machine from another (via ports), and — for TCP only — turning IP's best-effort delivery into a reliable, ordered stream. <a href="/networking/quic/index.html">QUIC</a> is a third, newer option here too — reliable like TCP, but built on top of UDP instead.</li>
-    <li>Everything above that is an <strong>application protocol</strong> — a message format and set of rules built on top of a transport for one specific job. This domain now covers ten of them; see the full grouped list below.</li>
+    <li>Everything above that is an <strong>application protocol</strong> — a message format and set of rules built on top of a transport for one specific job. This domain now covers eleven of them; see the full grouped list below.</li>
+    <li><strong>Firewalls, VPNs, and proxies</strong> don't add a new layer — they sit alongside this whole stack, shaping or securing traffic that still has to pass through every layer above like anything else.</li>
   </ul>
 
   <h2 id="where-to-start">Where to start</h2>
@@ -97,8 +99,8 @@
   </p>
   <ol class="point-list">
     <li><strong><a href="/networking/osi-model/index.html">OSI vs. TCP/IP Model</a></strong> — read this zeroth, even before Ethernet. It sets up the vocabulary ("Layer 3," "Layer 7") and the layering mental model every other topic here assumes.</li>
-    <li><strong><a href="/networking/ethernet/index.html">Ethernet</a></strong> — every topic above this one exists to solve a problem Ethernet by itself can't.</li>
-    <li><strong><a href="/networking/ip/index.html">IP</a></strong> — once you've seen Ethernet's "local only" limit, IP's whole reason for existing (addressing across networks) makes sense.</li>
+    <li><strong><a href="/networking/ethernet/index.html">Ethernet</a></strong>, then <strong><a href="/networking/wifi/index.html">Wi-Fi</a></strong> — every topic above this one exists to solve a problem Ethernet by itself can't; Wi-Fi is the same job again over radio. The hardware doing this job — <a href="/networking/switch/index.html">Switch</a>, <a href="/networking/modem/index.html">Modem</a> — is worth reading right after, since the modem-vs-router mix-up is one of the most common everyday confusions in networking.</li>
+    <li><strong><a href="/networking/ip/index.html">IP</a></strong>, then <strong><a href="/networking/dns/index.html">DNS</a></strong> — once you've seen Ethernet's "local only" limit, IP's whole reason for existing makes sense; DNS is the step before IP that turns a name into the address IP actually needs. <strong><a href="/networking/router/index.html">Router &amp; NAT</a></strong> is the hardware making IP's decisions in the real world; <a href="/networking/bgp/index.html">BGP</a> is how that works at internet scale.</li>
     <li><strong><a href="/networking/tcp/index.html">TCP</a></strong>, then <strong><a href="/networking/udp/index.html">UDP</a></strong> — read TCP first; UDP's own page explains itself largely by contrast with TCP's guarantees. <a href="/networking/quic/index.html">QUIC</a> is worth reading right after both, since it only makes sense as a reaction to specific costs in each.</li>
     <li>Pick an <strong>application protocol</strong> by what you're actually building:
       <ul>
@@ -113,7 +115,14 @@
         <li>Enterprise messaging with routing rules → <a href="/networking/amqp/index.html">AMQP</a></li>
       </ul>
     </li>
-    <li>Then, as reference rather than reading order: <strong><a href="/networking/bgp/index.html">BGP</a></strong> (how internet-scale routing tables actually get built), <strong><a href="/networking/iot-architecture/index.html">IoT Architecture</a></strong> (how these pieces combine in a real device-to-cloud system), <strong><a href="/networking/serialization/index.html">Serialization</a></strong> (how the bytes inside any of these payloads are actually structured), and <strong><a href="/networking/linux-networking-tools/index.html">Linux Networking Tools</a></strong> (how to observe all of the above on a real running system).</li>
+    <li>Pick from <strong>security &amp; traffic infrastructure</strong> by what you're securing or shaping — none of these add a new layer, they all sit alongside the stack above:
+      <ul>
+        <li>A deliberate, rule-based security boundary → <a href="/networking/firewall/index.html">Firewall &amp; DMZ</a></li>
+        <li>Making a remote device behave like it's on a private network → <a href="/networking/vpn/index.html">VPN</a></li>
+        <li>Caching, filtering, anonymity, or load distribution → <a href="/networking/proxy/index.html">Proxy</a></li>
+      </ul>
+    </li>
+    <li>Then, as reference rather than reading order: <strong><a href="/networking/bandwidth/index.html">Bandwidth, Latency &amp; Jitter</a></strong> (the vocabulary for describing <em>how well</em> any of the above is performing), <strong><a href="/networking/iot-architecture/index.html">IoT Architecture</a></strong> (how these pieces combine in a real device-to-cloud system), <strong><a href="/networking/serialization/index.html">Serialization</a></strong> (how the bytes inside any of these payloads are actually structured), and <strong><a href="/networking/linux-networking-tools/index.html">Linux Networking Tools</a></strong> (how to observe all of the above on a real running system).</li>
   </ol>
 
   <h2>Topics</h2>
@@ -121,17 +130,22 @@
   <h3>Foundations</h3>
   <ul class="topic-list">
     <li><a href="/networking/osi-model/index.html"><span>OSI vs. TCP/IP Model — 7 layers vs. 4, and what "TCP/IP" actually means</span><span class="status">written</span></a></li>
+    <li><a href="/networking/bandwidth/index.html"><span>Bandwidth, Latency &amp; Jitter — why "fast" and "responsive" aren't the same thing</span><span class="status">written</span></a></li>
   </ul>
 
   <h3>Link layer</h3>
   <ul class="topic-list">
-    <li><a href="/networking/ethernet/index.html"><span>Ethernet — MAC addresses, framing, switching, ARP</span><span class="status">written</span></a></li>
+    <li><a href="/networking/ethernet/index.html"><span>Ethernet — MAC addresses, framing, switching, ARP, cabling</span><span class="status">written</span></a></li>
+    <li><a href="/networking/wifi/index.html"><span>Wi-Fi — the same job as Ethernet, over radio</span><span class="status">written</span></a></li>
+    <li><a href="/networking/switch/index.html"><span>Switch — hub vs. switch, MAC address learning</span><span class="status">written</span></a></li>
+    <li><a href="/networking/modem/index.html"><span>Modem — modulation, and why it isn't a router</span><span class="status">written</span></a></li>
   </ul>
 
   <h3>Network layer</h3>
   <ul class="topic-list">
     <li><a href="/networking/ip/index.html"><span>IP — Internet Protocol (addressing &amp; routing, IPv4 vs. IPv6)</span><span class="status">written</span></a></li>
     <li><a href="/networking/bgp/index.html"><span>BGP — routing between Autonomous Systems at internet scale</span><span class="status">written</span></a></li>
+    <li><a href="/networking/router/index.html"><span>Router &amp; NAT — routing vs. switching, the default gateway, NAT</span><span class="status">written</span></a></li>
   </ul>
 
   <h3>Transport layer</h3>
@@ -147,12 +161,20 @@
     <li><a href="/networking/https/index.html"><span>HTTPS &amp; TLS — encrypting and authenticating a connection</span><span class="status">written</span></a></li>
     <li><a href="/networking/websocket/index.html"><span>WebSocket — persistent, full-duplex connections over HTTP's handshake</span><span class="status">written</span></a></li>
     <li><a href="/networking/dhcp/index.html"><span>DHCP — automatic IP address assignment</span><span class="status">written</span></a></li>
+    <li><a href="/networking/dns/index.html"><span>DNS — turning a name into an IP address</span><span class="status">written</span></a></li>
     <li><a href="/networking/ssh/index.html"><span>SSH — encrypted remote shell access and tunneling</span><span class="status">written</span></a></li>
     <li><a href="/networking/ftp/index.html"><span>FTP — legacy two-channel file transfer</span><span class="status">written</span></a></li>
     <li><a href="/networking/smtp/index.html"><span>SMTP — relaying outbound email</span><span class="status">written</span></a></li>
     <li><a href="/networking/mqtt/index.html"><span>MQTT — publish/subscribe messaging over TCP</span><span class="status">written</span></a></li>
     <li><a href="/networking/coap/index.html"><span>CoAP — REST over UDP for constrained devices</span><span class="status">written</span></a></li>
     <li><a href="/networking/amqp/index.html"><span>AMQP — exchanges, queues, and bindings</span><span class="status">written</span></a></li>
+  </ul>
+
+  <h3>Security &amp; traffic infrastructure</h3>
+  <ul class="topic-list">
+    <li><a href="/networking/firewall/index.html"><span>Firewall &amp; DMZ — packet filtering, stateful inspection, DMZ zones</span><span class="status">written</span></a></li>
+    <li><a href="/networking/vpn/index.html"><span>VPN — encrypted tunnels, site-to-site vs. remote-access</span><span class="status">written</span></a></li>
+    <li><a href="/networking/proxy/index.html"><span>Proxy — forward vs. reverse, caching, load distribution</span><span class="status">written</span></a></li>
   </ul>
 
   <h3>Reference &amp; tooling</h3>
@@ -162,9 +184,10 @@
     <li><a href="/networking/linux-networking-tools/index.html"><span>Linux Networking Tools — ip, arp, ping, ss/netstat, ethtool</span><span class="status">written</span></a></li>
   </ul>
 
-  <h2>Planned</h2>
-  <p>
-    <span class="badge">dns</span>
+  <p class="lede" style="margin-top: 2.5rem; font-size: 0.92rem;">
+    Nothing left in "Planned" — this domain now covers every layer, the physical hardware carrying it,
+    and the infrastructure built around it. New topics get classified straight into the grouping above as
+    they're written, per <a href="/GUIDE.md">GUIDE.md</a>.
   </p>
 </main>
 
