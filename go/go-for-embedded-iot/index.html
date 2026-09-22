@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Go for Embedded/IoT — Go — Embedded Pandora</title>
+<meta name="description" content="Where Go genuinely fits on constrained hardware and where it doesn't — TinyGo, the compiler that makes microcontroller targets possible, garbage collection's real cost, and Go's actual sweet spot: IoT gateways and edge servers." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Go</p>
+  <h1>Go for Embedded/IoT</h1>
+  <p class="lede">
+    This closing chapter is the honest answer to a question the whole domain has been building toward:
+    where does Go actually fit next to <a href="/embedded-c/index.html">Embedded C</a> and
+    <a href="/cpp/cpp-in-embedded-systems/index.html">embedded C++</a>? The short version: rarely on a tiny
+    microcontroller running standard Go, sometimes on one running <strong>TinyGo</strong>, and genuinely
+    often on the Linux-class device or cloud gateway sitting one layer up from it.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Standard Go's runtime requirements vs. TinyGo, a separate compiler targeting microcontrollers directly, plus where Go fits in a typical IoT architecture regardless of which compiler is used.</dd>
+      <dt>Mental model</dt><dd>Standard Go assumes an operating system underneath it; TinyGo strips that assumption away for bare metal, at the cost of a smaller standard library and a still-present (if simpler) garbage collector.</dd>
+      <dt>Key numbers</dt><dd>Standard Go's runtime needs several MB minimum — far beyond a typical microcontroller's RAM; TinyGo brings that down dramatically, into the range of small MCUs with tens of KB.</dd>
+      <dt>Reach for it when</dt><dd>An IoT gateway, an edge server aggregating sensor data, or a Linux-class embedded board (an SBC) — not, typically, the tiny sensor-node MCU itself.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#why-not-standard-go">Why standard Go doesn't fit tiny microcontrollers</a></li>
+      <li><a href="#tinygo">TinyGo</a></li>
+      <li><a href="#where-go-fits">Where Go actually fits in IoT</a></li>
+      <li><a href="#the-stack">A typical device-to-cloud stack, with the language layer named</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="why-not-standard-go">Why standard Go doesn't fit tiny microcontrollers</h2>
+  <p>
+    Every chapter in this domain has been standard Go, which assumes real resources most microcontrollers
+    don't have:
+  </p>
+  <ul class="point-list">
+    <li><strong>A garbage-collected runtime —</strong> Go's automatic memory management (see
+    <a href="/go/introduction/index.html#philosophy">Introduction to Go's philosophy table</a>) needs
+    meaningful RAM and CPU overhead to run at all — a real cost <a href="/embedded-c/dynamic-memory/index.html">Embedded
+    C's Dynamic Memory</a> chapter explains the underlying reasons to avoid even in C, magnified further
+    by GC specifically.</li>
+    <li><strong>Goroutines and channels' scheduler —</strong> <a href="/go/goroutines-and-channels/index.html">the
+    concurrency machinery</a> genuinely central to Go needs its own runtime scheduler running underneath
+    every program.</li>
+    <li><strong>An assumed OS —</strong> standard Go's compiler targets an operating system's process model by
+    default, not bare metal directly.</li>
+  </ul>
+  <p>
+    None of this is a Go design flaw — it's the same tradeoff <a href="/go/introduction/index.html#philosophy">Introduction
+    to Go's comparison table</a> named from the start: Go optimized for programmer productivity on
+    networked systems, not for the tightest possible resource footprint.
+  </p>
+
+  <h2 id="tinygo">TinyGo</h2>
+  <p>
+    <strong>TinyGo</strong> is a separate compiler (not a fork of the language) that compiles a meaningful
+    subset of Go directly for microcontrollers and WebAssembly, built on LLVM — the same compiler
+    infrastructure much of the C/C++ embedded toolchain world already uses:
+  </p>
+  <pre><code>// blink.go — runs on an actual microcontroller via TinyGo
+package main
+
+import (
+    "machine"
+    "time"
+)
+
+func main() {
+    led := machine.LED
+    led.Configure(machine.PinConfig{Mode: machine.PinOutput})
+
+    for {
+        led.High()
+        time.Sleep(500 * time.Millisecond)
+        led.Low()
+        time.Sleep(500 * time.Millisecond)
+    }
+}</code></pre>
+  <pre><code>tinygo flash -target=arduino blink.go   # compiles AND flashes to real hardware</code></pre>
+  <p>
+    This still has a (simpler, smaller) garbage collector and still uses goroutines — TinyGo doesn't remove
+    Go's core design, it re-targets the compiler backend and trims the standard library to fit. It's a real,
+    working option for microcontroller-class Go, not a toy — but it's a genuinely different, narrower tool
+    than the standard Go compiler used throughout the rest of this domain.
+  </p>
+
+  <h2 id="where-go-fits">Where Go actually fits in IoT</h2>
+  <p>
+    The honest, practical answer is one layer up from the sensor node itself:
+  </p>
+  <dl class="kv">
+    <dt>Sensor/actuator node</dt><dd>Almost always <a href="/embedded-c/index.html">C</a>, occasionally TinyGo, rarely standard Go — tightest resource constraints, closest to the hardware.</dd>
+    <dt>IoT gateway</dt><dd>A genuinely strong fit for standard Go — aggregating data from many sensor nodes, running on real Linux-class hardware (an SBC or small server) with megabytes of RAM to spare.</dd>
+    <dt>Edge/cloud backend</dt><dd>Go's strongest, most common home — the networked-services use case Go was actually designed for, per <a href="/go/introduction/index.html">Introduction to Go</a>.</dd>
+  </dl>
+
+  <h2 id="the-stack">A typical device-to-cloud stack, with the language layer named</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 620 150" role="img" aria-labelledby="stack-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="stack-title">A typical IoT stack: a C or TinyGo sensor node talks to a Go-based gateway, which talks to a Go-based cloud backend</title>
+      <rect class="frame-box block-amber" x="10" y="40" width="170" height="60" rx="8" />
+      <text class="frame-label" x="95" y="65" text-anchor="middle" font-size="10">Sensor node</text>
+      <text class="frame-caption" x="95" y="81" text-anchor="middle" font-size="8">C, occasionally TinyGo</text>
+
+      <line x1="180" y1="70" x2="226" y2="70" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="230,70 220,65 220,75" />
+
+      <rect class="frame-box block-teal" x="230" y="40" width="170" height="60" rx="8" />
+      <text class="frame-label" x="315" y="65" text-anchor="middle" font-size="10">IoT gateway</text>
+      <text class="frame-caption" x="315" y="81" text-anchor="middle" font-size="8">standard Go, strong fit</text>
+
+      <line x1="400" y1="70" x2="446" y2="70" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="450,70 440,65 440,75" />
+
+      <rect class="frame-box block-green" x="450" y="40" width="160" height="60" rx="8" />
+      <text class="frame-label" x="530" y="65" text-anchor="middle" font-size="10">Cloud backend</text>
+      <text class="frame-caption" x="530" y="81" text-anchor="middle" font-size="8">Go's home turf</text>
+
+      <text class="seq-note" x="310" y="125" text-anchor="middle" font-size="8.5">The tightest resource constraint is on the left — Go's fit gets stronger moving right</text>
+    </svg>
+    <figcaption class="diagram__caption">See <a href="/networking/iot-architecture/index.html">Networking's IoT Architecture</a> chapter for this same device/gateway/cloud shape covered in full, independent of language.</figcaption>
+  </figure>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>IoT gateway software —</strong> Go's goroutines make handling many simultaneous sensor-node connections genuinely natural, exactly the concurrency case the language was built around.</li>
+    <li><strong>Edge servers on Linux-class embedded boards —</strong> a Raspberry Pi–class device running Go easily has the RAM and OS support standard Go assumes.</li>
+    <li><strong>TinyGo for genuinely simple MCU firmware —</strong> real, if narrower, production use exists for straightforward sensor-reading or LED/GPIO-control firmware where TinyGo's supported hardware and library subset are sufficient.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>TinyGo supports a real but genuinely smaller subset of the standard library and language than desktop Go — always verify a specific package or language feature is actually supported on TinyGo's target before assuming parity with what this domain's earlier chapters covered.</li>
+      <li>TinyGo's garbage collector, while much lighter than standard Go's, still introduces GC pause behavior that <a href="/cpp/cpp-in-embedded-systems/index.html">embedded C++'s</a> avoidance of heavy dynamic allocation exists specifically to sidestep — hard real-time deadlines are a genuine risk area, worth testing explicitly rather than assuming away.</li>
+      <li>"Go doesn't fit tiny microcontrollers" is a generalization, not an absolute — TinyGo's supported-hardware list keeps growing, and the right call for any specific project depends on its actual real-time and memory constraints, not a blanket rule.</li>
+      <li>This is the final chapter of the Go domain, and of this notebook's core language coverage — <a href="/c/index.html">C</a>, <a href="/embedded-c/index.html">Embedded C</a>, <a href="/cpp/index.html">C++</a>, and Go each cover the same underlying computer science from a different, deliberately contrasting angle; re-reading any one after finishing another is often when the differences click hardest.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/go/packages-and-modules/index.html", "title": "Packages & Modules" },
+  "related": [
+    { "href": "/embedded/index.html", "title": "Embedded" },
+    { "href": "/networking/iot-architecture/index.html", "title": "IoT Architecture" },
+    { "href": "/cpp/cpp-in-embedded-systems/index.html", "title": "C++ in Embedded Systems" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

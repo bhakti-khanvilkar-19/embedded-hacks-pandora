@@ -839,6 +839,17 @@
     ]
   },
   {
+    "title": "Go for Embedded/IoT — Go",
+    "url": "/go/go-for-embedded-iot/index.html",
+    "domain": "Go",
+    "category": "Go For Embedded Iot",
+    "description": "Where Go genuinely fits on constrained hardware and where it doesn't — TinyGo, the compiler that makes microcontroller targets possible, garbage collection's real cost, and Go's actual sweet spot: IoT gateways and edge servers.",
+    "tags": [
+      "go",
+      "go-for-embedded-iot"
+    ]
+  },
+  {
     "title": "Goroutines & Channels — Go",
     "url": "/go/goroutines-and-channels/index.html",
     "domain": "Go",
@@ -879,6 +890,17 @@
     "tags": [
       "go",
       "introduction"
+    ]
+  },
+  {
+    "title": "Packages & Modules — Go",
+    "url": "/go/packages-and-modules/index.html",
+    "domain": "Go",
+    "category": "Packages And Modules",
+    "description": "How Go code is organized and shared — packages as the unit of organization, modules as the unit of dependency management, go.mod, and import paths, contrasted with C's #include and the header/source split.",
+    "tags": [
+      "go",
+      "packages-and-modules"
     ]
   },
   {
