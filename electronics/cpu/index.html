@@ -29,7 +29,7 @@
       <dt>What it is</dt><dd>The processor that fetches, decodes, and executes instructions — the component actually performing computation.</dd>
       <dt>Mental model</dt><dd>An extremely fast, extremely literal reader following a recipe one step at a time — never skipping ahead, never improvising beyond exactly what the instruction says.</dd>
       <dt>Key numbers</dt><dd>Clock speed in GHz (billions of cycles/second); core count; cache measured in KB (L1) to MB (L2/L3).</dd>
-      <dt>Reach for it when</dt><dd>Describing raw sequential/general-purpose compute capability — not massively parallel work, which is a GPU's job.</dd>
+      <dt>Reach for it when</dt><dd>Describing raw sequential/general-purpose compute capability — not massively parallel work, which is a <a href="/electronics/gpu/index.html">GPU</a>'s job.</dd>
     </dl>
   </div>
 
@@ -127,7 +127,7 @@
     <ul>
       <li>Comparing two CPUs by clock speed alone, across different architectures or generations, is a common and genuinely misleading shortcut — real-world benchmarks account for IPC differences clock speed can't capture.</li>
       <li>More cores doesn't help a workload that's fundamentally single-threaded — the classic "why isn't my 16-core machine faster at this one task" question almost always traces back to software that simply can't use the extra cores.</li>
-      <li>Sustained heavy load causes real heat, and a CPU will deliberately reduce its own clock speed to stay within safe operating temperature — protective behavior, not a fault.</li>
+      <li>Sustained heavy load causes real heat, and a CPU will deliberately reduce its own clock speed to stay within safe operating temperature — see <a href="/electronics/cooling/index.html">Cooling</a> for why this is protective behavior, not a fault.</li>
     </ul>
   </div>
 
@@ -140,6 +140,7 @@
   "next": { "href": "/electronics/memory/index.html", "title": "Memory (RAM)" },
   "related": [
     { "href": "/electronics/memory/index.html", "title": "Memory (RAM)" },
+    { "href": "/electronics/gpu/index.html", "title": "GPU" },
     { "href": "/embedded/index.html", "title": "Embedded" }
   ]
 }

@@ -250,6 +250,17 @@
     ]
   },
   {
+    "title": "Cooling — Electronics",
+    "url": "/electronics/cooling/index.html",
+    "domain": "Electronics",
+    "category": "Cooling",
+    "description": "Why every watt a component draws eventually becomes heat, air vs. liquid cooling, and thermal throttling — a protective mechanism, not a malfunction.",
+    "tags": [
+      "electronics",
+      "cooling"
+    ]
+  },
+  {
     "title": "CPU — Electronics",
     "url": "/electronics/cpu/index.html",
     "domain": "Electronics",
@@ -269,6 +280,17 @@
     "tags": [
       "electronics",
       "fundamentals"
+    ]
+  },
+  {
+    "title": "GPU — Electronics",
+    "url": "/electronics/gpu/index.html",
+    "domain": "Electronics",
+    "category": "Gpu",
+    "description": "Why a processor built for thousands of simple, simultaneous operations is a fundamentally different shape from a CPU — and why that exact shape is what modern AI workloads need.",
+    "tags": [
+      "electronics",
+      "gpu"
     ]
   },
   {
@@ -293,6 +315,17 @@
     ]
   },
   {
+    "title": "Motherboard — Electronics",
+    "url": "/electronics/motherboard/index.html",
+    "domain": "Electronics",
+    "category": "Motherboard",
+    "description": "The board that physically and electrically connects every other component — chipset, buses, form factors, and why compatibility mismatches are the single most common build mistake.",
+    "tags": [
+      "electronics",
+      "motherboard"
+    ]
+  },
+  {
     "title": "Passive Components — Electronics",
     "url": "/electronics/passive-components/index.html",
     "domain": "Electronics",
@@ -301,6 +334,17 @@
     "tags": [
       "electronics",
       "passive-components"
+    ]
+  },
+  {
+    "title": "PSU — Electronics",
+    "url": "/electronics/psu/index.html",
+    "domain": "Electronics",
+    "category": "Psu",
+    "description": "How a power supply converts wall AC into the stable DC voltage rails every component actually needs, what wattage and efficiency ratings mean, and why undersizing one causes load-only instability.",
+    "tags": [
+      "electronics",
+      "psu"
     ]
   },
   {
