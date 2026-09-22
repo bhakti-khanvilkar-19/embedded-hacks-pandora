@@ -413,6 +413,28 @@
     ]
   },
   {
+    "title": "Operator Overloading & References — C++",
+    "url": "/cpp/operator-overloading-and-references/index.html",
+    "domain": "Cpp",
+    "category": "Operator Overloading And References",
+    "description": "Making a custom type work with +, ==, and << like a built-in type, and references — an always-valid alias for an existing variable, compared directly against pointers.",
+    "tags": [
+      "cpp",
+      "operator-overloading-and-references"
+    ]
+  },
+  {
+    "title": "Templates — C++",
+    "url": "/cpp/templates/index.html",
+    "domain": "Cpp",
+    "category": "Templates",
+    "description": "Writing one function or class that works across many types without repeating code — function templates, class templates, how the compiler generates real code per type, and templates vs. C-style generic macros.",
+    "tags": [
+      "cpp",
+      "templates"
+    ]
+  },
+  {
     "title": "Analog vs. Digital Electronics — Electronics",
     "url": "/electronics/analog-digital/index.html",
     "domain": "Electronics",
