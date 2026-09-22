@@ -298,7 +298,7 @@
     "url": "/electronics/index.html",
     "domain": "Electronics",
     "category": "Overview",
-    "description": "The circuit-level fundamentals everything else in this notebook is built on: voltage, current, resistance, passive components, semiconductors, and data converters.",
+    "description": "The circuit-level fundamentals everything else in this notebook is built on — voltage, current, resistance, semiconductors, data converters — plus the computer-hardware basics (CPU, memory, storage, GPU, motherboard, PSU, cooling) built on top of them.",
     "tags": [
       "electronics"
     ]
@@ -756,7 +756,7 @@
     "url": "/networking/index.html",
     "domain": "Networking",
     "category": "Overview",
-    "description": "How Ethernet, IP, TCP/UDP/QUIC, a dozen application protocols, and the hardware (routers, switches, modems, Wi-Fi) and infrastructure (firewalls, VPNs, proxies) around them all fit together — a map of the domain and a recommended reading order.",
+    "description": "How Ethernet, IP, ICMP, TCP/UDP/QUIC, a dozen application protocols, and the hardware (routers, switches, modems, Wi-Fi) and infrastructure (firewalls, VPNs, proxies) around them all fit together — plus topologies, client-server vs. P2P, and a map of the domain with a recommended reading order.",
     "tags": [
       "networking"
     ]
