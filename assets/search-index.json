@@ -250,6 +250,17 @@
     ]
   },
   {
+    "title": "File I/O & Standard Library — C",
+    "url": "/c/file-io-and-stdlib/index.html",
+    "domain": "C",
+    "category": "File Io And Stdlib",
+    "description": "Reading and writing files with fopen/fread/fwrite/fclose, and a tour of the standard library functions worth knowing by name — stdlib.h, math.h, and ctype.h — with a file-lifecycle diagram.",
+    "tags": [
+      "c",
+      "file-io-and-stdlib"
+    ]
+  },
+  {
     "title": "Functions — C",
     "url": "/c/functions/index.html",
     "domain": "C",
@@ -301,6 +312,17 @@
     "tags": [
       "c",
       "pointers"
+    ]
+  },
+  {
+    "title": "Preprocessor & Macros — C",
+    "url": "/c/preprocessor-and-macros/index.html",
+    "domain": "C",
+    "category": "Preprocessor And Macros",
+    "description": "#include, #define, and conditional compilation — the text-substitution pass that runs before real compilation, header guards, function-like macros, and why macros need extra parentheses.",
+    "tags": [
+      "c",
+      "preprocessor-and-macros"
     ]
   },
   {
