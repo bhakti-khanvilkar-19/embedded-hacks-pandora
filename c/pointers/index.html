@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pointers — C — Embedded Pandora</title>
+<meta name="description" content="What a pointer actually is — a variable holding a memory address — the address-of and dereference operators, pointer arithmetic, passing by reference, and NULL, with a memory diagram." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C</p>
+  <h1>Pointers</h1>
+  <p class="lede">
+    A pointer is a variable whose value is a <strong>memory address</strong> — not a number you compute
+    with, but a location you can follow to reach the actual value stored there. Pointers are the single most
+    feared topic in beginner C, almost always because of notation, not concept — the underlying idea is
+    simple: "the address of a thing" and "the thing at an address" are two different, related ideas, and C
+    gives you an operator for each.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A variable that stores a memory address instead of an ordinary value.</dd>
+      <dt>Mental model</dt><dd>A sticky note with someone else's house address written on it — the note itself isn't the house, but it tells you exactly where to go to find it.</dd>
+      <dt>Key numbers</dt><dd>A pointer's own size is fixed by the platform (commonly 4 or 8 bytes) <em>regardless</em> of what type it points to — a pointer to a <code>char</code> and a pointer to a <code>double</code> take the same space.</dd>
+      <dt>Reach for it when</dt><dd>A function needs to modify a caller's variable, you need to refer to one piece of data from multiple places without copying it, or you're working with arrays/strings (which are built directly on this idea).</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#address-of">The address-of operator: &amp;</a></li>
+      <li><a href="#declaring">Declaring and dereferencing a pointer</a></li>
+      <li><a href="#pass-by-reference">Passing by reference</a></li>
+      <li><a href="#null">NULL</a></li>
+      <li><a href="#arithmetic">Pointer arithmetic, briefly</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="address-of">The address-of operator: &amp;</h2>
+  <p>
+    Every variable lives somewhere in memory. The <code>&amp;</code> operator, placed before a variable's
+    name, gives you that variable's address instead of its value:
+  </p>
+  <pre><code>int age = 25;
+printf("%d\n", age);    // 25 — the VALUE
+printf("%p\n", (void*)&age);   // e.g. 0x7ffee2a1 — the ADDRESS</code></pre>
+
+  <h2 id="declaring">Declaring and dereferencing a pointer</h2>
+  <p>
+    A pointer variable is declared with a <code>*</code> before its name, and its type says what kind of
+    value it points <em>to</em>:
+  </p>
+  <pre><code>int age = 25;
+int *p = &age;   // p is a pointer to an int, holding age's address
+
+printf("%d\n", *p);   // 25 — dereferencing: "the value AT this address"
+*p = 30;               // changes age itself, through the pointer
+printf("%d\n", age);   // 30</code></pre>
+  <figure class="diagram">
+    <svg viewBox="0 0 460 150" role="img" aria-labelledby="ptr-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="ptr-title">The variable age holds 25 at address 0x1000; the pointer p is a separate variable at address 0x2000 whose own value is 0x1000, pointing back at age</title>
+      <rect class="frame-box block-teal" x="30" y="20" width="140" height="55" rx="8" />
+      <text class="frame-label" x="100" y="50" text-anchor="middle" font-size="14" font-weight="700">25</text>
+      <text class="frame-caption" x="100" y="66" text-anchor="middle" font-size="8">age — address 0x1000</text>
+
+      <rect class="frame-box block-amber" x="260" y="20" width="170" height="55" rx="8" />
+      <text class="frame-label" x="345" y="50" text-anchor="middle" font-size="12" font-family="monospace">0x1000</text>
+      <text class="frame-caption" x="345" y="66" text-anchor="middle" font-size="8">p — address 0x2000</text>
+
+      <path d="M 345,75 Q 345,110 170,110 Q 100,110 100,80" fill="none" class="seq-arrow flow-path flow-path--reverse" stroke-width="1.3" />
+      <polygon class="seq-arrowhead" points="100,76 94,88 106,88" />
+      <text class="seq-note" x="230" y="128" text-anchor="middle" font-size="8.5">p's own VALUE is age's ADDRESS — that's the entire mechanism</text>
+    </svg>
+    <figcaption class="diagram__caption"><code>p</code> is itself an ordinary variable, with its own address (0x2000) — the only thing special about it is that the value stored inside it is interpreted as an address pointing somewhere else.</figcaption>
+  </figure>
+  <p>
+    Read <code>int *p</code> as "<code>*p</code> is an <code>int</code>" — the declaration describes what
+    you get <em>after</em> dereferencing, which is why the pointer's declared type has to match what it
+    points to.
+  </p>
+
+  <h2 id="pass-by-reference">Passing by reference</h2>
+  <p>
+    Recall from <a href="/c/functions/index.html">Functions</a> that C passes arguments by value — a
+    function only ever gets a copy. Passing a <em>pointer</em> to a variable lets a function reach back and
+    modify the original, because the address it receives points at the real thing:
+  </p>
+  <pre><code>void increment(int *x) {
+    *x = *x + 1;    // modifies whatever x points at
+}
+
+int main(void) {
+    int n = 5;
+    increment(&n);       // pass n's ADDRESS, not n itself
+    printf("%d\n", n);   // 6 — n was actually changed
+    return 0;
+}</code></pre>
+  <p>
+    This is the single most common reason to reach for a pointer as a beginner: it's how a function returns
+    more than one value, or modifies something the caller owns.
+  </p>
+
+  <h2 id="null">NULL</h2>
+  <p>
+    <code>NULL</code> is a special pointer value meaning "points at nothing valid" — the conventional way to
+    represent "no address yet" or "this pointer isn't set up." Dereferencing a <code>NULL</code> pointer
+    (trying to read or write "the value at nothing") is undefined behavior, and on most desktop operating
+    systems crashes immediately (a "segmentation fault") — which is actually the <em>friendly</em> outcome
+    compared to what can happen on hardware with no memory protection at all.
+  </p>
+  <pre><code>int *p = NULL;
+if (p != NULL) {
+    printf("%d\n", *p);   // only dereference after checking
+}</code></pre>
+
+  <h2 id="arithmetic">Pointer arithmetic, briefly</h2>
+  <p>
+    Adding to a pointer moves it forward by <em>that many elements of its pointed-to type</em>, not that
+    many bytes — <code>p + 1</code> on an <code>int*</code> moves 4 bytes ahead (one whole <code>int</code>),
+    not 1 byte:
+  </p>
+  <pre><code>int scores[3] = {10, 20, 30};
+int *p = scores;        // points at scores[0] — recall array decay from Arrays
+printf("%d\n", *p);       // 10
+printf("%d\n", *(p + 1)); // 20 — one int forward, not one byte forward</code></pre>
+  <p>
+    This is exactly the mechanism <a href="/c/arrays/index.html">Arrays</a> relies on for indexing — this
+    section is intentionally brief; the full depth (arithmetic on other pointer types, subtracting two
+    pointers, common bugs) is covered properly in <a href="/embedded-c/pointers/index.html">Embedded C's
+    Pointers</a>, worth reading once you're comfortable here.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Modifying caller state —</strong> the <code>increment</code> pattern above is used constantly, including by standard library functions like <code>scanf("%d", &amp;n)</code>, which needs a pointer to actually write into <code>n</code>.</li>
+    <li><strong>Passing large data efficiently —</strong> passing a pointer to a large struct or array avoids copying it entirely, just a handful of bytes for the address itself.</li>
+    <li><strong>Hardware register access —</strong> memory-mapped I/O on a microcontroller is, underneath, always a pointer to a fixed hardware address — the foundation of <a href="/embedded-c/registers/index.html">Embedded C's Registers &amp; volatile</a>.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>An uninitialized pointer (declared but never assigned an address) contains garbage — dereferencing it reads or writes a random, unpredictable memory location. Always initialize a pointer, even if only to <code>NULL</code>.</li>
+      <li>Confusing <code>*</code> in a declaration (<code>int *p;</code>, "declare a pointer") with <code>*</code> in an expression (<code>*p = 5;</code>, "dereference") is the single most common source of beginner confusion — the same symbol means two related but different things depending on context.</li>
+      <li>A <strong>dangling pointer</strong> — one still holding the address of something that no longer exists, like a local variable after its function returned — looks identical to a valid pointer right up until it's dereferenced. See <a href="/c/functions/index.html#call-stack">Functions' call stack section</a> for exactly why a local's storage disappears on return.</li>
+      <li>Forgetting the <code>&amp;</code> when a function needs to modify your variable (passing <code>n</code> instead of <code>&amp;n</code>) is a very common, easy-to-miss mistake — the code often still compiles, since <code>n</code> is a valid <code>int</code>, it just silently doesn't do what you meant.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/c/strings/index.html", "title": "Strings" },
+  "next": { "href": "/c/structs-and-unions/index.html", "title": "Structs & Unions" },
+  "related": [
+    { "href": "/embedded-c/pointers/index.html", "title": "Pointers" },
+    { "href": "/embedded-c/registers/index.html", "title": "Registers & volatile" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
