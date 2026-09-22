@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Interfaces — Go — Embedded Pandora</title>
+<meta name="description" content="Go's answer to polymorphism — implemented implicitly, with no 'implements' keyword, contrasted directly with C++'s virtual functions and abstract classes. The empty interface, and type assertions." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Go</p>
+  <h1>Interfaces</h1>
+  <p class="lede">
+    <a href="/go/structs-and-methods/index.html">Structs &amp; Methods</a> showed Go has no inheritance. So
+    how does Go get the "treat different types uniformly" benefit that
+    <a href="/cpp/inheritance-and-polymorphism/index.html">C++'s polymorphism</a> provides? Interfaces — a
+    completely different mechanism, with a genuinely surprising property: a type never declares which
+    interfaces it implements. It just does, or it doesn't, based purely on which methods it has.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A set of method signatures — any type with all of those methods automatically satisfies the interface, with no explicit declaration required.</dd>
+      <dt>Mental model</dt><dd>C++ polymorphism is a family tree — a type explicitly says which base class it belongs to. A Go interface is a duck test: if it has the right methods, it qualifies, no family relationship needed at all.</dd>
+      <dt>Key numbers</dt><dd>The empty interface <code>interface{}</code> (or its alias <code>any</code>) is satisfied by literally every type — Go's escape hatch for "accepts anything."</dd>
+      <dt>Reach for it when</dt><dd>A function needs to work across multiple types that share behavior but not a common base type — exactly where C++ would reach for an abstract base class and virtual functions.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#defining">Defining and implementing an interface</a></li>
+      <li><a href="#implicit">Implicit implementation — the big difference</a></li>
+      <li><a href="#empty-interface">The empty interface</a></li>
+      <li><a href="#type-assertions">Type assertions</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="defining">Defining and implementing an interface</h2>
+  <pre><code>type Shape interface {
+    Area() float64   // any type with an Area() float64 method satisfies Shape
+}
+
+type Circle struct {
+    Radius float64
+}
+func (c Circle) Area() float64 { return 3.14159 * c.Radius * c.Radius }
+
+type Square struct {
+    Side float64
+}
+func (s Square) Area() float64 { return s.Side * s.Side }
+
+func printArea(s Shape) {
+    fmt.Println(s.Area())
+}
+
+printArea(Circle{Radius: 5})   // 78.5397
+printArea(Square{Side: 4})      // 16 — same function, different concrete type</code></pre>
+
+  <h2 id="implicit">Implicit implementation — the big difference</h2>
+  <p>
+    Notice what's <strong>missing</strong> from <code>Circle</code> and <code>Square</code> above: neither
+    one ever wrote <code>implements Shape</code> anywhere. Compare this directly to
+    <a href="/cpp/inheritance-and-polymorphism/index.html#virtual-functions">C++</a>, where a class has to
+    explicitly derive from an abstract base class:
+  </p>
+  <pre><code>// C++: EXPLICIT — Circle must say it derives from Shape
+class Circle : public Shape {
+    float area() override { ... }
+};
+
+// Go: IMPLICIT — Circle satisfies Shape just by having the right method, no declaration
+type Circle struct { Radius float64 }
+func (c Circle) Area() float64 { ... }   // that's it — Circle IS a Shape now, automatically</code></pre>
+  <p>
+    This means a type can satisfy an interface it was never written with in mind — even one defined in a
+    completely different package, written by someone else, years later. It's a genuinely different way of
+    thinking about "what type is this" than C++'s explicit class hierarchies.
+  </p>
+
+  <h2 id="empty-interface">The empty interface</h2>
+  <pre><code>func describe(v interface{}) {   // interface{} (or "any") accepts a value of ANY type
+    fmt.Println(v)
+}
+
+describe(42)
+describe("hello")
+describe(Circle{Radius: 5})</code></pre>
+  <p>
+    An interface with <em>zero</em> required methods is satisfied by every type, since there's nothing to
+    fail to implement — Go's version of a fully generic parameter, used before Go added true generics, and
+    still common in APIs that genuinely need to accept anything.
+  </p>
+
+  <h2 id="type-assertions">Type assertions</h2>
+  <p>
+    Given an interface value, you can ask what concrete type is actually behind it — Go's version of
+    <a href="/cpp/inheritance-and-polymorphism/index.html">C++'s <code>dynamic_cast</code></a>, but returning
+    a value and a boolean instead of a null pointer on failure:
+  </p>
+  <pre><code>var s Shape = Circle{Radius: 5}
+
+circle, ok := s.(Circle)   // "is s actually a Circle?"
+if ok {
+    fmt.Println(circle.Radius)   // 5
+}
+
+square, ok := s.(Square)   // s is NOT a Square
+if !ok {
+    fmt.Println("not a square")   // not a square
+}</code></pre>
+  <p>
+    This <code>(value, ok)</code> shape is the same pattern from
+    <a href="/go/functions-and-multiple-returns/index.html">Functions &amp; Multiple Return Values</a> —
+    Go reuses this one idea everywhere instead of introducing a separate mechanism per feature.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong><code>io.Reader</code> and <code>io.Writer</code> —</strong> two of Go's most important standard-library interfaces, satisfied by files, network connections, in-memory buffers, and more, letting the same code read from or write to any of them uniformly.</li>
+    <li><strong><code>error</code> itself —</strong> Go's built-in <code>error</code> type is just an interface with one method, <code>Error() string</code> — the subject of the upcoming Error Handling chapter.</li>
+    <li><strong>Mocking in tests —</strong> defining an interface for a dependency (a database, an API client) makes it trivial to substitute a fake implementation in tests, without any inheritance relationship required.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A failed type assertion without the <code>, ok</code> form (just <code>circle := s.(Circle)</code>) panics at runtime if the assertion is wrong — always use the two-value form unless you're certain of the type.</li>
+      <li>Overusing <code>interface{}</code>/<code>any</code> throws away Go's compile-time type checking, the same tradeoff as C's <code>void*</code> — reach for a specific interface with real method requirements whenever you can, not a blanket "accepts anything."</li>
+      <li>A type can accidentally satisfy an interface it wasn't meant to, purely by happening to have a method with the right name and signature — implicit implementation is powerful but occasionally surprising in a large codebase.</li>
+      <li>Unlike a C++ abstract class, a Go interface carries zero data of its own and cannot have a default method implementation — it is purely a set of required method signatures, nothing more.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/go/structs-and-methods/index.html", "title": "Structs & Methods" },
+  "next": { "href": "/go/slices-arrays-maps/index.html", "title": "Slices, Arrays & Maps" },
+  "related": [
+    { "href": "/cpp/inheritance-and-polymorphism/index.html", "title": "Inheritance & Polymorphism" },
+    { "href": "/go/functions-and-multiple-returns/index.html", "title": "Functions & Multiple Return Values" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

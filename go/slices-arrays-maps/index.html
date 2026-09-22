@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Slices, Arrays & Maps — Go — Embedded Pandora</title>
+<meta name="description" content="Go's built-in collection types — fixed-size arrays, the far more common resizable slice built on top of one, and maps — with a comparison table and a slice-header diagram." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Go</p>
+  <h1>Slices, Arrays &amp; Maps</h1>
+  <p class="lede">
+    Go has both a fixed-size array (structurally close to <a href="/c/arrays/index.html">C's arrays</a>) and
+    a resizable <strong>slice</strong> built directly on top of one — in practice, almost all real Go code
+    uses slices, not arrays directly. Maps round out the built-in collections, Go's equivalent of
+    <a href="/cpp/stl-containers-and-algorithms/index.html#other-containers">C++'s <code>std::map</code></a>.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Array: fixed-size, like C. Slice: a resizable view backed by an array, Go's default collection type. Map: built-in key-value pairs.</dd>
+      <dt>Mental model</dt><dd>A slice is a small header (pointer, length, capacity) pointing at an underlying array — resizing it, within limits, is cheap because it can just adjust the header without copying data.</dd>
+      <dt>Key numbers</dt><dd>An array's size is part of its type (<code>[5]int</code> and <code>[10]int</code> are different types entirely) — a slice's is not, which is exactly why slices are used almost everywhere instead.</dd>
+      <dt>Reach for it when</dt><dd>Slice: the default choice, nearly always. Array: only when the size is genuinely fixed and known at compile time. Map: looking values up by key.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#arrays">Arrays — fixed size, like C</a></li>
+      <li><a href="#slices">Slices — the default collection type</a></li>
+      <li><a href="#slice-internals">How a slice actually works</a></li>
+      <li><a href="#maps">Maps</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="arrays">Arrays — fixed size, like C</h2>
+  <pre><code>var readings [5]int   // an array of exactly 5 ints, zero-valued
+readings[0] = 90
+
+scores := [3]int{90, 85, 77}   // declared and initialized together
+fmt.Println(len(scores))         // 3</code></pre>
+  <p>
+    Structurally identical to <a href="/c/arrays/index.html">C's arrays</a> — fixed size, contiguous memory,
+    zero-based indexing. Go arrays are rarely used directly in practice; they mostly exist as the thing
+    slices are built on top of.
+  </p>
+
+  <h2 id="slices">Slices — the default collection type</h2>
+  <pre><code>scores := []int{90, 85, 77}   // no size in the brackets — this is a SLICE, not an array
+scores = append(scores, 92)     // grows automatically — no manual resizing like C
+fmt.Println(scores)              // [90 85 77 92]
+fmt.Println(len(scores))         // 4
+
+sub := scores[1:3]   // a slice of scores[1] and scores[2] — [85 77]</code></pre>
+  <p>
+    <code>append</code> is doing real work here — see <a href="/cpp/stl-containers-and-algorithms/index.html#vector">C++'s
+    <code>std::vector</code></a> for the closest direct comparison: both grow automatically and both hide the
+    resizing mechanics from the caller.
+  </p>
+
+  <h2 id="slice-internals">How a slice actually works</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 540 150" role="img" aria-labelledby="slice-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="slice-title">A slice is a small header of pointer, length, and capacity, pointing into a separate underlying array</title>
+      <rect class="frame-box block-amber" x="20" y="20" width="180" height="90" rx="8" />
+      <text class="frame-label" x="110" y="42" text-anchor="middle" font-size="10" font-weight="700">slice header</text>
+      <text class="frame-caption" x="110" y="62" text-anchor="middle" font-size="9">pointer ──┐</text>
+      <text class="frame-caption" x="110" y="78" text-anchor="middle" font-size="9">length = 4</text>
+      <text class="frame-caption" x="110" y="94" text-anchor="middle" font-size="9">capacity = 6</text>
+
+      <line x1="200" y1="45" x2="256" y2="65" class="seq-arrow flow-path" stroke-width="1.3" />
+
+      <rect class="frame-box block-teal" x="260" y="30" width="60" height="45" rx="4" />
+      <text class="frame-label" x="290" y="57" text-anchor="middle" font-size="10">90</text>
+      <rect class="frame-box block-teal" x="320" y="30" width="60" height="45" rx="4" />
+      <text class="frame-label" x="350" y="57" text-anchor="middle" font-size="10">85</text>
+      <rect class="frame-box block-teal" x="380" y="30" width="60" height="45" rx="4" />
+      <text class="frame-label" x="410" y="57" text-anchor="middle" font-size="10">77</text>
+      <rect class="frame-box block-teal" x="440" y="30" width="60" height="45" rx="4" />
+      <text class="frame-label" x="470" y="57" text-anchor="middle" font-size="10">92</text>
+      <rect x="500" y="30" width="30" height="45" rx="4" fill="none" stroke="var(--ink-faint)" stroke-width="1.2" stroke-dasharray="4 3" />
+
+      <text class="seq-note" x="395" y="95" text-anchor="middle" font-size="8">underlying array — length 4 used, capacity 6 (unused space reserved for growth)</text>
+      <text class="seq-note" x="270" y="130" text-anchor="middle" font-size="8.5">Appending within capacity is cheap — no copy. Appending past it allocates a new, larger array.</text>
+    </svg>
+    <figcaption class="diagram__caption">This is why passing a slice to a function is cheap (it copies only the small header, not the data) but also why two slices can unexpectedly share the same underlying array.</figcaption>
+  </figure>
+
+  <h2 id="maps">Maps</h2>
+  <pre><code>ages := map[string]int{
+    "Ada":  25,
+    "Linus": 30,
+}
+ages["Grace"] = 40           // add a new key
+fmt.Println(ages["Ada"])      // 25
+
+value, ok := ages["Missing"]   // the SAME (value, ok) pattern from Interfaces and Functions
+if !ok {
+    fmt.Println("key not found")
+}</code></pre>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>API response handling —</strong> a slice of structs parsed from a JSON array response is one of the most common shapes in Go server code.</li>
+    <li><strong>Deduplication and lookup tables —</strong> a <code>map[string]bool</code> tracking "have I seen this key already" is a common, idiomatic Go pattern.</li>
+    <li><strong>Buffer reuse —</strong> pre-allocating a slice with a known capacity (<code>make([]int, 0, 100)</code>) avoids repeated reallocation in performance-sensitive code, directly mirroring <a href="/cpp/stl-containers-and-algorithms/index.html">C++'s <code>vector::reserve</code></a>.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Two slices can share the same underlying array — modifying one through indexing can silently affect the other, a real and sometimes-surprising consequence of the header/array split shown in the diagram above.</li>
+      <li>Accessing a Go map with a missing key doesn't panic — it returns the type's zero value, silently. Always use the two-value <code>value, ok := m[key]</code> form when "key not found" needs to be distinguished from "key present with a zero value."</li>
+      <li>Map iteration order in Go is deliberately randomized on every run — code that depends on a specific iteration order is a bug, not a portability quirk; sort explicitly if order matters.</li>
+      <li>Indexing a slice or array out of bounds panics at runtime in Go — safer than <a href="/c/arrays/index.html#gotchas">C's silent undefined behavior</a> on the same mistake, but still a real bug to catch, just caught loudly instead of silently.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/go/interfaces/index.html", "title": "Interfaces" },
+  "next": { "href": "/go/goroutines-and-channels/index.html", "title": "Goroutines & Channels" },
+  "related": [
+    { "href": "/c/arrays/index.html", "title": "Arrays" },
+    { "href": "/cpp/stl-containers-and-algorithms/index.html", "title": "STL Containers & Algorithms" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
