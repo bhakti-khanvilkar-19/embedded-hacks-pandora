@@ -413,6 +413,17 @@
     ]
   },
   {
+    "title": "Memory Management — C++",
+    "url": "/cpp/memory-management/index.html",
+    "domain": "Cpp",
+    "category": "Memory Management",
+    "description": "new and delete as C++'s malloc/free, and smart pointers — unique_ptr and shared_ptr, RAII applied directly to raw memory, making a forgotten delete a non-issue by construction.",
+    "tags": [
+      "cpp",
+      "memory-management"
+    ]
+  },
+  {
     "title": "Operator Overloading & References — C++",
     "url": "/cpp/operator-overloading-and-references/index.html",
     "domain": "Cpp",
@@ -421,6 +432,17 @@
     "tags": [
       "cpp",
       "operator-overloading-and-references"
+    ]
+  },
+  {
+    "title": "STL Containers & Algorithms — C++",
+    "url": "/cpp/stl-containers-and-algorithms/index.html",
+    "domain": "Cpp",
+    "category": "Stl Containers And Algorithms",
+    "description": "vector, map, and the algorithms library — ready-made, templated data structures that replace much of what C makes you hand-roll, with a container comparison table and a sort/find example.",
+    "tags": [
+      "cpp",
+      "stl-containers-and-algorithms"
     ]
   },
   {

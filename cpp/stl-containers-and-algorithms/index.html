@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>STL Containers & Algorithms — C++ — Embedded Pandora</title>
+<meta name="description" content="vector, map, and the algorithms library — ready-made, templated data structures that replace much of what C makes you hand-roll, with a container comparison table and a sort/find example." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C++</p>
+  <h1>STL Containers &amp; Algorithms</h1>
+  <p class="lede">
+    <a href="/cpp/templates/index.html">Templates</a> are what make this possible: the
+    <strong>Standard Template Library (STL)</strong> is a set of ready-made, templated data structures and
+    algorithms — a resizable array, a key-value map, sorting, searching — that would otherwise be exactly
+    the kind of code the <a href="/embedded-c/index.html">Embedded C</a> domain shows you how to hand-roll
+    from scratch, this time already written, tested, and generic over whatever type you need.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A collection of template classes (containers) and template functions (algorithms) forming C++'s standard data-structure toolkit.</dd>
+      <dt>Mental model</dt><dd>A well-stocked toolbox that ships with the language — before reaching for a hand-rolled linked list or array, check whether the STL already has exactly the tool you need.</dd>
+      <dt>Key numbers</dt><dd><code>std::vector</code> is the default "just give me a resizable array" choice in the overwhelming majority of real C++ code — reach for anything else only when you have a specific reason to.</dd>
+      <dt>Reach for it when</dt><dd>Almost always, on a target with enough memory to afford it — the STL is heavily used, well-tested, and removes real, repeated boilerplate versus hand-rolling equivalents.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#vector">std::vector</a></li>
+      <li><a href="#other-containers">Other common containers</a></li>
+      <li><a href="#algorithms">The algorithms library</a></li>
+      <li><a href="#range-for">Range-based for loops</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="vector">std::vector</h2>
+  <p>
+    <code>std::vector</code> is a dynamically-resizable array — the direct, safer upgrade from
+    <a href="/c/arrays/index.html">C's fixed-size arrays</a>, growing automatically as elements are added:
+  </p>
+  <pre><code>#include &lt;vector&gt;
+
+std::vector&lt;int&gt; readings;
+readings.push_back(23);
+readings.push_back(45);
+readings.push_back(12);
+
+std::cout << readings.size() << std::endl;   // 3 — tracked automatically
+std::cout << readings[1] << std::endl;        // 45 — indexing works just like a C array</code></pre>
+  <p>
+    Unlike a C array, <code>readings.size()</code> is always known — no separate length variable to keep in
+    sync by hand, and no risk of the array/length pair drifting out of sync, a real recurring source of bugs
+    in equivalent C code.
+  </p>
+
+  <h2 id="other-containers">Other common containers</h2>
+  <table>
+    <thead><tr><th>Container</th><th>What it is</th><th>Reach for it when</th></tr></thead>
+    <tbody>
+      <tr><td><code>std::vector</code></td><td>Dynamically-resizable array</td><td>The default choice — fast indexed access, grows as needed</td></tr>
+      <tr><td><code>std::map</code></td><td>Sorted key-value pairs</td><td>Looking values up by a key, and iteration order (sorted by key) matters</td></tr>
+      <tr><td><code>std::unordered_map</code></td><td>Hash-table key-value pairs</td><td>Looking values up by a key, and order doesn't matter — faster lookup than <code>map</code></td></tr>
+      <tr><td><code>std::set</code></td><td>Sorted, unique values</td><td>Needing a collection with no duplicates, automatically sorted</td></tr>
+      <tr><td><code>std::queue</code></td><td>First-in-first-out</td><td>The STL version of <a href="/embedded-c/stacks-queues/index.html">C's hand-rolled queues</a></td></tr>
+    </tbody>
+  </table>
+  <pre><code>#include &lt;map&gt;
+
+std::map&lt;std::string, float&gt; sensorReadings;
+sensorReadings["temperature"] = 23.5f;
+sensorReadings["humidity"] = 45.0f;
+
+std::cout << sensorReadings["temperature"] << std::endl;   // 23.5 — looked up by name, not by index</code></pre>
+
+  <h2 id="algorithms">The algorithms library</h2>
+  <p>
+    <code>&lt;algorithm&gt;</code> provides generic, templated functions that work across every STL
+    container — sorting, searching, and transforming, without writing the loop by hand:
+  </p>
+  <pre><code>#include &lt;algorithm&gt;
+#include &lt;vector&gt;
+
+std::vector&lt;int&gt; readings = {45, 12, 78, 23, 5};
+
+std::sort(readings.begin(), readings.end());
+// readings is now {5, 12, 23, 45, 78}
+
+auto it = std::find(readings.begin(), readings.end(), 23);
+if (it != readings.end()) {
+    std::cout << "Found 23\n";
+}</code></pre>
+  <p>
+    <code>begin()</code>/<code>end()</code> are <strong>iterators</strong> — a generic "position within a
+    container" concept every STL container provides, letting the same <code>std::sort</code> function work
+    identically across a <code>vector</code>, a <code>set</code>, or any other compatible container without
+    being rewritten per container type.
+  </p>
+
+  <h2 id="range-for">Range-based for loops</h2>
+  <p>
+    A cleaner alternative to the index-based <a href="/c/loops/index.html">C-style <code>for</code> loop</a>
+    when you just need every element, in order, without caring about the index itself:
+  </p>
+  <pre><code>for (int reading : readings) {
+    std::cout << reading << std::endl;   // no index variable, no bounds to get wrong
+}</code></pre>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Dynamic sensor buffers —</strong> a <code>std::vector</code> holding a growing log of readings, replacing a manually-managed, fixed-size C array plus a separate count variable.</li>
+    <li><strong>Configuration lookups —</strong> a <code>std::map&lt;std::string, std::string&gt;</code> holding parsed configuration key-value pairs, looked up by name.</li>
+    <li><strong>Deduplication and sorted reporting —</strong> a <code>std::set</code> collecting unique device IDs seen on a network, automatically sorted for display.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>STL containers manage memory dynamically, using heap allocation under the hood — the same reasons <a href="/embedded-c/dynamic-memory/index.html">Embedded C's Dynamic Memory</a> gives for avoiding <code>malloc</code> on a tiny, real-time-constrained target apply directly here too; heavy STL use is common on Linux-class embedded systems, much rarer on bare-metal microcontrollers.</li>
+      <li>Indexing a <code>std::vector</code> out of bounds with <code>[]</code> is undefined behavior, exactly like a raw C array — <code>.at()</code> is a slower but bounds-checked alternative that throws an exception instead.</li>
+      <li>A reference or iterator into a <code>std::vector</code> can be invalidated by a later <code>push_back</code> that triggers a resize (the vector's internal storage may move to a new location) — holding onto one across a modification is a real, easy-to-miss bug.</li>
+      <li><code>std::map</code> and <code>std::set</code> are typically implemented as balanced trees, with slower lookup than a hash-based <code>unordered_map</code>/<code>unordered_set</code> — pick based on whether sorted iteration order actually matters for your use case.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/cpp/templates/index.html", "title": "Templates" },
+  "next": { "href": "/cpp/memory-management/index.html", "title": "Memory Management" },
+  "related": [
+    { "href": "/c/arrays/index.html", "title": "Arrays" },
+    { "href": "/embedded-c/stacks-queues/index.html", "title": "Stacks, Queues & Ring Buffers" },
+    { "href": "/embedded-c/dynamic-memory/index.html", "title": "Dynamic Memory" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
