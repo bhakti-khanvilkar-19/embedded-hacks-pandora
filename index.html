@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Embedded Pandora — a personal engineering knowledge base</title>
-<meta name="description" content="A continuously growing personal reference for electronics, embedded systems, sensors, protocols, automotive systems, Linux, networking, bootloaders, and Snap packaging." />
+<meta name="description" content="A continuously growing personal reference for electronics, embedded systems, four programming languages (C, Embedded C, C++, Go), sensors, protocols, automotive systems, Linux, networking, bootloaders, and Snap packaging." />
 <script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <link rel="stylesheet" href="/assets/css/base.css" />
 <link rel="stylesheet" href="/assets/css/components.css" />
@@ -19,11 +19,58 @@
     <h1>Embedded Pandora</h1>
     <p class="lede">
       A long-term, continuously growing reference for everything I learn about
-      electronics, embedded systems, sensors, protocols, automotive systems,
-      Linux, networking, bootloaders, and packaging. Every topic lives in its own
-      logically-organized folder — a lab notebook that's meant to still make
-      sense in ten years.
+      electronics, embedded systems, four programming languages, sensors, protocols,
+      automotive systems, Linux, networking, bootloaders, and packaging. Every topic
+      lives in its own logically-organized folder — a lab notebook that's meant to
+      still make sense in ten years.
     </p>
+  </section>
+
+  <section aria-label="Which language domain should I read?">
+    <h2>Which language domain should I read?</h2>
+    <p>
+      Four domains in this notebook are specifically about programming languages, and they're meant to be
+      read as one connected arc, not four unrelated stops. <a href="/c/index.html">C</a> is the shared
+      foundation everything else builds on or contrasts against — <a href="/embedded-c/index.html">Embedded
+      C</a> specializes it for bare metal, <a href="/cpp/index.html">C++</a> extends it with
+      object-oriented and generic-programming features, and <a href="/go/index.html">Go</a> is a genuinely
+      different language kept as a sibling domain, explained throughout by direct contrast with what the
+      other three already taught.
+    </p>
+    <figure class="diagram">
+      <svg viewBox="0 0 760 220" role="img" aria-labelledby="lang-map-title" xmlns="http://www.w3.org/2000/svg">
+        <title id="lang-map-title">C is the shared foundation that Embedded C and C++ both build on directly; Go is a separate sibling language, contrasted with C and C++ throughout rather than built on either</title>
+
+        <rect class="frame-box block-violet" x="300" y="140" width="160" height="55" rx="8" />
+        <text class="frame-label" x="380" y="165" text-anchor="middle" font-size="12" font-weight="700">C</text>
+        <text class="frame-caption" x="380" y="181" text-anchor="middle" font-size="8">the shared foundation</text>
+
+        <line x1="350" y1="138" x2="230" y2="90" class="seq-arrow flow-path flow-path--reverse" stroke-width="1.3" />
+        <line x1="410" y1="138" x2="530" y2="90" class="seq-arrow flow-path flow-path--reverse" stroke-width="1.3" />
+
+        <rect class="frame-box block-teal" x="100" y="30" width="170" height="55" rx="8" />
+        <text class="frame-label" x="185" y="55" text-anchor="middle" font-size="11">Embedded C</text>
+        <text class="frame-caption" x="185" y="71" text-anchor="middle" font-size="8">bare-metal specifics</text>
+
+        <rect class="frame-box block-amber" x="480" y="30" width="170" height="55" rx="8" />
+        <text class="frame-label" x="565" y="55" text-anchor="middle" font-size="11">C++</text>
+        <text class="frame-caption" x="565" y="71" text-anchor="middle" font-size="8">OOP + generics, on top of C</text>
+
+        <rect x="670" y="142" width="80" height="50" rx="8" fill="none" stroke="var(--ink-faint)" stroke-width="1.3" stroke-dasharray="5 4" />
+        <text class="frame-label" x="710" y="163" text-anchor="middle" font-size="10">Go</text>
+        <text class="frame-caption" x="710" y="178" text-anchor="middle" font-size="7">sibling, not built on C</text>
+        <line x1="670" y1="167" x2="465" y2="167" class="seq-arrow" stroke-width="1.1" stroke-dasharray="4 3" />
+
+        <text class="seq-note" x="380" y="215" text-anchor="middle" font-size="8.5">Solid arrows: built directly on. Dashed: a separate language, explained by contrast instead.</text>
+      </svg>
+      <figcaption class="diagram__caption">Read <a href="/c/index.html">C</a> first if any of variables, pointers, or structs feel unfamiliar — every other language domain assumes it.</figcaption>
+    </figure>
+    <ul class="point-list">
+      <li><strong>New to programming, or shaky on C fundamentals? —</strong> start with <a href="/c/index.html">C</a>. It assumes nothing and explains everything from a first program onward.</li>
+      <li><strong>Writing firmware for a real microcontroller? —</strong> read <a href="/c/index.html">C</a>, then <a href="/embedded-c/index.html">Embedded C</a> specifically — the bare-metal-only behaviors (integer overflow, <code>volatile</code>, linker sections) that general C teaching skips.</li>
+      <li><strong>Want object-oriented or generic programming on top of C? —</strong> <a href="/cpp/index.html">C++</a>, after C. Its own closing chapter comes back to what a bare-metal C++ codebase typically avoids from the full language.</li>
+      <li><strong>Curious about a modern, concurrency-first alternative? —</strong> <a href="/go/index.html">Go</a> — every chapter is written assuming you already know C (and ideally C++), contrasting Go's choices against theirs directly.</li>
+    </ul>
   </section>
 
   <section id="search" aria-label="Search">
@@ -148,10 +195,13 @@
       Every piece of knowledge is classified <strong>before</strong> it's written down:
       domain → category → topic. SPI and I2C are separate topics under
       <a href="/protocols/index.html">Protocols</a>; TCP, IP, and UDP are separated
-      under <a href="/networking/index.html">Networking</a>; Linux, bootloaders, and
-      Snap each evolve independently. Nothing gets dumped into a catch-all folder.
-      See <a href="/GUIDE.md">GUIDE.md</a> for the full convention on where new
-      material belongs and how to add it.
+      under <a href="/networking/index.html">Networking</a>; <a href="/c/index.html">C</a>,
+      <a href="/embedded-c/index.html">Embedded C</a>, <a href="/cpp/index.html">C++</a>, and
+      <a href="/go/index.html">Go</a> are four separate domains rather than one giant
+      "programming" catch-all, precisely so each can be read start to finish on its own
+      terms. Linux, bootloaders, and Snap each evolve independently too. Nothing gets
+      dumped into a catch-all folder. See <a href="/GUIDE.md">GUIDE.md</a> for the full
+      convention on where new material belongs and how to add it.
     </p>
   </section>
 </main>
