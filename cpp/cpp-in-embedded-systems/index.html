@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>C++ in Embedded Systems — C++ — Embedded Pandora</title>
+<meta name="description" content="What a bare-metal C++ codebase typically avoids from this whole domain, and why — exceptions, RTTI, and heavy dynamic allocation, plus what genuinely carries over cleanly to constrained hardware." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C++</p>
+  <h1>C++ in Embedded Systems</h1>
+  <p class="lede">
+    Every chapter in this domain is real, useful C++ — but on a microcontroller with a few KB of RAM and hard
+    real-time deadlines, not every feature is a good fit. This closing chapter is the honest map: what a
+    typical bare-metal C++ codebase avoids from everything covered so far, what it happily keeps, and why —
+    closing the loop back to <a href="/embedded-c/index.html">Embedded C</a>, which covers the same
+    hardware-constrained mindset for plain C.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The subset of C++ commonly used on bare-metal/RTOS targets, and the specific features commonly avoided or restricted, with concrete reasons for each.</dd>
+      <dt>Mental model</dt><dd>Desktop C++ optimizes for programmer productivity at some cost in predictability; embedded C++ makes the opposite trade — predictable timing and memory footprint, even at some cost to convenience.</dd>
+      <dt>Key numbers</dt><dd>Exception-handling machinery alone can add tens of KB to a binary — often a meaningful fraction of a microcontroller's entire flash budget.</dd>
+      <dt>Reach for it when</dt><dd>Deciding, up front, which C++ features a new embedded project's style guide should allow — a decision worth making deliberately, not by accident.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#exceptions">Why exceptions are often disabled</a></li>
+      <li><a href="#dynamic-allocation">Why heavy dynamic allocation is limited</a></li>
+      <li><a href="#rtti">RTTI — usually disabled too</a></li>
+      <li><a href="#what-carries-over">What carries over cleanly</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="exceptions">Why exceptions are often disabled</h2>
+  <p>
+    <a href="/cpp/exception-handling/index.html">Exception Handling</a> covered the mechanism; here's why
+    many embedded teams compile with exceptions turned off entirely (<code>-fno-exceptions</code> on GCC):
+  </p>
+  <ul class="point-list">
+    <li><strong>Code size —</strong> the exception-handling tables and unwinding machinery the compiler generates add real, often significant flash usage, even in code paths that never actually throw.</li>
+    <li><strong>Unpredictable worst-case timing —</strong> stack unwinding's cost depends on how deep the call stack is at the moment of the throw — hard to bound tightly, a problem for hard real-time deadlines.</li>
+    <li><strong>No OS to catch a truly uncaught exception gracefully —</strong> on a desktop, an uncaught exception terminates one process; on bare metal, it can mean the entire device.</li>
+  </ul>
+  <p>
+    The common replacement: return codes or <code>std::optional</code>-style "might not have a value"
+    types, checked explicitly — closer to
+    <a href="/c/functions/index.html">C's own error-handling convention</a>, chosen deliberately for the same
+    predictability reasons.
+  </p>
+
+  <h2 id="dynamic-allocation">Why heavy dynamic allocation is limited</h2>
+  <p>
+    <a href="/cpp/stl-containers-and-algorithms/index.html">STL containers</a> and
+    <a href="/cpp/memory-management/index.html">smart pointers</a> both lean on heap allocation — exactly
+    the concern <a href="/embedded-c/dynamic-memory/index.html">Embedded C's Dynamic Memory</a> raises about
+    <code>malloc</code>, still true here:
+  </p>
+  <ul class="point-list">
+    <li>Heap fragmentation over a device's operating lifetime, with no OS-level memory compaction to fall back on.</li>
+    <li>Allocation failure with nowhere sensible to report it, if exceptions are also disabled.</li>
+    <li>Non-deterministic allocation timing, a problem for the same hard-real-time reasons as exceptions.</li>
+  </ul>
+  <p>
+    Common replacements: fixed-size containers sized at compile time, memory pools with a bounded number of
+    fixed-size blocks, and <code>std::array</code> (a stack-allocated, fixed-size STL type not covered
+    earlier precisely because it has none of these issues) in place of <code>std::vector</code>.
+  </p>
+
+  <h2 id="rtti">RTTI — usually disabled too</h2>
+  <p>
+    <strong>RTTI (Run-Time Type Information)</strong> is what powers <code>dynamic_cast</code> and
+    <code>typeid</code> — asking "what concrete type is actually behind this base-class pointer" at runtime.
+    Like exceptions, it adds real code size and is very commonly disabled
+    (<code>-fno-rtti</code>) on constrained targets. The <a href="/cpp/inheritance-and-polymorphism/index.html">virtual
+    function dispatch</a> that makes polymorphism work does <strong>not</strong> depend on RTTI at all — that
+    part keeps working fine with RTTI turned off.
+  </p>
+
+  <h2 id="what-carries-over">What carries over cleanly</h2>
+  <p>
+    Most of this domain isn't actually the problem — the features above are a short, specific list, not
+    "avoid C++." What's commonly kept, freely:
+  </p>
+  <dl class="kv">
+    <dt><a href="/cpp/classes-and-objects/index.html">Classes &amp; encapsulation</a></dt><dd>Zero runtime cost — a class compiles down to essentially the same code as a struct plus plain functions.</dd>
+    <dt><a href="/cpp/constructors-destructors-raii/index.html">RAII</a></dt><dd>Genuinely valuable on embedded specifically — automatic peripheral setup/teardown with no runtime cost.</dd>
+    <dt><a href="/cpp/inheritance-and-polymorphism/index.html">Virtual functions</a></dt><dd>A small, predictable, constant-time cost (one extra pointer indirection) — commonly used for driver interfaces.</dd>
+    <dt><a href="/cpp/templates/index.html">Templates</a></dt><dd>Zero runtime cost, since everything resolves at compile time — genuinely popular for embedded, though watch total code size across many instantiations.</dd>
+    <dt><code>std::unique_ptr</code></dt><dd>Zero overhead versus a raw pointer — commonly allowed even where <code>shared_ptr</code> and heavy STL containers are not.</dd>
+  </dl>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Automotive and aerospace firmware —</strong> MISRA C++ is a widely-used coding standard restricting exactly this kind of feature subset, for the safety-critical predictability reasons above.</li>
+    <li><strong>RTOS-based embedded C++ projects —</strong> commonly compile with exceptions and RTTI disabled from the project template onward, as a deliberate, upfront decision rather than a later retrofit.</li>
+    <li><strong>Game console and real-time graphics code —</strong> historically avoids exceptions and heavy STL allocation for the same hard-real-time and predictable-footprint reasons as embedded firmware.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Disabling exceptions doesn't remove every exception-related code path automatically — some standard library functions still assume exceptions are enabled internally; check your specific toolchain's embedded/freestanding documentation rather than assuming.</li>
+      <li>This restricted subset is a team/project decision, not a law of physics — a Linux-class embedded system (an SBC running embedded Linux, for instance) often has enough memory and OS support to use far more of standard C++ freely; the constraints above scale with how tight the actual hardware budget is.</li>
+      <li>"We don't use exceptions" is a project convention that needs enforcing (compiler flags, code review, static analysis) — nothing stops a contributor from accidentally writing a <code>throw</code> otherwise.</li>
+      <li>This chapter closes the C++ domain, but not the notebook's language coverage — the upcoming Go domain covers a different, modern take on some of the same tradeoffs this chapter discusses (garbage collection instead of manual/RAII memory management, no exceptions at all by design).</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/cpp/exception-handling/index.html", "title": "Exception Handling" },
+  "related": [
+    { "href": "/embedded-c/index.html", "title": "Embedded C" },
+    { "href": "/embedded-c/dynamic-memory/index.html", "title": "Dynamic Memory" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
