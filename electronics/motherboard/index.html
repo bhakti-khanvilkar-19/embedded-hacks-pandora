@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Motherboard — Electronics — Embedded Pandora</title>
+<meta name="description" content="The board that physically and electrically connects every other component — chipset, buses, form factors, and why compatibility mismatches are the single most common build mistake." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Electronics</p>
+  <h1>Motherboard</h1>
+  <p class="lede">
+    Every component covered so far — <a href="/electronics/cpu/index.html">CPU</a>,
+    <a href="/electronics/memory/index.html">RAM</a>, <a href="/electronics/storage/index.html">storage</a>,
+    <a href="/electronics/gpu/index.html">GPU</a> — needs somewhere to physically plug in and a way to
+    actually talk to each other. The motherboard is that somewhere: the board every other piece of hardware
+    connects to, both electrically and physically.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The main circuit board a computer's components all plug into, providing both power delivery and data pathways between them.</dd>
+      <dt>Mental model</dt><dd>A city's road and utility network — every building (component) needs a physical connection to it before it can receive power or talk to anything else.</dd>
+      <dt>Key numbers</dt><dd>Form factors (ATX, Micro-ATX, Mini-ITX) trade expansion room for physical footprint.</dd>
+      <dt>Reach for it when</dt><dd>Describing what physically holds a system together and routes power/data between every other component.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#chipset">The chipset</a></li>
+      <li><a href="#buses">Buses — the actual pathways</a></li>
+      <li><a href="#form-factors">Form factors</a></li>
+      <li><a href="#expansion">Expansion slots</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="chipset">The chipset</h2>
+  <p>
+    The <strong>chipset</strong> is the set of controller chips managing communication between the
+    <a href="/electronics/cpu/index.html">CPU</a> and everything else — storage interfaces, USB ports, and
+    more. It's a major factor in what a given motherboard actually supports: how many drives, how many
+    high-speed expansion slots, which CPU generations it can drive at all.
+  </p>
+
+  <h2 id="buses">Buses — the actual pathways</h2>
+  <dl class="kv">
+    <dt>PCIe</dt><dd>The high-speed lanes a <a href="/electronics/gpu/index.html">GPU</a> and other add-in cards connect through — more lanes and a newer generation both mean more bandwidth available.</dd>
+    <dt>SATA / NVMe</dt><dd>Storage interfaces — SATA is the older, slower standard; NVMe runs storage directly over PCIe lanes for dramatically higher throughput, matching the speeds described on the <a href="/electronics/storage/index.html">ROM &amp; Storage</a> page.</dd>
+    <dt>USB</dt><dd>The external-peripheral bus — keyboards, mice, external drives, all sharing the motherboard's USB controller bandwidth.</dd>
+  </dl>
+
+  <h2 id="form-factors">Form factors</h2>
+  <p>
+    Standardized physical sizes — <strong>ATX</strong> (full-size, most expansion room), <strong>Micro-ATX</strong>
+    (smaller, fewer slots), <strong>Mini-ITX</strong> (smallest common standard, minimal expansion) — trade
+    physical footprint directly against how many components a board can host at once. The tradeoff is
+    entirely physical: a smaller board isn't slower, it simply has less room.
+  </p>
+
+  <h2 id="expansion">Expansion slots</h2>
+  <ul class="point-list">
+    <li><strong>PCIe slots —</strong> for a <a href="/electronics/gpu/index.html">GPU</a> or other add-in cards.</li>
+    <li><strong>RAM slots (DIMM) —</strong> how many <a href="/electronics/memory/index.html">memory</a> sticks, and often at what maximum speed, a board supports.</li>
+    <li><strong>M.2 slots —</strong> compact, direct-to-PCIe slots for NVMe storage, no cables required.</li>
+  </ul>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every desktop, workstation, and server —</strong> the direct case this page describes.</li>
+    <li><strong>Laptops —</strong> a custom-shaped, non-standard board doing the exact same conceptual job, just not built to any interchangeable form factor.</li>
+    <li><strong>Embedded single-board computers —</strong> a Raspberry Pi–style board is a tiny, fixed-component version of the same idea — CPU, RAM, and I/O all on one board, just without swappable parts — see the <a href="/embedded/index.html">Embedded</a> domain.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Compatibility mismatches — wrong CPU socket, unsupported RAM type/speed, a form factor that doesn't physically fit the case — are the single most common category of build mistake, almost always avoidable by checking the motherboard's own specification sheet first.</li>
+      <li>A chipset can quietly cap what's possible even with otherwise-compatible parts — limited PCIe lane counts or storage interfaces are a real, easy-to-miss constraint.</li>
+      <li>A motherboard's own firmware (BIOS/UEFI) is itself stored in non-volatile memory on the board — see <a href="/electronics/storage/index.html#boot-role">ROM &amp; Storage's boot role section</a> for why that has to be true before anything else on the system can even start.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/electronics/gpu/index.html", "title": "GPU" },
+  "next": { "href": "/electronics/psu/index.html", "title": "PSU" },
+  "related": [
+    { "href": "/electronics/cpu/index.html", "title": "CPU" },
+    { "href": "/electronics/storage/index.html", "title": "ROM & Storage" },
+    { "href": "/embedded/index.html", "title": "Embedded" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

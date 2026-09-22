@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GPU — Electronics — Embedded Pandora</title>
+<meta name="description" content="Why a processor built for thousands of simple, simultaneous operations is a fundamentally different shape from a CPU — and why that exact shape is what modern AI workloads need." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Electronics</p>
+  <h1>GPU — Graphics Processing Unit</h1>
+  <p class="lede">
+    <a href="/electronics/cpu/index.html">CPU</a>'s page describes one expert following a recipe, one
+    precise step at a time, extremely fast. A GPU is the opposite shape entirely: not one expert, but
+    thousands of simple workers, each doing the same small task simultaneously on a different piece of
+    data.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A processor built for massive parallelism — thousands of simple cores executing the same operation on different data at once, rather than a few powerful cores doing varied work in sequence.</dd>
+      <dt>Mental model</dt><dd>A CPU is one expert chef preparing one complex dish, very fast. A GPU is a thousand line cooks, each repeating one simple task on their own ingredient, all at the same time.</dd>
+      <dt>Key numbers</dt><dd>Thousands of cores (vs. a CPU's handful to dozens); its own dedicated VRAM, measured in GB.</dd>
+      <dt>Reach for it when</dt><dd>The workload is the same operation, repeated independently across huge amounts of data — pixels, or matrix math.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#parallelism">Massive parallelism</a></li>
+      <li><a href="#cpu-vs-gpu">CPU vs. GPU, side by side</a></li>
+      <li><a href="#why-ai">Why AI workloads live on GPUs</a></li>
+      <li><a href="#vram">VRAM</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="parallelism">Massive parallelism</h2>
+  <p>
+    Rendering a frame means computing a color for every one of several million pixels — and critically,
+    each pixel's computation doesn't depend on any other pixel's. That's exactly the shape of problem a GPU
+    is built for: the same small program, run independently across an enormous number of data points at
+    once, rather than one long sequential chain of dependent steps.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 160" role="img" aria-labelledby="cpu-gpu-shape-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="cpu-gpu-shape-title">A CPU has a few large, powerful cores; a GPU has thousands of small, simple cores, all executing the same operation on different data simultaneously</title>
+      <text class="seq-sub" x="150" y="18" text-anchor="middle" font-weight="700">CPU — few, powerful cores</text>
+      <rect class="frame-box block-teal" x="30" y="30" width="90" height="90" rx="8" />
+      <text class="frame-label" x="75" y="80" text-anchor="middle" font-size="11">Core</text>
+      <rect class="frame-box block-teal" x="130" y="30" width="90" height="90" rx="8" />
+      <text class="frame-label" x="175" y="80" text-anchor="middle" font-size="11">Core</text>
+      <text class="seq-note" x="150" y="140" text-anchor="middle" font-size="9">each core: complex, independent, sequential work</text>
+
+      <text class="seq-sub" x="530" y="18" text-anchor="middle" font-weight="700">GPU — thousands of simple cores</text>
+      <g fill-opacity="1">
+        <rect class="frame-box block-violet" x="330" y="30" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="360" y="30" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="390" y="30" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="420" y="30" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="450" y="30" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="480" y="30" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="510" y="30" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="540" y="30" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="570" y="30" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="600" y="30" width="26" height="26" rx="3" />
+        <rect class="frame-box block-violet" x="330" y="60" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="360" y="60" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="390" y="60" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="420" y="60" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="450" y="60" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="480" y="60" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="510" y="60" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="540" y="60" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="570" y="60" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="600" y="60" width="26" height="26" rx="3" />
+        <rect class="frame-box block-violet" x="330" y="90" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="360" y="90" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="390" y="90" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="420" y="90" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="450" y="90" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="480" y="90" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="510" y="90" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="540" y="90" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="570" y="90" width="26" height="26" rx="3" /><rect class="frame-box block-violet" x="600" y="90" width="26" height="26" rx="3" />
+      </g>
+      <text class="seq-note" x="480" y="140" text-anchor="middle" font-size="9">every core: the same simple operation, different data, simultaneously</text>
+    </svg>
+    <figcaption class="diagram__caption">Neither shape is "better" — they're built for opposite kinds of work, which is exactly why most systems have both.</figcaption>
+  </figure>
+
+  <h2 id="cpu-vs-gpu">CPU vs. GPU, side by side</h2>
+  <table>
+    <thead><tr><th></th><th>CPU</th><th>GPU</th></tr></thead>
+    <tbody>
+      <tr><td>Core count</td><td>A handful to a few dozen</td><td>Thousands</td></tr>
+      <tr><td>Per-core power</td><td>High — complex branching, varied instructions</td><td>Low — simple, repetitive operations</td></tr>
+      <tr><td>Best at</td><td>Sequential, branch-heavy, varied work</td><td>The same operation repeated across huge independent data sets</td></tr>
+      <tr><td>Own dedicated memory</td><td>Shares system <a href="/electronics/memory/index.html">RAM</a></td><td>Dedicated VRAM, extremely high bandwidth</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="why-ai">Why AI workloads live on GPUs</h2>
+  <p>
+    Neural network computation is, overwhelmingly, matrix multiplication — the exact same operation
+    repeated across enormous, independent grids of numbers. That's precisely the shape of problem a GPU's
+    thousands of simple cores are built for, which is why GPUs (not CPUs) became the default hardware for
+    training and running the AI systems covered in the
+    <a href="/ai/index.html">AI Systems</a> domain — the hardware shape happened to match the math almost
+    perfectly.
+  </p>
+
+  <h2 id="vram">VRAM</h2>
+  <p>
+    A GPU keeps its own dedicated high-bandwidth memory, separate from system
+    <a href="/electronics/memory/index.html">RAM</a>, because its thousands of cores need to pull huge
+    amounts of data — textures, model weights — at a rate ordinary system RAM isn't built to sustain. VRAM
+    capacity is frequently the real limit on what a GPU can handle at once, sometimes before its raw core
+    count ever becomes the bottleneck.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Gaming and graphics rendering —</strong> the GPU's original purpose, and still a direct fit for its parallel-pixel shape.</li>
+    <li><strong>AI/ML training and inference —</strong> the dominant modern use of high-end GPU hardware, driven directly by the matrix-multiplication match above.</li>
+    <li><strong>Video editing and encoding —</strong> another naturally parallel workload (transforming every pixel of every frame independently).</li>
+    <li><strong>Scientific/parallel computing —</strong> simulations built from huge independent grids of calculations (weather models, physics simulations) map onto the same core shape.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>More VRAM or more cores doesn't help a workload that isn't actually parallel — matching the problem's real shape to the right processor matters more than either spec sheet number alone.</li>
+      <li>A GPU-bound task gets no benefit from a faster <a href="/electronics/cpu/index.html">CPU</a>, and vice versa — diagnosing which processor is actually the bottleneck is the first real step before "upgrading" anything.</li>
+      <li>GPUs draw and dissipate significant power under sustained load — see <a href="/electronics/cooling/index.html">Cooling</a> and <a href="/electronics/psu/index.html">PSU</a> for why a high-end GPU changes both of those requirements for an entire system, not just itself.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/electronics/storage/index.html", "title": "ROM & Storage" },
+  "next": { "href": "/electronics/motherboard/index.html", "title": "Motherboard" },
+  "related": [
+    { "href": "/electronics/cpu/index.html", "title": "CPU" },
+    { "href": "/electronics/memory/index.html", "title": "Memory (RAM)" },
+    { "href": "/ai/index.html", "title": "AI Systems" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

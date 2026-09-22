@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PSU — Electronics — Embedded Pandora</title>
+<meta name="description" content="How a power supply converts wall AC into the stable DC voltage rails every component actually needs, what wattage and efficiency ratings mean, and why undersizing one causes load-only instability." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Electronics</p>
+  <h1>PSU — Power Supply Unit</h1>
+  <p class="lede">
+    Every component on this page's neighboring pages — <a href="/electronics/cpu/index.html">CPU</a>,
+    <a href="/electronics/gpu/index.html">GPU</a>, <a href="/electronics/motherboard/index.html">motherboard</a>
+    — needs steady DC power to run at all. The wall only ever provides AC. A PSU is the device that turns
+    one into the other, built directly on the voltage/current fundamentals in
+    <a href="/electronics/fundamentals/index.html">Electronics Fundamentals</a>.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Converts AC mains power into the stable DC voltage rails (+12V, +5V, +3.3V) a computer's components actually need.</dd>
+      <dt>Mental model</dt><dd>A translator converting one "language" of electricity (AC from the wall) into several different "dialects" (DC voltage rails) different components speak.</dd>
+      <dt>Key numbers</dt><dd>Rated in watts (maximum DC output capacity); efficiency graded 80 Plus Bronze/Gold/Platinum/Titanium.</dd>
+      <dt>Reach for it when</dt><dd>Sizing power delivery for a system's total component draw under real, sustained load — not just at idle.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#ac-to-dc">AC to DC</a></li>
+      <li><a href="#voltage-rails">Voltage rails</a></li>
+      <li><a href="#wattage-efficiency">Wattage and efficiency</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="ac-to-dc">AC to DC</h2>
+  <p>
+    Mains power is <strong>alternating current</strong> — voltage that reverses direction many times a
+    second. Almost every electronic component needs steady <strong>direct current</strong> instead — see
+    <a href="/electronics/fundamentals/index.html">Electronics Fundamentals</a> for what voltage and
+    current actually are. A PSU's whole job is that conversion: rectifying AC into DC, then regulating it
+    down to the specific steady voltages components expect.
+  </p>
+
+  <h2 id="voltage-rails">Voltage rails</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 160" role="img" aria-labelledby="psu-rails-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="psu-rails-title">A PSU takes AC input and outputs several distinct DC voltage rails, each feeding different components according to what voltage they need</title>
+      <rect class="frame-box block-amber" x="20" y="55" width="140" height="50" rx="8" />
+      <text class="frame-label" x="90" y="85" text-anchor="middle" font-size="11">AC input</text>
+
+      <rect class="frame-box block-violet" x="260" y="40" width="120" height="80" rx="8" />
+      <text class="frame-label" x="320" y="85" text-anchor="middle" font-size="11" font-weight="700">PSU</text>
+
+      <rect class="frame-box block-teal" x="480" y="10" width="180" height="34" rx="6" />
+      <text class="frame-label" x="570" y="32" text-anchor="middle" font-size="10">+12V — CPU, GPU, motors</text>
+      <rect class="frame-box block-teal" x="480" y="63" width="180" height="34" rx="6" />
+      <text class="frame-label" x="570" y="85" text-anchor="middle" font-size="10">+5V — some logic, USB</text>
+      <rect class="frame-box block-teal" x="480" y="116" width="180" height="34" rx="6" />
+      <text class="frame-label" x="570" y="138" text-anchor="middle" font-size="10">+3.3V — low-power logic</text>
+
+      <line x1="160" y1="80" x2="256" y2="80" class="seq-arrow flow-path" stroke-width="1.4" />
+      <line x1="380" y1="60" x2="476" y2="27" class="seq-arrow flow-path" stroke-width="1.2" />
+      <line x1="380" y1="80" x2="476" y2="80" class="seq-arrow flow-path" stroke-width="1.2" />
+      <line x1="380" y1="100" x2="476" y2="133" class="seq-arrow flow-path" stroke-width="1.2" />
+    </svg>
+    <figcaption class="diagram__caption">One AC input in, several regulated DC voltages out — different components draw from different rails depending on what they were designed for.</figcaption>
+  </figure>
+
+  <h2 id="wattage-efficiency">Wattage and efficiency</h2>
+  <p>
+    A PSU's rated wattage is its maximum <em>DC output</em> capacity, not how much power it draws from the
+    wall — it always draws somewhat more than it outputs, because no conversion is perfectly lossless. The
+    <strong>80 Plus</strong> certification tiers (Bronze through Titanium) measure exactly how much extra is
+    wasted as heat during that conversion — a real, ongoing factor in both electricity cost and how much
+    heat a system's <a href="/electronics/cooling/index.html">cooling</a> has to remove.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every desktop/server PSU —</strong> the case this page describes directly.</li>
+    <li><strong>Laptop and phone chargers —</strong> the same AC-to-DC job, done externally, at much lower wattage.</li>
+    <li><strong>Embedded device power supplies —</strong> a small embedded system often uses a simple AC adapter or an onboard regulator doing the same AC-to-DC or DC-to-DC conversion at a tiny fraction of the scale — see <a href="/embedded/index.html">Embedded</a>.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Undersizing a PSU for a system's actual peak draw causes instability specifically under load, not at idle — a system that seems fine browsing but crashes under a heavy <a href="/electronics/gpu/index.html">GPU</a> workload is a classic symptom.</li>
+      <li>A high efficiency rating is not the same as sufficient wattage capacity — a very efficient PSU can still be badly undersized for a power-hungry system.</li>
+      <li>PSU failure is a genuine fire/safety risk category, not just a reliability one — it's one of the few components worth never buying on price alone.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/electronics/motherboard/index.html", "title": "Motherboard" },
+  "next": { "href": "/electronics/cooling/index.html", "title": "Cooling" },
+  "related": [
+    { "href": "/electronics/fundamentals/index.html", "title": "Fundamentals" },
+    { "href": "/electronics/cooling/index.html", "title": "Cooling" },
+    { "href": "/electronics/gpu/index.html", "title": "GPU" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
