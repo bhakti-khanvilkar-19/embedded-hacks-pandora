@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Introduction to Go — Go — Embedded Pandora</title>
+<meta name="description" content="Go's design philosophy contrasted with C/C++, the toolchain (go run/build/fmt), a first program walked through line by line, and a map of what the rest of this domain covers." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Go</p>
+  <h1>Introduction to Go</h1>
+  <p class="lede">
+    Go was created at Google in 2009, explicitly to fix pain points its creators had with C++ at scale: slow
+    builds, hard-to-manage dependencies, and concurrency that was easy to get wrong. The result is a language
+    that looks almost nothing like C++'s answer to those problems — smaller, more opinionated, and built
+    around one specific idea: make it easy to write software that does many things at once, correctly.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A compiled, statically-typed, garbage-collected language with built-in concurrency support, a fast compiler, and a deliberately small feature set.</dd>
+      <dt>Mental model</dt><dd>If C++ says "give the programmer every tool and trust them," Go says "give the programmer fewer tools, chosen carefully, so any Go codebase looks roughly like any other."</dd>
+      <dt>Key numbers</dt><dd>Files use the <code>.go</code> extension; <code>go build</code> typically compiles in seconds even for large codebases — a deliberate design goal, not an accident.</dd>
+      <dt>Reach for it when</dt><dd>Building networked services, CLI tools, or anything needing straightforward concurrency — less commonly the first choice for hard real-time or deeply resource-constrained embedded targets (see this domain's closing chapter for exactly why and where it still fits).</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#philosophy">Go's design philosophy, by contrast</a></li>
+      <li><a href="#first-program">A first program, line by line</a></li>
+      <li><a href="#toolchain">The toolchain</a></li>
+      <li><a href="#the-map">A map of what's ahead</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="philosophy">Go's design philosophy, by contrast</h2>
+  <table>
+    <thead><tr><th></th><th>C / C++</th><th>Go</th></tr></thead>
+    <tbody>
+      <tr><td>Memory management</td><td>Manual (C) or RAII/smart pointers (C++)</td><td>Automatic garbage collection — no <code>free</code>, no <code>delete</code></td></tr>
+      <tr><td>Error handling</td><td>Return codes (C) or exceptions (C++)</td><td>Explicit multi-value returns, checked by convention — no exceptions at all</td></tr>
+      <tr><td>Object-oriented features</td><td>None (C) or classes/inheritance (C++)</td><td>Structs with methods, but no inheritance — composition and interfaces instead</td></tr>
+      <tr><td>Concurrency</td><td>OS threads, manual synchronization</td><td>Goroutines and channels, built directly into the language</td></tr>
+      <tr><td>Compile speed</td><td>Can be slow on large C++ codebases</td><td>A deliberate, explicit design goal — typically very fast</td></tr>
+    </tbody>
+  </table>
+  <p>
+    None of this makes Go strictly "better" — it's a different set of tradeoffs, optimized for different
+    priorities than C or C++'s. Every chapter in this domain calls out exactly which tradeoff is being made
+    and why.
+  </p>
+
+  <h2 id="first-program">A first program, line by line</h2>
+  <pre><code>package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello, Go!")
+}</code></pre>
+  <dl class="kv">
+    <dt><code>package main</code></dt><dd>Every Go file belongs to a package — <code>main</code> specifically marks this as a standalone, runnable program rather than a reusable library.</dd>
+    <dt><code>import "fmt"</code></dt><dd>Brings in the "format" package, Go's standard library equivalent of C's <code>&lt;stdio.h&gt;</code> — <code>fmt.Println</code> is the direct analog of <code>printf</code>.</dd>
+    <dt><code>func main()</code></dt><dd>Exactly like C's <code>main</code> — the entry point every Go program starts running from. No return type, no arguments needed for the simple case.</dd>
+    <dt>No semicolons</dt><dd>Go statements don't end in <code>;</code> in normal source — the compiler inserts them automatically based on line breaks. This is a real, visible difference from every C-family syntax you've seen so far.</dd>
+  </dl>
+
+  <h2 id="toolchain">The toolchain</h2>
+  <pre><code>go run hello.go     # compile AND run in one step — great for quick iteration
+go build hello.go    # compile to a binary named "hello", don't run it
+./hello               # run the compiled binary
+go fmt hello.go       # reformat the file to Go's standard style, automatically</code></pre>
+  <p>
+    <code>go fmt</code> is worth calling out specifically — Go ships an opinionated auto-formatter as a core
+    tool, and the entire Go ecosystem uses it by convention. There's no equivalent debate over code style
+    that C/C++ projects often have, because the tooling settles it.
+  </p>
+
+  <h2 id="the-map">A map of what's ahead</h2>
+  <ul class="point-list">
+    <li><strong><a href="/go/variables-types-control-flow/index.html">Variables, Types &amp; Control Flow</a> —</strong> declarations, the built-in types, <code>if</code>/<code>for</code>/<code>switch</code>.</li>
+    <li><strong>Functions &amp; Multiple Return Values —</strong> Go functions can return more than one value directly — the mechanism behind Go's entire error-handling convention.</li>
+    <li><strong>Structs &amp; Methods —</strong> Go's answer to <a href="/cpp/classes-and-objects/index.html">C++ classes</a>, without inheritance.</li>
+    <li><strong>Interfaces —</strong> Go's answer to <a href="/cpp/inheritance-and-polymorphism/index.html">C++ polymorphism</a>, structured completely differently.</li>
+    <li><strong>Slices, Arrays &amp; Maps —</strong> Go's built-in collection types.</li>
+    <li><strong>Goroutines &amp; Channels —</strong> Go's concurrency model, the feature most associated with the language.</li>
+    <li><strong>Error Handling —</strong> the explicit-multi-return convention in full, and why Go has no exceptions.</li>
+    <li><strong>Packages &amp; Modules —</strong> organizing and sharing Go code.</li>
+    <li><strong>Go for Embedded/IoT —</strong> where Go genuinely fits on constrained hardware, and TinyGo.</li>
+  </ul>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Docker and Kubernetes —</strong> both written in Go, arguably the projects most responsible for the language's rise in infrastructure/DevOps tooling.</li>
+    <li><strong>Networked backend services —</strong> Go's built-in concurrency makes it a strong natural fit for servers handling many simultaneous connections.</li>
+    <li><strong>CLI tools —</strong> Go compiles to a single, dependency-free binary per platform, a genuinely convenient distribution story for command-line tools.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>An unused import or an unused local variable is a <strong>compile error</strong> in Go, not just a warning — stricter than C/C++ by design, and a common early surprise.</li>
+      <li>Go's braces are mandatory and must follow a specific placement (the opening brace can't go on its own line) — this isn't a style preference, it's enforced by the automatic semicolon insertion mentioned above.</li>
+      <li>Go deliberately has no <code>while</code> keyword — <code>for</code> alone covers every loop shape, one more example of Go choosing fewer ways to do the same thing.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "next": { "href": "/go/variables-types-control-flow/index.html", "title": "Variables, Types & Control Flow" },
+  "related": [
+    { "href": "/c/introduction/index.html", "title": "Introduction to C" },
+    { "href": "/cpp/introduction/index.html", "title": "Introduction to C++" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

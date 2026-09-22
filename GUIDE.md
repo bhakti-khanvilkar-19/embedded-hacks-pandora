@@ -46,6 +46,9 @@ the content or picking a vaguer shared folder.
 ├── cpp/                         C++ built on top of C: classes, inheritance,
 │                                templates, the STL, smart pointers
 │   └── <topic>/
+├── go/                          Go: goroutines, channels, interfaces, no
+│                                exceptions, explained by contrast with C/C++
+│   └── <topic>/
 ├── sensors/                    the sensing element and the physics behind it
 │   └── <topic>/
 ├── protocols/                 wire-level buses: SPI, I2C, UART, CAN, ...
@@ -102,6 +105,15 @@ Each topic is a subfolder of exactly one domain, with its own `index.html`.
   avoids from that list and why. Kept separate from C because these are
   a genuinely different set of language features and design idioms
   layered on top, not a deeper look at C's own.
+- **Go** — Go (Golang), a modern, garbage-collected, concurrency-first
+  language, explained throughout by direct contrast with C/C++: variables
+  and control flow, functions and multiple returns, structs and methods
+  (no inheritance), interfaces, slices/arrays/maps, goroutines and
+  channels, explicit error handling (no exceptions), packages/modules,
+  and where Go fits on embedded/IoT hardware (TinyGo). Not built on C the
+  way C++ is — it's its own language with its own compiler and runtime —
+  but kept in this notebook as a sibling language domain because it's a
+  real, growing presence in systems and IoT tooling.
 - **Sensors** — the sensing element itself and the physics or math behind
   what it measures (GNSS trilateration, MEMS accelerometers, thermocouples).
   Not the wire it's read over — that's Protocols — and not the

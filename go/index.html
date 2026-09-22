@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Go — Embedded Pandora</title>
+<meta name="description" content="Go from first principles — a modern, garbage-collected systems language with a different set of tradeoffs than C/C++: goroutines and channels for concurrency, no exceptions, no inheritance, and a toolchain that gets out of your way." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Domain</p>
+  <h1>Go</h1>
+  <p class="lede">
+    Go (Golang) is a modern, compiled, garbage-collected language designed at Google specifically to make
+    large, concurrent systems software easier to write correctly. Where <a href="/cpp/index.html">C++</a>
+    builds up from C by adding features, Go took the opposite approach — a deliberately small language, with
+    concurrency (goroutines and channels) built in as a first-class citizen instead of bolted on. This domain
+    assumes you already know <a href="/c/index.html">C</a>, and explains every Go concept by contrast with
+    what you already know from C, C++, or both.
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">Why this domain is separate, and why it's here at all</span>
+    <p>
+      Go isn't built on C the way <a href="/cpp/index.html">C++</a> is — it's a genuinely different language
+      with its own compiler, runtime, and standard library. It earns a place in this notebook anyway because
+      it's a real, growing presence in systems and infrastructure software, and increasingly in IoT/edge
+      tooling specifically (see this domain's closing chapter, Go for Embedded/IoT). Understanding it well
+      means understanding where it deliberately agrees with C/C++'s choices, and where it deliberately
+      doesn't — which is how every chapter here is framed.
+    </p>
+  </div>
+
+  <h2>Topics</h2>
+  <ul class="topic-list">
+    <li><a href="/go/introduction/index.html"><span>Introduction to Go — philosophy, toolchain, your first program</span><span class="status">written</span></a></li>
+    <li><a href="/go/variables-types-control-flow/index.html"><span>Variables, Types &amp; Control Flow — declarations, the built-in types, if/for/switch</span><span class="status">written</span></a></li>
+  </ul>
+
+  <h2>Planned</h2>
+  <p>
+    <span class="badge">functions-and-multiple-returns</span>
+    <span class="badge">structs-and-methods</span>
+    <span class="badge">interfaces</span>
+    <span class="badge">slices-arrays-maps</span>
+    <span class="badge">goroutines-and-channels</span>
+    <span class="badge">error-handling</span>
+    <span class="badge">packages-and-modules</span>
+    <span class="badge">go-for-embedded-iot</span>
+  </p>
+
+  <div class="callout callout--note">
+    <span class="callout__label">Scope note</span>
+    <p>
+      Read top to bottom the first time through — each chapter assumes the ones before it. The final planned
+      chapter, Go for Embedded/IoT, closes the loop back to <a href="/embedded/index.html">Embedded</a> by
+      covering where Go actually fits (and doesn't) on constrained hardware, and TinyGo, the compiler that
+      makes some of it possible.
+    </p>
+  </div>
+</main>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

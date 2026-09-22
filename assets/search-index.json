@@ -817,6 +817,38 @@
     ]
   },
   {
+    "title": "Go",
+    "url": "/go/index.html",
+    "domain": "Go",
+    "category": "Overview",
+    "description": "Go from first principles — a modern, garbage-collected systems language with a different set of tradeoffs than C/C++: goroutines and channels for concurrency, no exceptions, no inheritance, and a toolchain that gets out of your way.",
+    "tags": [
+      "go"
+    ]
+  },
+  {
+    "title": "Introduction to Go — Go",
+    "url": "/go/introduction/index.html",
+    "domain": "Go",
+    "category": "Introduction",
+    "description": "Go's design philosophy contrasted with C/C++, the toolchain (go run/build/fmt), a first program walked through line by line, and a map of what the rest of this domain covers.",
+    "tags": [
+      "go",
+      "introduction"
+    ]
+  },
+  {
+    "title": "Variables, Types & Control Flow — Go",
+    "url": "/go/variables-types-control-flow/index.html",
+    "domain": "Go",
+    "category": "Variables Types Control Flow",
+    "description": "Declaring variables with var and :=, Go's built-in types, type inference, and if/for/switch — Go's only loop keyword covers every C loop shape, explained by direct contrast with C.",
+    "tags": [
+      "go",
+      "variables-types-control-flow"
+    ]
+  },
+  {
     "title": "Boot — Linux",
     "url": "/linux/boot/index.html",
     "domain": "Linux",
