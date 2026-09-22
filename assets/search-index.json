@@ -228,6 +228,28 @@
     ]
   },
   {
+    "title": "Control Flow — C",
+    "url": "/c/control-flow/index.html",
+    "domain": "C",
+    "category": "Control Flow",
+    "description": "if/else and switch — how C makes decisions, with flow diagrams for both, truthiness rules, and the fall-through behavior that makes switch different from every other language's version.",
+    "tags": [
+      "c",
+      "control-flow"
+    ]
+  },
+  {
+    "title": "Functions — C",
+    "url": "/c/functions/index.html",
+    "domain": "C",
+    "category": "Functions",
+    "description": "Declaring, defining, and calling functions in C — parameters, return values, scope, the call stack, and recursion, explained with a diagram of how calls actually stack up in memory.",
+    "tags": [
+      "c",
+      "functions"
+    ]
+  },
+  {
     "title": "C",
     "url": "/c/index.html",
     "domain": "C",
@@ -246,6 +268,17 @@
     "tags": [
       "c",
       "introduction"
+    ]
+  },
+  {
+    "title": "Loops — C",
+    "url": "/c/loops/index.html",
+    "domain": "C",
+    "category": "Loops",
+    "description": "for, while, and do-while — how C repeats work, when to reach for each one, plus break and continue, with a comparison table and flow diagrams.",
+    "tags": [
+      "c",
+      "loops"
     ]
   },
   {

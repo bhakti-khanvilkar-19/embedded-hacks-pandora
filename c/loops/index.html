@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Loops — C — Embedded Pandora</title>
+<meta name="description" content="for, while, and do-while — how C repeats work, when to reach for each one, plus break and continue, with a comparison table and flow diagrams." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C</p>
+  <h1>Loops</h1>
+  <p class="lede">
+    A loop repeats a block of code while some condition holds — the tool for "do this 10 times," "keep
+    reading until there's no more input," or "process every element in this array." C has three loop forms;
+    this chapter is about picking the right one, not just knowing the syntax.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Three ways to repeat a block of code: <code>for</code>, <code>while</code>, and <code>do-while</code>.</dd>
+      <dt>Mental model</dt><dd>All three ask the same question — "should I run this block again?" — they only differ in <em>when</em> that question gets asked and how the loop's own bookkeeping is written.</dd>
+      <dt>Key numbers</dt><dd>A <code>do-while</code> body always runs at least once; <code>for</code> and <code>while</code> can run zero times if the condition starts false.</dd>
+      <dt>Reach for it when</dt><dd><code>for</code> when you know the number of iterations up front; <code>while</code> when you don't; <code>do-while</code> when the body must run at least once regardless.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#for">for</a></li>
+      <li><a href="#while">while</a></li>
+      <li><a href="#do-while">do-while</a></li>
+      <li><a href="#comparison">Which one to reach for</a></li>
+      <li><a href="#break-continue">break and continue</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="for">for</h2>
+  <p>A <code>for</code> loop bundles the three parts of "repeat N times" into one line: an initializer, a condition, and an update.</p>
+  <pre><code>for (int i = 0; i < 5; i++) {
+    printf("%d\n", i);
+}
+// 0 1 2 3 4</code></pre>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 190" role="img" aria-labelledby="for-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="for-title">The for loop initializes i once, then repeatedly checks the condition, runs the body, and applies the update, looping back until the condition is false</title>
+      <rect class="frame-box block-amber" x="20" y="20" width="130" height="45" rx="8" />
+      <text class="frame-label" x="85" y="47" text-anchor="middle" font-size="10">init: i = 0</text>
+
+      <line x1="85" y1="65" x2="85" y2="90" class="seq-arrow flow-path" stroke-width="1.3" />
+      <polygon class="seq-arrowhead" points="85,94 79,82 91,82" />
+
+      <rect class="frame-box block-teal" x="20" y="96" width="130" height="45" rx="8" />
+      <text class="frame-label" x="85" y="123" text-anchor="middle" font-size="10">i &lt; 5?</text>
+
+      <line x1="150" y1="118" x2="196" y2="118" class="seq-arrow flow-path" stroke-width="1.3" />
+      <polygon class="seq-arrowhead" points="200,118 190,113 190,123" />
+      <text class="seq-sub" x="175" y="108" text-anchor="middle" font-size="7">yes</text>
+
+      <rect class="frame-box block-green" x="200" y="96" width="130" height="45" rx="8" />
+      <text class="frame-label" x="265" y="123" text-anchor="middle" font-size="10">run body</text>
+
+      <line x1="330" y1="118" x2="376" y2="118" class="seq-arrow flow-path" stroke-width="1.3" />
+      <polygon class="seq-arrowhead" points="380,118 370,113 370,123" />
+
+      <rect class="frame-box block-violet" x="380" y="96" width="130" height="45" rx="8" />
+      <text class="frame-label" x="445" y="123" text-anchor="middle" font-size="10">update: i++</text>
+
+      <path d="M 445,96 Q 445,70 265,70 Q 85,70 85,92" fill="none" class="seq-arrow flow-path flow-path--reverse" stroke-width="1.2" />
+      <polygon class="seq-arrowhead" points="85,96 79,84 91,84" />
+
+      <line x1="85" y1="141" x2="85" y2="166" class="seq-arrow" stroke-width="1.3" />
+      <polygon class="seq-arrowhead" points="85,170 79,158 91,158" />
+      <text class="seq-sub" x="100" y="158" text-anchor="start" font-size="7">no</text>
+      <text class="seq-note" x="85" y="184" text-anchor="middle" font-size="8">loop ends</text>
+    </svg>
+    <figcaption class="diagram__caption">The initializer runs exactly once, but the condition and update repeat every pass — this is the entire mechanism, whichever loop form you write it in.</figcaption>
+  </figure>
+
+  <h2 id="while">while</h2>
+  <p>A <code>while</code> loop checks its condition <em>before</em> every pass, including the first — if the condition starts false, the body never runs at all.</p>
+  <pre><code>int count = 0;
+while (count < 5) {
+    printf("%d\n", count);
+    count++;
+}
+// 0 1 2 3 4</code></pre>
+  <p>
+    This is the right shape whenever you don't know the number of iterations ahead of time — reading input
+    until a sentinel value appears, or polling a hardware flag until it's set.
+  </p>
+  <pre><code>while (!data_ready()) {
+    // spin, waiting
+}
+process(read_data());</code></pre>
+
+  <h2 id="do-while">do-while</h2>
+  <p>
+    A <code>do-while</code> checks its condition <em>after</em> the body — guaranteeing the body runs at
+    least once, even if the condition is false from the start:
+  </p>
+  <pre><code>int choice;
+do {
+    printf("Enter 1-5: ");
+    scanf("%d", &choice);
+} while (choice < 1 || choice > 5);</code></pre>
+  <p>
+    This shape fits menus and input-validation loops exactly — you always need to ask at least once before
+    you have anything to validate.
+  </p>
+
+  <h2 id="comparison">Which one to reach for</h2>
+  <table>
+    <thead><tr><th>Loop</th><th>Condition checked</th><th>Minimum runs</th><th>Best fit</th></tr></thead>
+    <tbody>
+      <tr><td><code>for</code></td><td>Before each pass</td><td>0</td><td>Known iteration count (array traversal, counting)</td></tr>
+      <tr><td><code>while</code></td><td>Before each pass</td><td>0</td><td>Unknown iteration count (waiting, reading until done)</td></tr>
+      <tr><td><code>do-while</code></td><td>After each pass</td><td>1</td><td>Body must run at least once (menus, input validation)</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="break-continue">break and continue</h2>
+  <dl class="kv">
+    <dt><code>break</code></dt><dd>Exits the loop immediately, skipping every remaining iteration — execution resumes at the first statement after the loop.</dd>
+    <dt><code>continue</code></dt><dd>Skips the rest of the <em>current</em> iteration only and jumps straight to the next one's condition check — the loop itself keeps running.</dd>
+  </dl>
+  <pre><code>for (int i = 0; i < 10; i++) {
+    if (i == 3) continue;   // skip printing 3, keep looping
+    if (i == 7) break;      // stop the loop entirely at 7
+    printf("%d\n", i);
+}
+// 0 1 2 4 5 6</code></pre>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Array/buffer processing —</strong> a <code>for</code> loop over a fixed-size array or ring buffer is the single most common loop shape in any C program.</li>
+    <li><strong>Polling a hardware flag —</strong> a tight <code>while</code> loop waiting on a register bit or a "data ready" flag, common in bare-metal drivers before interrupts are involved.</li>
+    <li><strong>The main firmware loop itself —</strong> most non-RTOS embedded firmware is structurally one giant <code>while (1) { ... }</code> loop that never exits for the life of the device.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>An off-by-one error — <code>i &lt;= 5</code> instead of <code>i &lt; 5</code> — is the single most common loop bug in any language; it's worth deliberately double-checking the boundary condition every time you write one.</li>
+      <li>Modifying the loop variable inside the body of a <code>for</code> loop (in addition to its own update clause) makes the iteration count very hard to reason about — usually a sign the loop should be restructured.</li>
+      <li>A <code>while (1) { ... }</code> loop with no <code>break</code> anywhere inside is intentional in embedded firmware (the main loop is supposed to run forever) but is almost always a bug anywhere else.</li>
+      <li>Comparing a loop counter declared as <code>unsigned int</code> against <code>0</code> with <code>&gt;=</code> in a countdown loop (<code>for (unsigned int i = 10; i &gt;= 0; i--)</code>) never terminates — an unsigned value can never go below <code>0</code>, it wraps around to a huge positive number instead.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/c/control-flow/index.html", "title": "Control Flow" },
+  "next": { "href": "/c/functions/index.html", "title": "Functions" },
+  "related": [
+    { "href": "/embedded-c/stacks-queues/index.html", "title": "Stacks, Queues & Ring Buffers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
