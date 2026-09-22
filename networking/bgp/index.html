@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BGP — Networking — Embedded Pandora</title>
+<meta name="description" content="How independently-run networks (Autonomous Systems) tell each other what they can reach, and why the internet doesn't have one central router — path-vector routing, AS_PATH, and policy over shortest path." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>BGP — Border Gateway Protocol</h1>
+  <p class="lede">
+    <a href="/networking/ip/index.html">IP</a>'s own page describes routing as "a packet is handed to a
+    gateway/router, which forwards it based on its routing table" — but never says how that table gets
+    built in the first place, at the scale of the entire internet. BGP is the answer: the protocol that
+    lets thousands of independently-run networks tell each other what they can reach, so a routing table
+    anywhere on the internet can have an answer for almost any destination on it.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The protocol that glues ~70,000+ independently-operated networks (Autonomous Systems) into one routable internet by exchanging reachability information.</dd>
+      <dt>Mental model</dt><dd>Word-of-mouth route gossip between ISPs: "I can reach these address ranges, and here's the chain of networks the route passes through."</dd>
+      <dt>Key numbers</dt><dd>Runs over <a href="/networking/tcp/index.html">TCP</a> port 179; each Autonomous System has a 16- or 32-bit AS Number (ASN).</dd>
+      <dt>Reach for it when</dt><dd>Never directly — an embedded device or application never speaks BGP. Understanding it explains why the internet has no single central router, and what "the internet is down for everyone" outages usually actually are.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#autonomous-systems">Autonomous Systems</a></li>
+      <li><a href="#how-it-works">How route advertisement actually works</a></li>
+      <li><a href="#path-vector">Path-vector routing and AS_PATH</a></li>
+      <li><a href="#policy">Policy beats shortest path</a></li>
+      <li><a href="#convergence">Convergence, flapping, and hijacks</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="autonomous-systems">Autonomous Systems</h2>
+  <p>
+    An <strong>Autonomous System (AS)</strong> is a network under one organization's independent
+    administrative control — an ISP, a university, a large company like a CDN or cloud provider. Each one
+    has a unique <strong>AS Number (ASN)</strong> and owns one or more blocks of IP address space it's
+    responsible for. Nobody owns or centrally controls "the internet" — it's simply the sum of every AS
+    that has agreed, bilaterally, to exchange traffic with its neighbors.
+  </p>
+
+  <h2 id="how-it-works">How route advertisement actually works</h2>
+  <p>
+    Routers at the edge of each AS form a BGP session (a long-lived TCP connection) with routers in
+    neighboring ASes. Over that session, they exchange <strong>advertisements</strong>: "I can reach this
+    IP prefix, and here is the path of ASes a packet would cross to get there." Each AS that hears an
+    advertisement can choose to re-advertise it onward to its own neighbors, adding itself to the path —
+    which is how a route to one small network can eventually become known almost everywhere.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 220" role="img" aria-labelledby="bgp-advertise-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="bgp-advertise-title">AS 400 advertises a route to its own prefix; AS 300 and AS 200 each re-advertise it onward, prepending their own AS number to the path each time</title>
+      <rect class="frame-box block-violet" x="20" y="80" width="120" height="50" rx="8" />
+      <text class="frame-label" x="80" y="110" text-anchor="middle" font-size="11">AS 100</text>
+      <rect class="frame-box block-teal" x="200" y="80" width="120" height="50" rx="8" />
+      <text class="frame-label" x="260" y="110" text-anchor="middle" font-size="11">AS 200</text>
+      <rect class="frame-box block-green" x="380" y="80" width="120" height="50" rx="8" />
+      <text class="frame-label" x="440" y="110" text-anchor="middle" font-size="11">AS 300</text>
+      <rect class="frame-box block-amber" x="560" y="80" width="120" height="50" rx="8" />
+      <text class="frame-label" x="620" y="110" text-anchor="middle" font-size="11">AS 400</text>
+      <text class="frame-caption" x="620" y="145" text-anchor="middle" font-size="9">owns 8.8.8.0/24</text>
+
+      <line x1="555" y1="105" x2="505" y2="105" class="seq-arrow" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="498,105 508,100 508,110" />
+      <text class="seq-sub" x="530" y="70" text-anchor="middle" font-size="8">originates</text>
+      <text class="seq-sub" x="530" y="150" text-anchor="middle" font-size="8">"…/24 via [400]"</text>
+
+      <line x1="375" y1="105" x2="325" y2="105" class="seq-arrow" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="318,105 328,100 328,110" />
+      <text class="seq-sub" x="350" y="70" text-anchor="middle" font-size="8">re-advertises</text>
+      <text class="seq-sub" x="350" y="150" text-anchor="middle" font-size="8">"…/24 via [300,400]"</text>
+
+      <line x1="195" y1="105" x2="145" y2="105" class="seq-arrow" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="138,105 148,100 148,110" />
+      <text class="seq-sub" x="170" y="70" text-anchor="middle" font-size="8">re-advertises</text>
+      <text class="seq-sub" x="170" y="150" text-anchor="middle" font-size="8">"…/24 via [200,300,400]"</text>
+
+      <text class="seq-note" x="350" y="190" text-anchor="middle">AS 100 now knows: to reach 8.8.8.0/24, the path crosses AS 200, AS 300, then AS 400</text>
+    </svg>
+    <figcaption class="diagram__caption">Every hop prepends its own ASN to the path before passing the route along — the growing list is the AS_PATH.</figcaption>
+  </figure>
+
+  <h2 id="path-vector">Path-vector routing and AS_PATH</h2>
+  <p>
+    Protocols used <em>inside</em> a single network (like OSPF) are typically link-state — every router
+    builds a full map of the network's topology. That doesn't scale to the entire internet, where no
+    single AS can or should see every other AS's internal topology. BGP instead is a
+    <strong>path-vector</strong> protocol: each route carries only the ordered list of ASes it passed
+    through (the <strong>AS_PATH</strong>), not the full topology.
+  </p>
+  <p>
+    That list does double duty. First, it's a built-in loop guard — if a router ever sees its own ASN
+    already present in an incoming route's AS_PATH, it rejects the route outright, since accepting it
+    would mean routing through itself. Second, AS_PATH length is the simplest input into route selection —
+    all else being equal, a shorter path is usually preferred, the same instinct as a shortest-path
+    algorithm, just measured in AS hops rather than physical distance.
+  </p>
+
+  <h2 id="policy">Policy beats shortest path</h2>
+  <p>
+    This is the part that surprises people coming from simpler routing protocols: BGP does <strong>not</strong>
+    always pick the shortest available path. Each AS applies its own <strong>routing policy</strong> on top
+    of what it hears, shaped by real business relationships:
+  </p>
+  <ul class="point-list">
+    <li><strong>Customer routes</strong> — routes learned from a network paying you for transit are usually preferred above all else (you're being paid to carry that traffic).</li>
+    <li><strong>Peer routes</strong> — routes learned from a settlement-free peering partner (roughly equal-sized networks that exchange traffic for mutual benefit, no money changing hands) come next.</li>
+    <li><strong>Provider routes</strong> — routes learned from a network you pay for transit are typically the least preferred, since carrying that traffic yourself, if a cheaper path exists, saves money.</li>
+  </ul>
+  <p>
+    A longer path through a paying customer can and often does win over a shorter path through an
+    expensive upstream provider — because BGP optimizes for each AS's own business interests, not for
+    "the internet's" overall efficiency. There is no global authority making that trade-off; it emerges
+    from thousands of independent, self-interested routing policies.
+  </p>
+
+  <h2 id="convergence">Convergence, flapping, and hijacks</h2>
+  <p>
+    When a link or router fails, every AS that had a route through it has to hear a
+    <strong>withdrawal</strong> message and recompute an alternative — hop by hop, the same way the
+    original advertisement propagated. This takes real time, typically seconds to a couple of minutes at
+    internet scale, not the near-instant failover a local network might achieve — a structural limit of
+    path-vector routing at this scale, not a bug in any one implementation.
+  </p>
+  <p>
+    Because any AS can, in principle, advertise a route to any IP prefix — including one it doesn't
+    actually own — a misconfiguration (or, rarely, a deliberate attack) can cause a
+    <strong>route hijack</strong>: traffic meant for a legitimate network gets pulled toward the wrong AS
+    instead, because that AS advertised a more specific or more attractive-looking route. BGP had no
+    built-in way to verify "does this AS actually own this prefix" for most of its history; RPKI (Resource
+    Public Key Infrastructure) is the modern, increasingly-deployed fix, letting an AS cryptographically
+    prove it's authorized to originate a given prefix.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every ISP and cloud provider —</strong> AWS, Google Cloud, and every major ISP each operate their own AS and peer with others; this is the actual mechanism behind "which path does my traffic take to reach a data center."</li>
+    <li><strong>Anycast CDNs —</strong> a CDN can advertise the exact same IP prefix from data centers on multiple continents; BGP naturally routes each user to whichever advertisement looks closest/cheapest from their AS's perspective, with no extra logic needed.</li>
+    <li><strong>Multi-homing —</strong> a company connecting to two different ISPs for redundancy is running its own small AS, using BGP to advertise its address space out both providers so traffic can still reach it if one ISP link fails.</li>
+    <li><strong>Internet-wide outages —</strong> a large-scale, multi-hour "the internet is down" event reported in the news is very often a BGP route leak or misconfiguration at a major network, not a problem with IP, TCP, or any single website.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A BGP route leak doesn't need malice — a single fat-fingered configuration change at one mid-sized AS has, historically, been enough to make a large chunk of the internet briefly unreachable by accidentally advertising routes it had no business carrying.</li>
+      <li>"Shortest AS_PATH" is only a tiebreaker, applied after several policy-based preferences — assuming BGP always finds the shortest real-world path is a common and incorrect mental model.</li>
+      <li>Route convergence delay is a structural property of path-vector routing at internet scale — no amount of hardware upgrade at one AS fixes it, since it's bounded by how fast the whole chain of neighboring ASes propagates the change.</li>
+      <li>RPKI adoption is still partial across the internet — a route hijack against a prefix whose owner hasn't published RPKI records can still succeed even on a modern, well-run network elsewhere.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/networking/ip/index.html", "title": "IP" },
+  "related": [
+    { "href": "/networking/ip/index.html", "title": "IP" },
+    { "href": "/networking/tcp/index.html", "title": "TCP" },
+    { "href": "/networking/linux-networking-tools/index.html", "title": "Linux Networking Tools" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
