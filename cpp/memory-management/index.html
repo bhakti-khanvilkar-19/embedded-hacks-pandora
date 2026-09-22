@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Memory Management — C++ — Embedded Pandora</title>
+<meta name="description" content="new and delete as C++'s malloc/free, and smart pointers — unique_ptr and shared_ptr, RAII applied directly to raw memory, making a forgotten delete a non-issue by construction." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C++</p>
+  <h1>Memory Management</h1>
+  <p class="lede">
+    C++ has its own version of <a href="/embedded-c/dynamic-memory/index.html">C's <code>malloc</code>/<code>free</code></a>
+    — <code>new</code> and <code>delete</code> — with the exact same manual-matching-pair risk. Smart
+    pointers are C++'s real answer: <a href="/cpp/constructors-destructors-raii/index.html">RAII</a>,
+    applied directly to raw memory, making "forgot to free it" a non-issue rather than a discipline problem.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd><code>new</code>/<code>delete</code>: C++'s manual heap allocation, analogous to <code>malloc</code>/<code>free</code>. Smart pointers: classes that own a heap allocation and free it automatically via their destructor.</dd>
+      <dt>Mental model</dt><dd>A smart pointer is a small wrapper object that acts like a raw pointer for everyday use, but also holds a "when I die, free what I point to" promise — the same RAII trick applied to memory specifically.</dd>
+      <dt>Key numbers</dt><dd><code>std::unique_ptr</code> has zero performance overhead versus a raw pointer; <code>std::shared_ptr</code> has a small overhead for its internal reference count.</dd>
+      <dt>Reach for it when</dt><dd>Any time you'd reach for <code>new</code> — modern C++ practice treats a smart pointer as the default, and a raw owning pointer as the rare exception.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#new-delete">new and delete</a></li>
+      <li><a href="#unique-ptr">std::unique_ptr</a></li>
+      <li><a href="#shared-ptr">std::shared_ptr</a></li>
+      <li><a href="#ownership-diagram">Ownership, visually</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="new-delete">new and delete</h2>
+  <pre><code>int *p = new int(42);   // allocate one int on the heap, initialized to 42
+std::cout << *p << std::endl;   // 42
+delete p;                 // free it — required, exactly like C's free()
+
+int *arr = new int[10];   // allocate an array
+delete[] arr;               // matching array-delete — required for array allocations</code></pre>
+  <p>
+    This has exactly the same failure mode as C's <code>malloc</code>/<code>free</code>: forget the matching
+    <code>delete</code> and the memory leaks for the life of the program; call <code>delete</code> twice on
+    the same pointer and the behavior is undefined. See
+    <a href="/embedded-c/dynamic-memory/index.html">Embedded C's Dynamic Memory</a> for the full picture of
+    why manual allocation is risky in the first place.
+  </p>
+
+  <h2 id="unique-ptr">std::unique_ptr</h2>
+  <p>
+    <code>std::unique_ptr</code> owns a heap allocation <strong>exclusively</strong> — exactly one
+    <code>unique_ptr</code> can own a given object at a time, and it's freed automatically the instant the
+    <code>unique_ptr</code> itself goes out of scope:
+  </p>
+  <pre><code>#include &lt;memory&gt;
+
+void useBuffer() {
+    std::unique_ptr&lt;int[]&gt; buffer(new int[100]);
+    buffer[0] = 42;                       // used exactly like a raw pointer
+    std::cout << buffer[0] << std::endl;  // 42
+}   // buffer goes out of scope HERE — the array is freed automatically, no delete needed</code></pre>
+  <p>
+    This is precisely the RAII pattern from
+    <a href="/cpp/constructors-destructors-raii/index.html">Constructors, Destructors &amp; RAII</a>, applied
+    directly to a heap allocation — there's no <code>delete</code> anywhere in this function because there
+    doesn't need to be one.
+  </p>
+
+  <h2 id="shared-ptr">std::shared_ptr</h2>
+  <p>
+    <code>std::shared_ptr</code> allows <strong>multiple</strong> owners of the same allocation, tracked with
+    an internal reference count — the memory is only freed once the <em>last</em> owning
+    <code>shared_ptr</code> goes out of scope:
+  </p>
+  <pre><code>std::shared_ptr&lt;int&gt; a = std::make_shared&lt;int&gt;(42);
+std::cout << a.use_count() << std::endl;   // 1
+
+{
+    std::shared_ptr&lt;int&gt; b = a;             // b shares ownership with a
+    std::cout << a.use_count() << std::endl;   // 2
+}   // b goes out of scope, but the int is NOT freed — a still owns it
+
+std::cout << a.use_count() << std::endl;   // back to 1
+// the int is finally freed when a itself goes out of scope</code></pre>
+
+  <h2 id="ownership-diagram">Ownership, visually</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 150" role="img" aria-labelledby="ownership-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="ownership-title">A unique_ptr has exactly one owner pointing at the heap allocation; a shared_ptr can have several owners, tracked by a reference count, and the allocation is freed only when the count reaches zero</title>
+      <rect class="frame-box block-teal" x="20" y="15" width="130" height="45" rx="6" />
+      <text class="frame-label" x="85" y="42" text-anchor="middle" font-size="10">unique_ptr</text>
+      <line x1="85" y1="60" x2="85" y2="85" class="seq-arrow flow-path" stroke-width="1.3" />
+      <rect class="frame-box block-violet" x="20" y="88" width="130" height="35" rx="6" />
+      <text class="frame-label" x="85" y="110" text-anchor="middle" font-size="9">heap object</text>
+
+      <rect class="frame-box block-amber" x="230" y="10" width="120" height="35" rx="6" />
+      <text class="frame-label" x="290" y="32" text-anchor="middle" font-size="9">shared_ptr a</text>
+      <rect class="frame-box block-amber" x="230" y="65" width="120" height="35" rx="6" />
+      <text class="frame-label" x="290" y="87" text-anchor="middle" font-size="9">shared_ptr b</text>
+      <line x1="350" y1="27" x2="406" y2="65" class="seq-arrow flow-path" stroke-width="1.2" />
+      <line x1="350" y1="82" x2="406" y2="82" class="seq-arrow flow-path" stroke-width="1.2" />
+      <rect class="frame-box block-violet" x="410" y="50" width="130" height="55" rx="6" />
+      <text class="frame-label" x="475" y="73" text-anchor="middle" font-size="9">heap object</text>
+      <text class="frame-caption" x="475" y="89" text-anchor="middle" font-size="8">refcount = 2</text>
+    </svg>
+    <figcaption class="diagram__caption">A <code>unique_ptr</code>'s ownership is exclusive and simple; a <code>shared_ptr</code>'s reference count is what lets multiple owners exist safely, at the small cost of tracking that count.</figcaption>
+  </figure>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Default choice for owned heap data —</strong> modern C++ style guides (including at major companies) treat a raw owning <code>new</code>/<code>delete</code> pair as something to justify, not the default.</li>
+    <li><strong>Shared caches and object pools —</strong> <code>shared_ptr</code> is the natural fit when the same object genuinely needs to be reachable from multiple independent owners, each with their own lifetime.</li>
+    <li><strong>Factory functions —</strong> a function that creates and returns an object commonly returns a <code>unique_ptr</code>, transferring clear, single ownership to the caller.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Mixing raw and smart pointers to the same object is a real hazard — a raw pointer taken from inside a <code>unique_ptr</code> and used after the <code>unique_ptr</code> is destroyed is a classic dangling-pointer bug, identical to the one covered in <a href="/c/pointers/index.html#gotchas">C's Pointers</a>.</li>
+      <li><code>shared_ptr</code>'s reference counting has real runtime and memory overhead versus a raw pointer or <code>unique_ptr</code> — reach for it specifically when shared ownership is genuinely needed, not as an all-purpose default.</li>
+      <li>Two <code>shared_ptr</code>s that reference each other (a "reference cycle") never reach a count of zero, and neither is ever freed — a real, easy-to-introduce memory leak that <code>std::weak_ptr</code> exists specifically to break.</li>
+      <li>Smart pointers, like the STL containers in the previous chapter, add a heap-allocation dependency — the same tradeoff <a href="/embedded-c/dynamic-memory/index.html">Embedded C's Dynamic Memory</a> covers about avoiding dynamic allocation on tiny, real-time-constrained targets applies here too.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/cpp/stl-containers-and-algorithms/index.html", "title": "STL Containers & Algorithms" },
+  "next": { "href": "/cpp/exception-handling/index.html", "title": "Exception Handling" },
+  "related": [
+    { "href": "/embedded-c/dynamic-memory/index.html", "title": "Dynamic Memory" },
+    { "href": "/cpp/constructors-destructors-raii/index.html", "title": "Constructors, Destructors & RAII" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
