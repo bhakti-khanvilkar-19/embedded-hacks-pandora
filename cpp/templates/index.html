@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Templates — C++ — Embedded Pandora</title>
+<meta name="description" content="Writing one function or class that works across many types without repeating code — function templates, class templates, how the compiler generates real code per type, and templates vs. C-style generic macros." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C++</p>
+  <h1>Templates</h1>
+  <p class="lede">
+    Without templates, writing a function that finds the maximum of two values means writing it once per
+    type — <code>maxInt</code>, <code>maxFloat</code>, <code>maxDouble</code> — identical logic, copy-pasted.
+    A template lets you write the logic exactly once, generic over the type, and have the compiler generate
+    the type-specific version automatically wherever it's actually used.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A blueprint for a function or class that's generic over one or more types, filled in by the compiler at compile time for each type it's actually used with.</dd>
+      <dt>Mental model</dt><dd>A cookie cutter shape (the template) that gets stamped out in a specific material (a specific type) only when actually needed — the compiler does the stamping, once per type, automatically.</dd>
+      <dt>Key numbers</dt><dd>Zero runtime cost — template code is fully resolved to real, concrete, type-specific code at compile time, identical in performance to hand-writing each version yourself.</dd>
+      <dt>Reach for it when</dt><dd>The exact same logic needs to work across multiple types — a container, a comparison function, a math utility — and hand-duplicating it per type would be real, repeated boilerplate.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#function-templates">Function templates</a></li>
+      <li><a href="#how-it-works">How the compiler actually handles this</a></li>
+      <li><a href="#class-templates">Class templates</a></li>
+      <li><a href="#templates-vs-macros">Templates vs. C-style generic macros</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="function-templates">Function templates</h2>
+  <pre><code>template &lt;typename T&gt;
+T maxValue(T a, T b) {
+    return (a > b) ? a : b;
+}
+
+int i = maxValue(3, 7);            // T becomes int — no cast, no separate function needed
+float f = maxValue(2.5f, 1.1f);     // T becomes float
+double d = maxValue(3.14, 2.71);    // T becomes double</code></pre>
+  <p>
+    <code>template &lt;typename T&gt;</code> declares <code>T</code> as a placeholder type — the compiler
+    figures out what <code>T</code> should be from the arguments each specific call actually uses, with no
+    extra syntax required at the call site.
+  </p>
+
+  <h2 id="how-it-works">How the compiler actually handles this</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 150" role="img" aria-labelledby="template-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="template-title">One generic template source is instantiated by the compiler into a separate, concrete function for each type it's actually called with</title>
+      <rect class="frame-box block-violet" x="200" y="10" width="160" height="50" rx="8" />
+      <text class="frame-label" x="280" y="35" text-anchor="middle" font-size="10">template maxValue&lt;T&gt;</text>
+      <text class="frame-caption" x="280" y="51" text-anchor="middle" font-size="7.5">one generic source</text>
+
+      <line x1="240" y1="60" x2="120" y2="95" class="seq-arrow flow-path" stroke-width="1.2" />
+      <line x1="280" y1="60" x2="280" y2="95" class="seq-arrow flow-path" stroke-width="1.2" />
+      <line x1="320" y1="60" x2="440" y2="95" class="seq-arrow flow-path" stroke-width="1.2" />
+
+      <rect class="frame-box block-teal" x="40" y="98" width="160" height="45" rx="6" />
+      <text class="frame-label" x="120" y="118" text-anchor="middle" font-size="9">maxValue&lt;int&gt;</text>
+      <text class="frame-caption" x="120" y="133" text-anchor="middle" font-size="7">compiled, real code</text>
+
+      <rect class="frame-box block-amber" x="200" y="98" width="160" height="45" rx="6" />
+      <text class="frame-label" x="280" y="118" text-anchor="middle" font-size="9">maxValue&lt;float&gt;</text>
+      <text class="frame-caption" x="280" y="133" text-anchor="middle" font-size="7">compiled, real code</text>
+
+      <rect class="frame-box block-green" x="360" y="98" width="160" height="45" rx="6" />
+      <text class="frame-label" x="440" y="118" text-anchor="middle" font-size="9">maxValue&lt;double&gt;</text>
+      <text class="frame-caption" x="440" y="133" text-anchor="middle" font-size="7">compiled, real code</text>
+    </svg>
+    <figcaption class="diagram__caption">This process is called <strong>template instantiation</strong> — it happens entirely at compile time, so there's no template machinery left over at runtime, and no performance cost versus hand-writing each version.</figcaption>
+  </figure>
+
+  <h2 id="class-templates">Class templates</h2>
+  <p>
+    Classes can be templated too — this is exactly how generic containers work, previewed here and covered
+    fully in the next chapter, STL Containers &amp; Algorithms:
+  </p>
+  <pre><code>template &lt;typename T&gt;
+class Box {
+public:
+    Box(T value) : value(value) {}
+    T get() { return value; }
+private:
+    T value;
+};
+
+Box&lt;int&gt; intBox(42);
+Box&lt;std::string&gt; strBox("hello");   // the SAME Box class, holding a completely different type</code></pre>
+
+  <h2 id="templates-vs-macros">Templates vs. C-style generic macros</h2>
+  <p>
+    C has no templates — the closest equivalent is a
+    <a href="/c/preprocessor-and-macros/index.html#function-macros">function-like macro</a>, which is pure
+    text substitution with no type checking at all:
+  </p>
+  <pre><code>// C: a macro "generic" max — no type safety, evaluates arguments TWICE (see C's Preprocessor gotchas)
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+// C++: a real template — type-checked, each argument evaluated exactly once
+template &lt;typename T&gt;
+T maxValue(T a, T b) { return (a > b) ? a : b; }</code></pre>
+  <p>
+    A template is genuinely type-checked by the compiler and behaves like a normal function in every way
+    that matters (arguments evaluated once, real scoping) — strictly safer than the macro equivalent, not
+    just more convenient syntax.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>The entire STL —</strong> every standard container (<code>vector</code>, <code>map</code>) and algorithm (<code>sort</code>, <code>find</code>) is a template, generic over whatever type you actually store — the subject of the next chapter.</li>
+    <li><strong>Generic math/utility libraries —</strong> a templated <code>clamp(value, min, max)</code> function working identically across <code>int</code>, <code>float</code>, and any other comparable type.</li>
+    <li><strong>Type-safe generic data structures —</strong> a templated ring buffer or fixed-size queue, reused across a firmware codebase for any element type without duplicating the logic per type.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A template error often produces a long, intimidating compiler error message pointing deep into template internals — reading these gets easier with practice, but they're a genuine rough edge of the language, especially for beginners.</li>
+      <li>Each distinct type a template is instantiated with generates its own separate compiled code — heavy template use across many types can meaningfully increase binary size, worth watching on a flash-constrained embedded target.</li>
+      <li>Template code effectively lives in the header file, not a separate <code>.cpp</code> — the compiler needs to see the full template definition everywhere it's instantiated, which changes the usual header/source split from <a href="/embedded-c/compilation/index.html">Compilation &amp; Linking</a>.</li>
+      <li>Not every type works with every template — <code>maxValue</code> above requires <code>&gt;</code> to be defined for whatever type <code>T</code> is; calling it with a type that has no <code>&gt;</code> operator fails to compile, with an error that can be hard to parse at first.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/cpp/operator-overloading-and-references/index.html", "title": "Operator Overloading & References" },
+  "related": [
+    { "href": "/c/preprocessor-and-macros/index.html", "title": "Preprocessor & Macros" },
+    { "href": "/embedded-c/compilation/index.html", "title": "Compilation & Linking" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

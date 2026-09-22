@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Operator Overloading & References — C++ — Embedded Pandora</title>
+<meta name="description" content="Making a custom type work with +, ==, and << like a built-in type, and references — an always-valid alias for an existing variable, compared directly against pointers." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C++</p>
+  <h1>Operator Overloading &amp; References</h1>
+  <p class="lede">
+    Two smaller but genuinely useful additions: <strong>operator overloading</strong> lets a custom class
+    define what <code>+</code>, <code>==</code>, or <code>&lt;&lt;</code> mean for its own type, so objects
+    can be used with the same natural syntax as an <code>int</code>. <strong>References</strong> are a
+    second way to refer to an existing variable — related to pointers, but with real, useful restrictions
+    that make a lot of code both safer and easier to read.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Operator overloading: defining what a built-in operator does for a custom type. A reference: an alias for an existing variable, declared with <code>&amp;</code> after the type.</dd>
+      <dt>Mental model</dt><dd>Operator overloading is teaching <code>+</code> a new trick for your specific type. A reference is a second name taped onto the same box a variable already lives in — not a new box, and it can never be re-taped onto a different one.</dd>
+      <dt>Key numbers</dt><dd>A reference must be initialized at declaration and can never be reassigned to refer to something else — unlike a pointer, which can be reassigned or left null.</dd>
+      <dt>Reach for it when</dt><dd>Operator overloading: a type genuinely has a natural mathematical or comparison meaning (a vector, a complex number, a duration). References: passing a large object to a function without copying it, or without ever needing to check for null.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#overloading-basics">Operator overloading, in a worked example</a></li>
+      <li><a href="#stream-operator">Overloading &lt;&lt; for printing</a></li>
+      <li><a href="#references">References</a></li>
+      <li><a href="#references-vs-pointers">References vs. pointers</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="overloading-basics">Operator overloading, in a worked example</h2>
+  <pre><code>class Vector2D {
+public:
+    Vector2D(float x, float y) : x(x), y(y) {}
+
+    Vector2D operator+(const Vector2D &other) {   // defines what + means for two Vector2D objects
+        return Vector2D(x + other.x, y + other.y);
+    }
+
+    float x, y;
+};
+
+Vector2D a(1, 2);
+Vector2D b(3, 4);
+Vector2D c = a + b;   // calls operator+ — c.x is 4, c.y is 6</code></pre>
+  <p>
+    Without overloading, adding two vectors would need an explicit function call like
+    <code>add(a, b)</code> — overloading lets the natural <code>+</code> syntax work directly, which reads
+    closer to the actual math it represents.
+  </p>
+
+  <h2 id="stream-operator">Overloading &lt;&lt; for printing</h2>
+  <p>
+    The most common operator to overload is <code>&lt;&lt;</code>, letting <code>std::cout</code> print a
+    custom type directly:
+  </p>
+  <pre><code>std::ostream& operator<<(std::ostream &out, const Vector2D &v) {
+    out << "(" << v.x << ", " << v.y << ")";
+    return out;
+}
+
+std::cout << c << std::endl;   // (4, 6) — printed directly, no manual field access</code></pre>
+
+  <h2 id="references">References</h2>
+  <pre><code>int x = 5;
+int &ref = x;   // ref is a REFERENCE to x — another name for the exact same variable
+
+ref = 10;        // this actually changes x
+std::cout << x << std::endl;   // 10</code></pre>
+  <p>
+    <code>ref</code> isn't a copy of <code>x</code> and isn't a separate variable holding <code>x</code>'s
+    address — it <em>is</em> <code>x</code>, under a second name. This is exactly why passing a reference to
+    a function achieves the same "modify the caller's variable" effect as passing a pointer in
+    <a href="/c/pointers/index.html">C's Pointers</a>, without needing <code>&amp;</code> at the call site
+    or <code>*</code> to access the value:
+  </p>
+  <pre><code>void increment(int &x) {   // reference parameter
+    x = x + 1;               // no * needed — x IS the caller's variable
+}
+
+int n = 5;
+increment(n);        // no & needed at the call site either
+std::cout << n << std::endl;   // 6</code></pre>
+
+  <h2 id="references-vs-pointers">References vs. pointers</h2>
+  <table>
+    <thead><tr><th></th><th>Pointer</th><th>Reference</th></tr></thead>
+    <tbody>
+      <tr><td>Can be null</td><td>Yes</td><td>No — always refers to something real</td></tr>
+      <tr><td>Can be reassigned</td><td>Yes, to point elsewhere</td><td>No — bound permanently at declaration</td></tr>
+      <tr><td>Needs explicit syntax to use</td><td>Yes — <code>*p</code> to dereference</td><td>No — used exactly like the original variable</td></tr>
+      <tr><td>Must be initialized immediately</td><td>No</td><td>Yes — a reference cannot be declared and assigned later</td></tr>
+    </tbody>
+  </table>
+  <p>
+    In practice: reach for a reference whenever you know the thing being referred to genuinely exists and
+    will never need to change to something else — a function parameter is the classic case. Reach for a
+    pointer specifically when you need the flexibility a reference deliberately gives up: the ability to be
+    null, or to be reassigned.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Math/physics types —</strong> vectors, matrices, and complex numbers are the textbook case for operator overloading — <code>+</code>, <code>-</code>, and <code>*</code> already have an obvious, natural meaning for them.</li>
+    <li><strong>Debug printing —</strong> overloading <code>&lt;&lt;</code> for every custom type in a codebase is standard practice, making <code>std::cout &lt;&lt; myObject</code> work everywhere instead of writing a separate print function per type.</li>
+    <li><strong>Function parameters —</strong> passing a large object (a big struct, a container) by reference instead of by value avoids an expensive copy on every call — the default, idiomatic choice in real C++ code whenever the function doesn't need its own separate copy.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Overloading an operator to do something that surprises a reader — making <code>+</code> perform subtraction, for instance — is a real, well-known anti-pattern. Only overload an operator when its built-in meaning is a genuinely natural fit.</li>
+      <li>A reference must be initialized the moment it's declared — <code>int &amp;ref;</code> alone is a compile error, unlike a pointer, which can legally be declared now and assigned later.</li>
+      <li>Returning a reference to a local variable is exactly as dangerous as returning a pointer to one (see <a href="/c/functions/index.html#call-stack">C's Functions</a>) — the referenced stack memory is gone the instant the function returns, leaving a reference to nothing valid.</li>
+      <li>Pass large objects by <code>const</code> reference (<code>const Vector2D &amp;v</code>) when a function only needs to read them — this avoids the copy of pass-by-value while still preventing the function from modifying the caller's object, the best of both.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/cpp/inheritance-and-polymorphism/index.html", "title": "Inheritance & Polymorphism" },
+  "next": { "href": "/cpp/templates/index.html", "title": "Templates" },
+  "related": [
+    { "href": "/c/pointers/index.html", "title": "Pointers" },
+    { "href": "/c/functions/index.html", "title": "Functions" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
