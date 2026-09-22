@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Strings — C — Embedded Pandora</title>
+<meta name="description" content="C has no built-in string type — a string is just a char array ending in a NUL byte. How that actually works in memory, the string.h functions, and the missing-NUL-terminator bug that causes real crashes." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C</p>
+  <h1>Strings</h1>
+  <p class="lede">
+    C has no dedicated string type. What every other language calls a "string," C represents as a plain
+    <code>char</code> array with one special rule: it ends with a hidden <code>'\0'</code> (NUL) byte marking
+    where the text stops. Understanding that one convention explains almost everything else about how C
+    strings behave — and misbehave.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A <code>char</code> array whose contents are text, terminated by a <code>'\0'</code> (NUL, the number zero) byte.</dd>
+      <dt>Mental model</dt><dd>A string is just an array of characters with a "stop reading here" marker at the end — every string function's real job is finding or respecting that marker.</dd>
+      <dt>Key numbers</dt><dd>A string holding <em>N</em> visible characters needs an array of at least <em>N + 1</em> bytes — the <code>+1</code> is always for the NUL terminator.</dd>
+      <dt>Reach for it when</dt><dd>Storing or manipulating text — but always with the terminator and buffer size held firmly in mind, unlike a self-tracking string type in other languages.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#nul-terminator">The NUL terminator</a></li>
+      <li><a href="#declaring">Declaring a string</a></li>
+      <li><a href="#string-h">Common string.h functions</a></li>
+      <li><a href="#reading-input">Reading string input safely</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="nul-terminator">The NUL terminator</h2>
+  <p>
+    <code>'\0'</code> is a single byte with the numeric value <code>0</code> — not the character
+    <code>'0'</code> (which is a completely different byte, value 48). Every C string function that walks a
+    string — printing it, measuring its length, copying it — keeps reading bytes until it hits this one
+    specific value, then stops.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 500 110" role="img" aria-labelledby="nul-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="nul-title">The string "Hi!" stored as an array is actually 4 bytes: H, i, !, and a hidden NUL terminator</title>
+      <text class="seq-note" x="250" y="14" text-anchor="middle" font-size="9">char greeting[4] = "Hi!";</text>
+      <rect class="frame-box block-teal" x="60" y="30" width="80" height="45" rx="4" />
+      <text class="frame-label" x="100" y="58" text-anchor="middle" font-size="13">'H'</text>
+      <rect class="frame-box block-teal" x="140" y="30" width="80" height="45" rx="4" />
+      <text class="frame-label" x="180" y="58" text-anchor="middle" font-size="13">'i'</text>
+      <rect class="frame-box block-teal" x="220" y="30" width="80" height="45" rx="4" />
+      <text class="frame-label" x="260" y="58" text-anchor="middle" font-size="13">'!'</text>
+      <rect class="frame-box block-amber" x="300" y="30" width="80" height="45" rx="4" />
+      <text class="frame-label" x="340" y="58" text-anchor="middle" font-size="11">'\0'</text>
+      <text class="seq-sub" x="100" y="88" text-anchor="middle" font-size="8">[0]</text>
+      <text class="seq-sub" x="180" y="88" text-anchor="middle" font-size="8">[1]</text>
+      <text class="seq-sub" x="260" y="88" text-anchor="middle" font-size="8">[2]</text>
+      <text class="seq-sub" x="340" y="88" text-anchor="middle" font-size="8">[3] — the terminator</text>
+    </svg>
+    <figcaption class="diagram__caption">"Hi!" looks like 3 characters but always occupies at least 4 bytes — every string literal C compiles adds this terminator automatically.</figcaption>
+  </figure>
+
+  <h2 id="declaring">Declaring a string</h2>
+  <pre><code>char greeting[4] = "Hi!";        // explicit size — must include room for '\0'
+char greeting2[] = "Hi!";        // size 4, inferred automatically from the literal
+char *greeting3 = "Hi!";         // a pointer to a read-only string literal
+
+printf("%s\n", greeting);        // %s prints characters until it hits '\0'</code></pre>
+  <p>
+    The first two lines create an actual, modifiable array on the stack. The third creates a pointer to a
+    string literal that typically lives in read-only memory — attempting to modify <code>greeting3[0]</code>
+    is undefined behavior, often crashing immediately on a desktop OS (and silently corrupting flash on some
+    embedded targets).
+  </p>
+
+  <h2 id="string-h">Common string.h functions</h2>
+  <table>
+    <thead><tr><th>Function</th><th>Does</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td><code>strlen(s)</code></td><td>Counts characters before the NUL (not including it)</td><td><code>strlen("Hi!")</code> → <code>3</code></td></tr>
+      <tr><td><code>strcpy(dst, src)</code></td><td>Copies <code>src</code> into <code>dst</code>, including the terminator</td><td><code>strcpy(buf, "Hi!")</code></td></tr>
+      <tr><td><code>strcat(dst, src)</code></td><td>Appends <code>src</code> onto the end of <code>dst</code></td><td><code>strcat(buf, "!")</code></td></tr>
+      <tr><td><code>strcmp(a, b)</code></td><td>Returns <code>0</code> if equal, nonzero otherwise</td><td><code>strcmp("a", "b")</code> → negative</td></tr>
+      <tr><td><code>strncpy(dst, src, n)</code></td><td>Like <code>strcpy</code>, but copies at most <code>n</code> bytes</td><td><code>strncpy(buf, src, sizeof(buf))</code></td></tr>
+    </tbody>
+  </table>
+  <pre><code>#include &lt;string.h&gt;
+#include &lt;stdio.h&gt;
+
+int main(void) {
+    char name[20] = "Ada";
+    printf("Length: %zu\n", strlen(name));   // Length: 3
+
+    if (strcmp(name, "Ada") == 0) {
+        printf("Match!\n");
+    }
+    return 0;
+}</code></pre>
+
+  <h2 id="reading-input">Reading string input safely</h2>
+  <p>
+    Reading text into a fixed-size buffer always risks overflowing it if the input is longer than expected —
+    always give a length limit, and never trust <code>gets()</code> (removed from the language entirely in
+    C11 for exactly this reason):
+  </p>
+  <pre><code>char name[20];
+fgets(name, sizeof(name), stdin);   // reads at most 19 chars + NUL — safe
+
+// scanf's %s is also unsafe without a width limit:
+scanf("%19s", name);   // limits to 19 chars + NUL — matches the buffer size</code></pre>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Command parsing —</strong> comparing a received string against a set of known commands with <code>strcmp</code>, common in simple serial/UART command interfaces.</li>
+    <li><strong>Log/debug messages —</strong> building a formatted status string with <code>snprintf</code> before sending it out a UART for debugging.</li>
+    <li><strong>Configuration parsing —</strong> reading a line of text and splitting it into fields, common in bootloader and configuration-file code.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li><strong>The missing-NUL bug</strong> — building or copying a string without leaving room for (or without actually writing) the terminating <code>'\0'</code> means every function that reads it keeps going past the end of the buffer into whatever memory follows, until it happens to find a zero byte somewhere. This is a real, common source of crashes and information leaks, not a theoretical concern.</li>
+      <li><code>strcpy</code> and <code>strcat</code> perform <strong>no bounds checking</strong> on the destination buffer — copying a long string into a short buffer silently overwrites whatever memory comes after it (a classic buffer overflow). Prefer <code>strncpy</code>/<code>snprintf</code> with an explicit size, and always double-check the size actually accounts for the terminator.</li>
+      <li>Comparing two strings with <code>==</code> compares their <em>addresses</em>, not their contents — it almost never does what a beginner expects. Always use <code>strcmp</code> for content comparison.</li>
+      <li><code>char greeting[4] = "Hi!!";</code> (a 4-character literal into a 4-byte array) compiles in some compilers with a warning, but leaves no room for the terminator at all — the array is exactly full of visible characters with nowhere for <code>'\0'</code> to go, guaranteeing every string function overruns it.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/c/arrays/index.html", "title": "Arrays" },
+  "related": [
+    { "href": "/embedded-c/arrays-strings/index.html", "title": "Arrays & Strings" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
