@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Functions — C — Embedded Pandora</title>
+<meta name="description" content="Declaring, defining, and calling functions in C — parameters, return values, scope, the call stack, and recursion, explained with a diagram of how calls actually stack up in memory." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C</p>
+  <h1>Functions</h1>
+  <p class="lede">
+    A function is a named, reusable block of code that takes some inputs, does something with them, and
+    optionally hands a result back. Every C program you've seen in this domain already has one —
+    <code>main</code> — this chapter is about writing your own, and understanding exactly what happens in
+    memory every time one is called.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A named block of code, with its own parameters and (optionally) a return value, that can be called from anywhere it's visible.</dd>
+      <dt>Mental model</dt><dd>A small, self-contained machine: you feed it inputs (parameters), it does work, and it either hands back one result (return value) or nothing at all (<code>void</code>).</dd>
+      <dt>Key numbers</dt><dd>Every function call adds one new "stack frame" to the call stack; that frame is freed the instant the function returns.</dd>
+      <dt>Reach for it when</dt><dd>The same logic is needed in more than one place, or a block of code is complex enough that giving it a name makes the calling code easier to read.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#anatomy">Anatomy of a function</a></li>
+      <li><a href="#declaration-vs-definition">Declaration vs. definition</a></li>
+      <li><a href="#params">Parameters and return values</a></li>
+      <li><a href="#call-stack">The call stack</a></li>
+      <li><a href="#recursion">Recursion</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="anatomy">Anatomy of a function</h2>
+  <pre><code>int add(int a, int b) {
+    int sum = a + b;
+    return sum;
+}</code></pre>
+  <dl class="kv">
+    <dt><code>int</code> (first one)</dt><dd>The <strong>return type</strong> — the type of value this function hands back to its caller. <code>void</code> means it returns nothing.</dd>
+    <dt><code>add</code></dt><dd>The function's name — how it's called elsewhere in the program.</dd>
+    <dt><code>(int a, int b)</code></dt><dd>The <strong>parameter list</strong> — the inputs this function accepts, each with its own type and name, local to this function only.</dd>
+    <dt><code>return sum;</code></dt><dd>Ends the function immediately and hands <code>sum</code> back to whoever called it.</dd>
+  </dl>
+  <pre><code>int main(void) {
+    int result = add(3, 4);   // "call" add with arguments 3 and 4
+    printf("%d\n", result);   // 7
+    return 0;
+}</code></pre>
+
+  <h2 id="declaration-vs-definition">Declaration vs. definition</h2>
+  <p>
+    A function can be <strong>declared</strong> (just its signature, ending in a semicolon, promising "this
+    exists") separately from where it's <strong>defined</strong> (the actual body). This matters because C
+    reads top to bottom — a function has to be declared before it's used, so a declaration up top lets you
+    call it before its full definition appears later in the file:
+  </p>
+  <pre><code>int add(int a, int b);   // declaration ("prototype") — no body
+
+int main(void) {
+    printf("%d\n", add(3, 4));   // legal — the compiler already knows add's signature
+    return 0;
+}
+
+int add(int a, int b) {   // definition — the actual body
+    return a + b;
+}</code></pre>
+  <p>
+    This is exactly why header files (<code>.h</code>) exist — they hold declarations so multiple
+    <code>.c</code> files can call each other's functions, with the actual definitions living in exactly one
+    <code>.c</code> file. See <a href="/embedded-c/compilation/index.html">Embedded C's Compilation &amp;
+    Linking</a> for the full mechanism.
+  </p>
+
+  <h2 id="params">Parameters and return values</h2>
+  <p>
+    C passes arguments <strong>by value</strong> by default — a function receives its own private
+    <em>copy</em> of each argument, not the original variable. Changing a parameter inside the function has
+    zero effect on the caller's variable:
+  </p>
+  <pre><code>void try_to_change(int x) {
+    x = 100;   // only changes this function's own local copy
+}
+
+int main(void) {
+    int n = 5;
+    try_to_change(n);
+    printf("%d\n", n);   // still 5 — n was never actually touched
+    return 0;
+}</code></pre>
+  <p>
+    Actually modifying a caller's variable from inside a function requires passing its <em>address</em>
+    instead of its value — the subject of the next chapter, Pointers.
+  </p>
+
+  <h2 id="call-stack">The call stack</h2>
+  <p>
+    Every function call reserves a small block of stack memory — a <strong>stack frame</strong> — holding
+    its parameters and local variables. Calling another function from inside one pushes a new frame on top;
+    returning pops it back off:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 460 220" role="img" aria-labelledby="callstack-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="callstack-title">main calls add, which pushes a new stack frame on top of main's own frame; when add returns, its frame is popped and control returns to main</title>
+      <rect class="frame-box block-teal" x="130" y="130" width="200" height="60" rx="8" />
+      <text class="frame-label" x="230" y="156" text-anchor="middle" font-size="11" font-weight="700">main()'s frame</text>
+      <text class="frame-caption" x="230" y="174" text-anchor="middle" font-size="8">result, n, ...</text>
+
+      <rect class="frame-box block-amber" x="130" y="55" width="200" height="60" rx="8" />
+      <text class="frame-label" x="230" y="81" text-anchor="middle" font-size="11" font-weight="700">add()'s frame</text>
+      <text class="frame-caption" x="230" y="99" text-anchor="middle" font-size="8">a=3, b=4, sum=7</text>
+
+      <line x1="230" y1="127" x2="230" y2="119" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="230,115 224,127 236,127" />
+      <text class="seq-sub" x="345" y="95" text-anchor="start" font-size="8">pushed on call,</text>
+      <text class="seq-sub" x="345" y="107" text-anchor="start" font-size="8">popped on return</text>
+
+      <text class="seq-note" x="230" y="30" text-anchor="middle" font-size="9">add(3, 4) is called from inside main()</text>
+      <text class="seq-note" x="230" y="210" text-anchor="middle" font-size="8">Stack grows upward in this diagram — see Embedded C's Storage Classes for the full memory map.</text>
+    </svg>
+    <figcaption class="diagram__caption">This is why a variable local to <code>add</code> doesn't exist before it's called and stops existing the instant it returns — its entire storage <em>is</em> that stack frame.</figcaption>
+  </figure>
+
+  <h2 id="recursion">Recursion</h2>
+  <p>
+    A function that calls itself is <strong>recursive</strong>. Each call gets its own independent stack
+    frame, so each "copy" of the function has its own separate parameters and locals:
+  </p>
+  <pre><code>int factorial(int n) {
+    if (n <= 1) {
+        return 1;              // base case — stops the recursion
+    }
+    return n * factorial(n - 1);   // recursive case
+}
+// factorial(4) → 4 * factorial(3) → 4 * 3 * factorial(2) → 4 * 3 * 2 * factorial(1) → 4 * 3 * 2 * 1 = 24</code></pre>
+  <p>
+    Every recursive function needs a <strong>base case</strong> — a condition that stops the recursion
+    without calling itself again. Without one, it calls itself forever, pushing a new stack frame every
+    time, until it runs out of stack memory entirely (a <strong>stack overflow</strong>).
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Driver APIs —</strong> every hardware driver exposes its functionality as a set of named functions (<code>uart_init()</code>, <code>uart_send()</code>) rather than inline code repeated everywhere it's needed.</li>
+    <li><strong>Interrupt Service Routines —</strong> the function a microcontroller jumps to automatically when an interrupt fires, covered fully in <a href="/embedded/interrupts/index.html">Embedded's Interrupts</a> chapter.</li>
+    <li><strong>Tree and linked-list traversal —</strong> recursion is the natural way to walk a structure that contains smaller versions of itself, like the structures in <a href="/embedded-c/linked-lists/index.html">Embedded C's Linked Lists</a>.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Forgetting a function's declaration before its first use (no prototype, and it's defined later in the file) causes a compiler error or warning — always declare or define a function before calling it.</li>
+      <li>A recursive function with no base case, or a base case that's never actually reached, causes a stack overflow — a real crash, not a slow-down, and especially dangerous on a microcontroller with only a few KB of stack space total.</li>
+      <li>Returning the address of a local variable from a function hands the caller a pointer into a stack frame that no longer exists the instant the function returns — a dangling pointer, covered fully in <a href="/embedded-c/storage-classes/index.html">Embedded C's Storage Classes &amp; Scope</a>.</li>
+      <li>A function declared to return a value (anything other than <code>void</code>) that reaches its closing brace without an explicit <code>return</code> is undefined behavior — the compiler often warns about this, and the warning should never be ignored.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/c/loops/index.html", "title": "Loops" },
+  "related": [
+    { "href": "/embedded-c/storage-classes/index.html", "title": "Storage Classes & Scope" },
+    { "href": "/embedded/interrupts/index.html", "title": "Interrupts" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
