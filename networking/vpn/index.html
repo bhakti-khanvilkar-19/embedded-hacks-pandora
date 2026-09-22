@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VPN — Networking — Embedded Pandora</title>
+<meta name="description" content="Encapsulating one IP packet inside another, encrypted — how a VPN makes a remote device appear local, site-to-site vs. remote-access, and what a VPN doesn't protect." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>VPN — Virtual Private Network</h1>
+  <p class="lede">
+    <a href="/networking/ip/index.html">IP</a>'s own applications section mentions this in one line:
+    "encapsulating one IP packet inside another is the basic trick behind most VPN implementations." This
+    page is that one line, expanded — how wrapping a whole packet, encrypted, inside another one makes a
+    device on the other side of the internet behave as if it's plugged directly into a private network.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>An encrypted, authenticated tunnel across an untrusted network, making a remote device appear as if it's directly on a private network.</dd>
+      <dt>Mental model</dt><dd>A private, armored corridor built through a public building — you're still physically inside the same building (the internet), but nothing outside the corridor can see or touch what's moving through it.</dd>
+      <dt>Key numbers</dt><dd>Common protocols: WireGuard (modern, minimal), OpenVPN (older, built on TLS), IPsec (network-layer, common for site-to-site links).</dd>
+      <dt>Reach for it when</dt><dd>A remote device needs to behave like it's on a private network, or two private networks need to be joined together across the public internet.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#encapsulation">Encapsulation — a packet inside a packet</a></li>
+      <li><a href="#site-to-site-vs-remote">Site-to-site vs. remote-access</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="encapsulation">Encapsulation — a packet inside a packet</h2>
+  <p>
+    A VPN client doesn't send its traffic to the internet directly. Instead, it takes each entire original
+    IP packet — headers and all — encrypts it, and wraps it inside a brand new outer IP packet addressed
+    to the VPN server. That outer packet travels the public internet normally; only the VPN server can
+    decrypt and unwrap it, recovering the original packet and forwarding it onward exactly as if it had
+    originated from inside the private network all along.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 190" role="img" aria-labelledby="vpn-encap-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="vpn-encap-title">The original IP packet is encrypted and wrapped inside a new outer IP packet addressed to the VPN server, which unwraps it and forwards the original packet onward as if it originated locally</title>
+      <rect class="frame-box block-violet" x="20" y="20" width="660" height="130" rx="10" />
+      <text class="frame-label" x="36" y="42" font-size="10">Outer IP packet — addressed to the VPN server, travels the public internet</text>
+
+      <rect class="frame-box block-teal" x="50" y="55" width="600" height="80" rx="8" />
+      <text class="frame-label" x="66" y="76" font-size="10">Encrypted payload</text>
+
+      <rect class="frame-box block-amber" x="80" y="90" width="540" height="34" rx="6" />
+      <text class="frame-label" x="350" y="112" text-anchor="middle" font-size="10" font-weight="700">Original IP packet — your real source, destination, and data</text>
+
+      <text class="seq-note" x="350" y="168" text-anchor="middle">The outer packet is all anyone on the public internet path can see — the real packet inside is opaque ciphertext until the VPN server decrypts it.</text>
+    </svg>
+    <figcaption class="diagram__caption">The same nested-box shape as <a href="/networking/ethernet/index.html#encapsulation">Ethernet's encapsulation diagram</a> — one more layer wrapped around an already-complete packet.</figcaption>
+  </figure>
+
+  <h2 id="site-to-site-vs-remote">Site-to-site vs. remote-access</h2>
+  <dl class="kv">
+    <dt>Site-to-site</dt><dd>Permanently joins two entire office/site networks together, router-to-router — no individual client software involved; every device at either site simply reaches the other site transparently.</dd>
+    <dt>Remote-access</dt><dd>An individual device (a laptop, a phone) connects into a private network from wherever it happens to be, running client software that establishes the tunnel on demand.</dd>
+  </dl>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Remote work access —</strong> connecting a laptop into a company's internal network from home, making internal-only resources reachable exactly as if physically in the office.</li>
+    <li><strong>Joining separate office networks —</strong> a site-to-site VPN linking two branch offices' LANs together over the public internet, avoiding the cost of a dedicated private line.</li>
+    <li><strong>IoT fleet management —</strong> some IoT platforms put every deployed device on a private VPN mesh regardless of its physical network, giving the management backend a single consistent way to reach any device securely.</li>
+    <li><strong>Consumer privacy VPN services —</strong> routing all of a device's traffic through a third-party VPN provider, hiding its real IP address from the sites and services it connects to.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A VPN only protects traffic between the client and the VPN server/endpoint — it does nothing for the connection beyond that point. A site visited over plain <a href="/networking/http/index.html">HTTP</a> (not <a href="/networking/https/index.html">HTTPS</a>) through a VPN is still sent in plaintext for the last leg; VPN and HTTPS solve different, complementary problems, and conflating them is a common misconception.</li>
+      <li>A VPN adds real latency and reduces throughput — every packet takes a genuine detour through the VPN server plus pays encryption overhead, a cost worth measuring, not assuming away.</li>
+      <li>A "kill switch" feature exists specifically because a dropped VPN connection can otherwise let traffic silently fall back to the normal, unprotected connection without any obvious signal that protection has lapsed.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/networking/ip/index.html", "title": "IP" },
+    { "href": "/networking/https/index.html", "title": "HTTPS & TLS" },
+    { "href": "/networking/router/index.html", "title": "Router & NAT" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

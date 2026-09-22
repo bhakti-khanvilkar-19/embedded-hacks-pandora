@@ -598,6 +598,17 @@
     ]
   },
   {
+    "title": "Firewall &amp; DMZ — Networking",
+    "url": "/networking/firewall/index.html",
+    "domain": "Networking",
+    "category": "Firewall",
+    "description": "The deliberate, rule-based security boundary NAT only accidentally provides: packet filtering vs. stateful inspection vs. application-layer firewalls, and what a DMZ actually is.",
+    "tags": [
+      "networking",
+      "firewall"
+    ]
+  },
+  {
     "title": "FTP — Networking",
     "url": "/networking/ftp/index.html",
     "domain": "Networking",
@@ -707,6 +718,17 @@
     ]
   },
   {
+    "title": "Proxy — Networking",
+    "url": "/networking/proxy/index.html",
+    "domain": "Networking",
+    "category": "Proxy",
+    "description": "Forward proxy vs. reverse proxy — the single question that tells them apart, and why caching, filtering, anonymity, and load balancing all fall out of the same basic idea.",
+    "tags": [
+      "networking",
+      "proxy"
+    ]
+  },
+  {
     "title": "QUIC — Networking",
     "url": "/networking/quic/index.html",
     "domain": "Networking",
@@ -792,6 +814,17 @@
     "tags": [
       "networking",
       "udp"
+    ]
+  },
+  {
+    "title": "VPN — Networking",
+    "url": "/networking/vpn/index.html",
+    "domain": "Networking",
+    "category": "Vpn",
+    "description": "Encapsulating one IP packet inside another, encrypted — how a VPN makes a remote device appear local, site-to-site vs. remote-access, and what a VPN doesn't protect.",
+    "tags": [
+      "networking",
+      "vpn"
     ]
   },
   {
