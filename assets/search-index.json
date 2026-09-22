@@ -543,6 +543,17 @@
     ]
   },
   {
+    "title": "BGP — Networking",
+    "url": "/networking/bgp/index.html",
+    "domain": "Networking",
+    "category": "Bgp",
+    "description": "How independently-run networks (Autonomous Systems) tell each other what they can reach, and why the internet doesn't have one central router — path-vector routing, AS_PATH, and policy over shortest path.",
+    "tags": [
+      "networking",
+      "bgp"
+    ]
+  },
+  {
     "title": "CoAP — Networking",
     "url": "/networking/coap/index.html",
     "domain": "Networking",
