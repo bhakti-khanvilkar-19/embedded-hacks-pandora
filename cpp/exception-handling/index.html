@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Exception Handling — C++ — Embedded Pandora</title>
+<meta name="description" content="try/catch/throw as a structured alternative to C's manual error-code checking — how exceptions actually unwind the stack, running every destructor along the way, and why they're rare in embedded C++." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C++</p>
+  <h1>Exception Handling</h1>
+  <p class="lede">
+    C has one universal error-handling convention: return a special value (or an error code) and hope every
+    caller actually checks it. Exceptions are C++'s structured alternative — a function that hits a problem
+    can <code>throw</code>, immediately unwinding up the call stack until something explicitly agrees to
+    <code>catch</code> it, with every destructor along the way still running automatically.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A mechanism for signaling and handling errors by unwinding the call stack, rather than checking a return value at every call site.</dd>
+      <dt>Mental model</dt><dd>A fire alarm, not a note left on a desk — <code>throw</code> stops everything immediately and propagates upward until a <code>catch</code> block agrees to handle it, instead of relying on every single caller to remember to check.</dd>
+      <dt>Key numbers</dt><dd>An uncaught exception terminates the program immediately, via <code>std::terminate</code> — there is no silent fallthrough the way an unchecked C error code has.</dd>
+      <dt>Reach for it when</dt><dd>An error is genuinely exceptional (a file that should exist doesn't, a network call fails) and the calling code several layers up is what actually knows how to recover — not for routine, expected control flow.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#try-catch-throw">try, catch, throw</a></li>
+      <li><a href="#stack-unwinding">Stack unwinding and RAII</a></li>
+      <li><a href="#exception-types">What to throw</a></li>
+      <li><a href="#vs-error-codes">Exceptions vs. C-style error codes</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="try-catch-throw">try, catch, throw</h2>
+  <pre><code>#include &lt;stdexcept&gt;
+
+float divide(float a, float b) {
+    if (b == 0) {
+        throw std::runtime_error("division by zero");   // throw — stop, unwind, look for a catch
+    }
+    return a / b;
+}
+
+int main() {
+    try {
+        float result = divide(10, 0);
+        std::cout << result << std::endl;   // never reached
+    } catch (const std::runtime_error &e) {
+        std::cout << "Error: " << e.what() << std::endl;   // Error: division by zero
+    }
+    return 0;
+}</code></pre>
+  <p>
+    <code>divide</code> never has to be called with a return-value check at every call site — the caller
+    (here, several lines away in <code>main</code>) is where the actual recovery decision gets made, and
+    every function in between needs no error-handling code of its own at all.
+  </p>
+
+  <h2 id="stack-unwinding">Stack unwinding and RAII</h2>
+  <p>
+    When an exception is thrown, C++ walks back up the call stack looking for a matching <code>catch</code>,
+    running the destructor of every local object along the way — this is exactly why
+    <a href="/cpp/constructors-destructors-raii/index.html">RAII</a> matters so much in C++ specifically: a
+    resource wrapped in an RAII object is released correctly even when an exception skips the rest of the
+    function entirely.
+  </p>
+  <pre><code>void process() {
+    FileHandle f("data.txt");   // RAII-managed — see Constructors, Destructors & RAII
+    riskyOperation();             // throws
+    // nothing after this line runs
+}   // ~FileHandle() STILL runs during unwinding — the file is still closed correctly</code></pre>
+
+  <h2 id="exception-types">What to throw</h2>
+  <p>
+    <code>&lt;stdexcept&gt;</code> provides a small hierarchy of standard exception types — throwing one of
+    these (or your own class derived from <code>std::exception</code>) is standard practice over throwing a
+    plain number or string:
+  </p>
+  <dl class="kv">
+    <dt><code>std::runtime_error</code></dt><dd>A general error only detectable at runtime — the most commonly thrown type.</dd>
+    <dt><code>std::invalid_argument</code></dt><dd>A function argument that doesn't make sense (e.g. a negative size).</dd>
+    <dt><code>std::out_of_range</code></dt><dd>An index or key outside a valid range — thrown by <code>std::vector::at()</code>, for example.</dd>
+    <dt><code>std::logic_error</code></dt><dd>A violated precondition that, in principle, could have been checked before calling.</dd>
+  </dl>
+
+  <h2 id="vs-error-codes">Exceptions vs. C-style error codes</h2>
+  <table>
+    <thead><tr><th></th><th>C-style error codes</th><th>Exceptions</th></tr></thead>
+    <tbody>
+      <tr><td>Easy to ignore</td><td>Yes — an unchecked return value fails silently</td><td>No — an uncaught exception terminates the program loudly</td></tr>
+      <tr><td>Propagates automatically</td><td>No — every intermediate function must check and re-return it</td><td>Yes — unwinds automatically until caught</td></tr>
+      <tr><td>Runtime cost when not thrown</td><td>None</td><td>Effectively none on modern compilers</td></tr>
+      <tr><td>Runtime cost when thrown</td><td>N/A</td><td>Real, non-trivial — not meant for routine control flow</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>File and network I/O —</strong> a failed file open or a dropped connection is a natural fit for an exception, since the code several layers up the call stack is usually what actually decides how to recover.</li>
+    <li><strong>Library input validation —</strong> throwing <code>std::invalid_argument</code> from a constructor is the standard way to reject bad input in library code, since a constructor has no return value to signal failure with otherwise.</li>
+    <li><strong>Desktop and server application error handling —</strong> most non-embedded C++ codebases (browsers, database engines, desktop apps) rely on exceptions as their primary error-handling mechanism.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Exceptions are genuinely unpopular in embedded and real-time C++ for concrete reasons: unpredictable worst-case timing during unwinding, and a real code-size cost from the exception-handling machinery the compiler generates — the subject of the next, final chapter.</li>
+      <li>A destructor that throws during stack unwinding caused by another exception calls <code>std::terminate</code> immediately — exactly the same rule mentioned in <a href="/cpp/constructors-destructors-raii/index.html#gotchas">Constructors, Destructors &amp; RAII's gotchas</a>: destructors should never throw.</li>
+      <li>Catching <code>...</code> (literally any exception, of any type) without at least logging what was caught hides real bugs — prefer catching specific, expected exception types.</li>
+      <li>Throwing an exception for routine, expected outcomes (like "value not found" in a lookup that's often expected to miss) is a common misuse — reserve exceptions for genuinely exceptional, unexpected failures, and use an ordinary return value for expected outcomes.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/cpp/memory-management/index.html", "title": "Memory Management" },
+  "next": { "href": "/cpp/cpp-in-embedded-systems/index.html", "title": "C++ in Embedded Systems" },
+  "related": [
+    { "href": "/cpp/constructors-destructors-raii/index.html", "title": "Constructors, Destructors & RAII" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

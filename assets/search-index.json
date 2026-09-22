@@ -381,6 +381,28 @@
     ]
   },
   {
+    "title": "C++ in Embedded Systems — C++",
+    "url": "/cpp/cpp-in-embedded-systems/index.html",
+    "domain": "Cpp",
+    "category": "Cpp In Embedded Systems",
+    "description": "What a bare-metal C++ codebase typically avoids from this whole domain, and why — exceptions, RTTI, and heavy dynamic allocation, plus what genuinely carries over cleanly to constrained hardware.",
+    "tags": [
+      "cpp",
+      "cpp-in-embedded-systems"
+    ]
+  },
+  {
+    "title": "Exception Handling — C++",
+    "url": "/cpp/exception-handling/index.html",
+    "domain": "Cpp",
+    "category": "Exception Handling",
+    "description": "try/catch/throw as a structured alternative to C's manual error-code checking — how exceptions actually unwind the stack, running every destructor along the way, and why they're rare in embedded C++.",
+    "tags": [
+      "cpp",
+      "exception-handling"
+    ]
+  },
+  {
     "title": "C++",
     "url": "/cpp/index.html",
     "domain": "Cpp",
