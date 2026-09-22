@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Electronics — Embedded Pandora</title>
-<meta name="description" content="The circuit-level fundamentals everything else in this notebook is built on: voltage, current, resistance, passive components, semiconductors, and data converters." />
+<meta name="description" content="The circuit-level fundamentals everything else in this notebook is built on — voltage, current, resistance, semiconductors, data converters — plus the computer-hardware basics (CPU, memory, storage, GPU, motherboard, PSU, cooling) built on top of them." />
 <script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <link rel="stylesheet" href="/assets/css/base.css" />
 <link rel="stylesheet" href="/assets/css/components.css" />
@@ -24,10 +24,15 @@
     microcontroller can use. This is that foundation — kept separate from
     <a href="/sensors/index.html">Sensors</a> (specific sensing elements)
     and <a href="/embedded/index.html">Embedded</a> (the microcontroller
-    itself) because it's the layer underneath both.
+    itself) because it's the layer underneath both. It also covers the
+    computer-hardware building blocks built on top of those circuits —
+    CPU, memory, storage, GPU, motherboard, PSU, cooling — the parts list
+    of any computer, general-purpose or embedded.
   </p>
 
   <h2>Topics</h2>
+
+  <h3>Circuit fundamentals</h3>
   <ul class="topic-list">
     <li><a href="/electronics/fundamentals/index.html"><span>Fundamentals — voltage, current, resistance, and how circuits work</span><span class="status">written</span></a></li>
     <li><a href="/electronics/passive-components/index.html"><span>Passive Components — resistors, capacitors, and inductors</span><span class="status">written</span></a></li>
@@ -36,10 +41,24 @@
     <li><a href="/electronics/analog-digital/index.html"><span>Analog vs. Digital Electronics — logic levels, comparators</span><span class="status">written</span></a></li>
   </ul>
 
+  <h3>Computer hardware basics</h3>
+  <p style="color: var(--ink-faint); font-size: 0.9rem; margin: 0.4em 0 1em;">
+    The building blocks any computer — general-purpose or embedded — is actually made of, built directly
+    on the circuit fundamentals above. Read in this order: each one leans on the one before it.
+  </p>
+  <ul class="topic-list">
+    <li><a href="/electronics/cpu/index.html"><span>CPU — fetch-decode-execute, clock speed, cores, cache</span><span class="status">written</span></a></li>
+    <li><a href="/electronics/memory/index.html"><span>Memory (RAM) — volatile working memory, DRAM vs. SRAM</span><span class="status">written</span></a></li>
+    <li><a href="/electronics/storage/index.html"><span>ROM &amp; Storage — non-volatile memory, HDD vs. SSD, the boot role</span><span class="status">written</span></a></li>
+    <li><a href="/electronics/gpu/index.html"><span>GPU — massive parallelism, why AI workloads live here</span><span class="status">written</span></a></li>
+    <li><a href="/electronics/motherboard/index.html"><span>Motherboard — chipset, buses, form factors</span><span class="status">written</span></a></li>
+    <li><a href="/electronics/psu/index.html"><span>PSU — AC-to-DC conversion, voltage rails, wattage</span><span class="status">written</span></a></li>
+    <li><a href="/electronics/cooling/index.html"><span>Cooling — why heat matters, thermal throttling</span><span class="status">written</span></a></li>
+  </ul>
+
   <h2>Planned</h2>
   <p>
     <span class="badge">op-amps</span>
-    <span class="badge">power-supplies</span>
     <span class="badge">pcb-basics</span>
   </p>
 

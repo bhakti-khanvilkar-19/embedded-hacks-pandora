@@ -68,8 +68,10 @@ Each topic is a subfolder of exactly one domain, with its own `index.html`.
 
 - **Electronics** — circuit-level fundamentals underneath everything else:
   voltage/current/resistance, passive components, semiconductors, data
-  converters. Basics-first by design — this is the layer a beginner reads
-  before a datasheet.
+  converters — plus the computer-hardware building blocks built directly
+  on top of those circuits (CPU, memory, ROM/storage, GPU, motherboard,
+  PSU, cooling). Basics-first by design — this is the layer a beginner
+  reads before a datasheet.
 - **Embedded** — the microcontroller/SoC itself, in isolation: cores, pins,
   interrupts, timers, memory, debugging. Not the protocols it speaks.
 - **Embedded C** — the C language as it actually behaves on bare metal:
