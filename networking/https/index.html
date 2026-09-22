@@ -41,6 +41,7 @@
       <li><a href="#handshake">The handshake</a></li>
       <li><a href="#hybrid">Why TLS mixes two kinds of cryptography</a></li>
       <li><a href="#certificates">Certificates and the chain of trust</a></li>
+      <li><a href="#ssl-vs-tls">"SSL" vs. "TLS" — same lineage, different name</a></li>
       <li><a href="#mtls">Mutual TLS</a></li>
       <li><a href="#embedded">TLS on constrained devices</a></li>
       <li><a href="#applications">Real-world applications</a></li>
@@ -132,6 +133,17 @@
     the client trusts the connection. Break any one link — wrong
     hostname, expired certificate, a self-signed certificate with no
     trusted signer — and the client should refuse to proceed.
+  </p>
+
+  <h2 id="ssl-vs-tls">"SSL" vs. "TLS" — same lineage, different name</h2>
+  <p>
+    "SSL" and "TLS" are often used interchangeably, and that's close enough for casual conversation — but
+    they're not simply two names for the same thing running today. <strong>SSL (Secure Sockets Layer)</strong>
+    came first; <strong>TLS (Transport Layer Security)</strong> is its direct successor, renamed when the
+    protocol passed from Netscape to the IETF standards body. Every version of SSL (up to SSL 3.0) is now
+    considered broken and disabled everywhere — actual, non-deprecated traffic today runs on TLS 1.2 or
+    TLS 1.3, never SSL. The name "SSL" survives mostly as a habit — "SSL certificate," "SSL termination" —
+    describing what is, in every modern system, actually TLS underneath.
   </p>
 
   <h2 id="mtls">Mutual TLS</h2>
