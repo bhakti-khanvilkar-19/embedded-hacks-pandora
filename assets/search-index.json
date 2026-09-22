@@ -228,6 +228,38 @@
     ]
   },
   {
+    "title": "C",
+    "url": "/c/index.html",
+    "domain": "C",
+    "category": "Overview",
+    "description": "The C language itself, taught from first principles for someone with only basic exposure — variables, control flow, functions, arrays, strings, pointers, structs, and the standard library. The foundation Embedded C, C++, and Go all assume.",
+    "tags": [
+      "c"
+    ]
+  },
+  {
+    "title": "Introduction to C — C",
+    "url": "/c/introduction/index.html",
+    "domain": "C",
+    "category": "Introduction",
+    "description": "What C actually is, how a .c file becomes a running program (the compilation pipeline), and your first working program explained line by line.",
+    "tags": [
+      "c",
+      "introduction"
+    ]
+  },
+  {
+    "title": "Variables, Data Types & Operators — C",
+    "url": "/c/variables-types-operators/index.html",
+    "domain": "C",
+    "category": "Variables Types Operators",
+    "description": "How C stores values in memory as fixed-size typed variables, the built-in types, sizeof, type conversion, and the operators that combine values — with a full precedence table.",
+    "tags": [
+      "c",
+      "variables-types-operators"
+    ]
+  },
+  {
     "title": "Analog vs. Digital Electronics — Electronics",
     "url": "/electronics/analog-digital/index.html",
     "domain": "Electronics",

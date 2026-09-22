@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Introduction to C — C — Embedded Pandora</title>
+<meta name="description" content="What C actually is, how a .c file becomes a running program (the compilation pipeline), and your first working program explained line by line." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C</p>
+  <h1>Introduction to C</h1>
+  <p class="lede">
+    C is the language most of this notebook eventually sits on top of — the syntax firmware gets written in,
+    the language C++ extends, and the reason "systems programming" means what it means. This chapter assumes
+    nothing: what C actually is, how a plain text file becomes a running program, and your very first working
+    program, explained one line at a time.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A compiled, statically-typed, low-level general-purpose programming language, created in 1972, that gives direct control over memory with almost no runtime overhead.</dd>
+      <dt>Mental model</dt><dd>A precise, structured way of writing instructions that get translated once, ahead of time, into the exact machine code the CPU runs — no interpreter and no virtual machine sitting between your code and the hardware.</dd>
+      <dt>Key numbers</dt><dd>Each <code>.c</code> file compiles independently into a <code>.o</code> object file; a working "Hello, World" is about 6 lines; C99/C11/C17/C23 are the modern standard revisions in active use.</dd>
+      <dt>Reach for it when</dt><dd>You need direct hardware control, a predictable and minimal memory/performance footprint (an OS kernel, a microcontroller, a database engine), or you need to interoperate with existing code — almost everything else is ultimately built on top of C.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#why-c">Why C still matters</a></li>
+      <li><a href="#pipeline">The compilation pipeline</a></li>
+      <li><a href="#first-program">Your first program, line by line</a></li>
+      <li><a href="#compiling-it">Compiling and running it yourself</a></li>
+      <li><a href="#stdlib">The standard library, at a glance</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="why-c">Why C still matters</h2>
+  <p>
+    C was created in 1972 by Dennis Ritchie at Bell Labs, originally to rewrite the Unix operating system in
+    something more portable than raw assembly. That single design goal — a language low-level enough to
+    replace assembly, but structured enough to actually reason about — is still exactly why C hasn't gone
+    away. Every operating system kernel you've ever used (Linux, Windows, macOS, the one running inside your
+    router) is written substantially in C. Most other programming languages' own runtimes — Python, Ruby,
+    the core of Node.js — are themselves implemented in C. And every microcontroller in the
+    <a href="/embedded/index.html">Embedded</a> domain of this notebook is, in practice, programmed in C,
+    because nothing else gets as close to the hardware with as little overhead.
+  </p>
+  <p>
+    C is old, in other words, for the same reason a well-designed hand tool is old — nothing since has needed
+    to replace what it's actually for.
+  </p>
+
+  <h2 id="pipeline">The compilation pipeline</h2>
+  <p>
+    Unlike a language like Python, where a program is read and executed line-by-line by an interpreter every
+    time it runs, a C program is translated <strong>once</strong>, ahead of time, all the way down to the
+    exact machine instructions your CPU understands. That translation happens in four distinct stages:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 720 160" role="img" aria-labelledby="pipeline-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="pipeline-title">A .c source file passes through the preprocessor, compiler, and assembler to become an object file, which the linker then combines with library code into a final executable</title>
+
+      <rect class="frame-box block-amber" x="10" y="50" width="110" height="55" rx="8" />
+      <text class="frame-label" x="65" y="74" text-anchor="middle" font-size="10">hello.c</text>
+      <text class="frame-caption" x="65" y="90" text-anchor="middle" font-size="8">source text</text>
+
+      <rect class="frame-box block-teal" x="160" y="40" width="130" height="75" rx="8" />
+      <text class="frame-label" x="225" y="66" text-anchor="middle" font-size="10">Preprocessor</text>
+      <text class="frame-caption" x="225" y="82" text-anchor="middle" font-size="8">expands #include,</text>
+      <text class="frame-caption" x="225" y="94" text-anchor="middle" font-size="8">#define, macros</text>
+
+      <rect class="frame-box block-green" x="330" y="40" width="120" height="75" rx="8" />
+      <text class="frame-label" x="390" y="66" text-anchor="middle" font-size="10">Compiler</text>
+      <text class="frame-caption" x="390" y="82" text-anchor="middle" font-size="8">source →</text>
+      <text class="frame-caption" x="390" y="94" text-anchor="middle" font-size="8">assembly</text>
+
+      <rect class="frame-box block-blue" x="490" y="40" width="120" height="75" rx="8" />
+      <text class="frame-label" x="550" y="66" text-anchor="middle" font-size="10">Assembler</text>
+      <text class="frame-caption" x="550" y="82" text-anchor="middle" font-size="8">assembly →</text>
+      <text class="frame-caption" x="550" y="94" text-anchor="middle" font-size="8">hello.o</text>
+
+      <line x1="120" y1="77" x2="156" y2="77" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="160,77 150,72 150,82" />
+      <line x1="290" y1="77" x2="326" y2="77" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="330,77 320,72 320,82" />
+      <line x1="450" y1="77" x2="486" y2="77" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="490,77 480,72 480,82" />
+
+      <path d="M 550,115 Q 550,140 390,140 Q 90,140 65,140 L 65,109" fill="none" class="seq-arrow flow-path flow-path--reverse" stroke-width="1.2" />
+      <polygon class="seq-arrowhead" points="65,105 59,118 71,118" />
+      <rect class="frame-box block-violet" x="640" y="50" width="70" height="55" rx="8" />
+      <text class="frame-label" x="675" y="74" text-anchor="middle" font-size="9">hello</text>
+      <text class="frame-caption" x="675" y="90" text-anchor="middle" font-size="7">executable</text>
+      <line x1="610" y1="77" x2="636" y2="77" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="640,77 630,72 630,82" />
+      <text class="seq-note" x="390" y="152" text-anchor="middle" font-size="8.5">The Linker (not pictured as a box — it's the last arrow) combines hello.o with library code (like printf's implementation) into the final executable</text>
+    </svg>
+    <figcaption class="diagram__caption">Four stages, always in this order — a mismatch anywhere in this chain (a missing header, an undefined symbol) fails at a different, specific stage, which is the first clue for diagnosing it.</figcaption>
+  </figure>
+  <dl class="kv">
+    <dt>Preprocessor</dt><dd>A text-substitution pass that runs before real compilation — it expands <code>#include</code> files inline, replaces <code>#define</code> macros, and resolves <code>#ifdef</code> conditional blocks. It has no understanding of C syntax at all; it's closer to find-and-replace.</dd>
+    <dt>Compiler</dt><dd>Translates the preprocessed C source into assembly language for your target CPU — this is the stage that actually understands C's grammar, types, and rules, and where most syntax errors are caught.</dd>
+    <dt>Assembler</dt><dd>Translates human-readable assembly into an object file (<code>.o</code>) — actual machine code, but not yet a runnable program, since it may reference functions (like <code>printf</code>) that live elsewhere.</dd>
+    <dt>Linker</dt><dd>Combines one or more object files with any library code they reference into a single, runnable executable — the stage that resolves "where is the actual code for <code>printf</code>."</dd>
+  </dl>
+  <p>
+    This same pipeline, described in far more depth for a bare-metal target, is exactly what
+    <a href="/embedded-c/compilation/index.html">Embedded C's Compilation &amp; Linking</a> chapter covers —
+    this section is the plain-language version worth understanding first.
+  </p>
+
+  <h2 id="first-program">Your first program, line by line</h2>
+  <pre><code>#include &lt;stdio.h&gt;
+
+int main(void) {
+    printf("Hello, World!\n");
+    return 0;
+}</code></pre>
+  <dl class="kv">
+    <dt><code>#include &lt;stdio.h&gt;</code></dt><dd>A preprocessor directive — before real compilation starts, this line is replaced by the entire contents of the "standard I/O" header, which declares <code>printf</code> and friends so the compiler knows they exist.</dd>
+    <dt><code>int main(void)</code></dt><dd>Every C program has exactly one <code>main</code> function — it's where execution starts. <code>int</code> means it returns a whole number to the operating system; <code>(void)</code> means it takes no arguments.</dd>
+    <dt><code>{ ... }</code></dt><dd>Curly braces mark the start and end of a <strong>block</strong> — here, the body of <code>main</code>. Every opening brace needs exactly one matching closing brace.</dd>
+    <dt><code>printf("Hello, World!\n");</code></dt><dd>Calls the <code>printf</code> function ("print formatted") with one argument, a string literal. <code>\n</code> inside the string is an escape sequence for a newline — it isn't two characters, it's C's way of writing "one line-break character" in source text.</dd>
+    <dt><code>return 0;</code></dt><dd>Ends <code>main</code>, handing the value <code>0</code> back to the operating system. By long-standing convention, <code>0</code> means "the program finished successfully"; any nonzero value signals an error.</dd>
+    <dt><code>;</code></dt><dd>Every statement in C ends with a semicolon — it's how the compiler knows where one instruction stops and the next begins, since C otherwise ignores whitespace and line breaks.</dd>
+  </dl>
+
+  <h2 id="compiling-it">Compiling and running it yourself</h2>
+  <p>
+    Save the code above as <code>hello.c</code>, then, with <a href="https://gcc.gnu.org/">GCC</a> or
+    <a href="https://clang.llvm.org/">Clang</a> installed, run this from a terminal in the same folder:
+  </p>
+  <pre><code>gcc hello.c -o hello
+./hello
+# Hello, World!</code></pre>
+  <p>
+    The first command runs the entire pipeline above in one step and produces an executable named
+    <code>hello</code>; the second line actually runs it. This is the exact loop you'll repeat for every
+    example in this domain: edit, compile, run, read the output, repeat.
+  </p>
+
+  <h2 id="stdlib">The standard library, at a glance</h2>
+  <p>
+    C's language core is deliberately tiny — almost everything useful comes from the <strong>standard
+    library</strong>, a set of headers every conforming compiler ships. You'll meet all of these properly in
+    later chapters; this is just so the names stop looking unfamiliar:
+  </p>
+  <table>
+    <thead><tr><th>Header</th><th>What it provides</th></tr></thead>
+    <tbody>
+      <tr><td><code>stdio.h</code></td><td>Input/output — <code>printf</code>, <code>scanf</code>, file operations.</td></tr>
+      <tr><td><code>stdlib.h</code></td><td>General utilities — memory allocation, random numbers, program exit.</td></tr>
+      <tr><td><code>string.h</code></td><td>String/memory manipulation — <code>strlen</code>, <code>strcpy</code>, <code>memcpy</code>.</td></tr>
+      <tr><td><code>math.h</code></td><td>Floating-point math — <code>sqrt</code>, <code>pow</code>, <code>sin</code>/<code>cos</code>.</td></tr>
+      <tr><td><code>ctype.h</code></td><td>Character tests/conversions — <code>isdigit</code>, <code>toupper</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>The Linux kernel —</strong> tens of millions of lines of C, still the reference example of what C was originally built to do.</li>
+    <li><strong>SQLite —</strong> the world's most widely deployed database engine, written entirely in C specifically for its small footprint and predictable performance.</li>
+    <li><strong>Every microcontroller firmware in this notebook's <a href="/embedded/index.html">Embedded</a> domain —</strong> from a blinking LED to a full automotive ECU.</li>
+    <li><strong>Other languages' own runtimes —</strong> CPython (the reference Python implementation) and Ruby's MRI interpreter are both written in C.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>C is case-sensitive — <code>Main</code> and <code>main</code> are two completely different, unrelated names to the compiler.</li>
+      <li>A missing semicolon usually produces a compiler error pointing at the <em>next</em> line, not the one actually missing it — if an error looks like it's in perfectly fine code, check the line just above it first.</li>
+      <li>C has no dedicated boolean type in its original design (C99 added <code>_Bool</code>/<code>&lt;stdbool.h&gt;</code>) — historically, <code>0</code> means false and literally anything else means true, a convention that still shows up throughout the language.</li>
+      <li>Unlike Python or JavaScript, there's no safety net for most mistakes — an out-of-bounds array access or a wrong pointer doesn't raise a friendly exception, it's <strong>undefined behavior</strong>: the program might crash, might silently corrupt unrelated data, or might appear to work by pure luck. This single fact is why the rest of this domain, and all of <a href="/embedded-c/index.html">Embedded C</a>, exists.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "next": { "href": "/c/variables-types-operators/index.html", "title": "Variables, Data Types & Operators" },
+  "related": [
+    { "href": "/embedded-c/compilation/index.html", "title": "Compilation & Linking" },
+    { "href": "/embedded-c/index.html", "title": "Embedded C" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

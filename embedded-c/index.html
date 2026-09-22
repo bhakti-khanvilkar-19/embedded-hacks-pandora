@@ -23,20 +23,26 @@
     and a CPU that will happily execute undefined behavior instead of
     complaining about it. Every topic here exists because it's a place
     embedded C diverges from "C as taught in a general programming
-    course" in a way that produces real, field-reported bugs.
+    course" in a way that produces real, field-reported bugs. If C itself
+    is still new to you, start with the <a href="/c/index.html">C</a>
+    domain first — this one assumes you're already comfortable with
+    variables, control flow, functions, and pointers.
   </p>
 
   <div class="callout callout--note">
-    <span class="callout__label">Why this domain is separate from Embedded</span>
+    <span class="callout__label">Why this domain is separate from Embedded (and from C)</span>
     <p>
       <a href="/embedded/index.html">Embedded</a> is the microcontroller
-      itself — cores, pins, interrupts, timers. This domain is the
-      language running on top of it: storage classes, integer
-      representation, the compile/link pipeline, memory management, and
-      the data structures a program is built out of. The distinction
-      matters because everything here applies whether the target is an
-      8-bit AVR, a 32-bit Cortex-M, or a full Linux SBC — it's C
-      discipline, not hardware.
+      itself — cores, pins, interrupts, timers. <a href="/c/index.html">C</a>
+      is the language taught from first principles, with nothing assumed.
+      This domain is neither: it's the language running on that
+      microcontroller, specifically where it diverges from general-purpose
+      C — storage classes, integer representation, the compile/link
+      pipeline, memory management, and the data structures a program is
+      built out of, all reasoned about under bare-metal constraints. The
+      distinction matters because everything here applies whether the
+      target is an 8-bit AVR, a 32-bit Cortex-M, or a full Linux SBC — it's
+      C discipline, not hardware.
     </p>
   </div>
 
