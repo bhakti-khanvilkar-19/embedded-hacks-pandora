@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ROM &amp; Storage — Electronics — Embedded Pandora</title>
+<meta name="description" content="Non-volatile memory in its two forms — small, fixed ROM/firmware and large, general-purpose HDD/SSD storage — and why the very first code a device runs always lives in the first kind." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Electronics</p>
+  <h1>ROM &amp; Storage</h1>
+  <p class="lede">
+    The direct opposite of <a href="/electronics/memory/index.html">RAM</a>: memory that keeps its content
+    with no power at all. That single property covers two very different jobs — a small, fixed place for
+    the code a device runs first (ROM/firmware), and a large, general-purpose place for everything else
+    (mass storage) — and conflating the two is a common source of confusion.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Non-volatile memory — content survives with no power — in two forms: small/fixed ROM for firmware, and large/general-purpose HDD/SSD storage for everything else.</dd>
+      <dt>Mental model</dt><dd>A small plaque bolted to the wall (ROM — tiny, fixed, always there) vs. a filing cabinet (storage — huge, holds everything, a little slower to search).</dd>
+      <dt>Key numbers</dt><dd>HDD ≈ 100–200 MB/s; SATA SSD ≈ 500 MB/s; NVMe SSD ≈ 3,500–7,000+ MB/s.</dd>
+      <dt>Reach for it when</dt><dd>Describing what a system remembers after power is removed — the opposite property from RAM.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#non-volatile">Non-volatile — the shared property</a></li>
+      <li><a href="#rom-vs-storage">ROM vs. mass storage</a></li>
+      <li><a href="#hdd-vs-ssd">HDD vs. SSD</a></li>
+      <li><a href="#boot-role">The boot role</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="non-volatile">Non-volatile — the shared property</h2>
+  <p>
+    Everything on this page shares one trait, and it's the exact opposite of
+    <a href="/electronics/memory/index.html#volatile">RAM's defining property</a>: content survives with
+    no power applied at all. That's the whole reason it exists — RAM is fast specifically because it never
+    has to guarantee this; non-volatile memory is slower specifically because it does.
+  </p>
+
+  <h2 id="rom-vs-storage">ROM vs. mass storage</h2>
+  <p>
+    "ROM" historically meant literally unchangeable — written once, at manufacture, forever. Modern "ROM"
+    (a microcontroller's own flash, for instance) is usually actually <em>rewritable</em> flash memory that
+    just behaves like read-only memory from the running program's point of view — small, fixed-purpose,
+    holding firmware and bootloader code. Mass storage (HDD/SSD) is the opposite in scale and purpose: much
+    larger, freely read/write, general-purpose space for an operating system, files, and installed programs.
+  </p>
+
+  <h2 id="hdd-vs-ssd">HDD vs. SSD</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 640 160" role="img" aria-labelledby="hdd-ssd-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="hdd-ssd-title">An HDD uses a mechanical spinning platter and moving read/write head; an SSD uses flash memory chips with no moving parts and much faster random access</title>
+      <rect class="frame-box block-amber" x="30" y="20" width="260" height="110" rx="8" />
+      <text class="frame-label" x="160" y="45" text-anchor="middle" font-size="11" font-weight="700">HDD</text>
+      <circle fill="none" stroke="var(--ink-faint)" r="35" cx="160" cy="90" stroke-width="1.4" />
+      <circle fill="none" stroke="var(--ink-faint)" r="6" cx="160" cy="90" stroke-width="1.4" />
+      <line x1="160" y1="55" x2="215" y2="60" class="seq-arrow" stroke-width="1.6" />
+      <text class="frame-caption" x="160" y="148" text-anchor="middle" font-size="8">spinning platter + moving head — mechanical</text>
+
+      <rect class="frame-box block-teal" x="350" y="20" width="260" height="110" rx="8" />
+      <text class="frame-label" x="480" y="45" text-anchor="middle" font-size="11" font-weight="700">SSD</text>
+      <rect class="frame-box" x="390" y="65" width="45" height="45" rx="4" />
+      <rect class="frame-box" x="445" y="65" width="45" height="45" rx="4" />
+      <rect class="frame-box" x="500" y="65" width="45" height="45" rx="4" />
+      <rect class="frame-box" x="555" y="65" width="35" height="45" rx="4" />
+      <text class="frame-caption" x="480" y="148" text-anchor="middle" font-size="8">flash memory chips — no moving parts</text>
+    </svg>
+    <figcaption class="diagram__caption">No moving parts is why SSDs win hardest on random access — an HDD's head has to physically travel to each new location.</figcaption>
+  </figure>
+  <p>
+    An HDD stores data magnetically on spinning platters, physically moving a read/write head to each
+    location — mechanical, cheaper per GB, meaningfully slower, especially for many small/scattered reads.
+    An SSD stores data in flash memory chips with no moving parts at all — faster across the board, and
+    dramatically faster specifically for random access, where an HDD's physical seek time dominates.
+  </p>
+
+  <h2 id="boot-role">The boot role</h2>
+  <p>
+    The very first code any device runs on power-up has to live somewhere non-volatile, reachable before
+    an operating system or any storage driver even exists — this is exactly the territory the
+    <a href="/bootloaders/index.html">Bootloaders</a> domain covers in depth: ROM code, SPL, and U-Boot,
+    each one handing off to the next until something capable of reading real storage is finally running.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Operating system and program storage —</strong> the SSD/HDD in any general-purpose computer.</li>
+    <li><strong>Embedded firmware —</strong> a microcontroller's on-chip flash — see the <a href="/embedded/index.html">Embedded</a> domain — holds the compiled program itself, non-volatile so it survives every power cycle.</li>
+    <li><strong>Boot ROM —</strong> the fixed, factory-programmed first-stage code covered in the <a href="/bootloaders/index.html">Bootloaders</a> domain, small and unchangeable by design.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Flash memory (SSDs and embedded flash alike) has a limited number of program/erase cycles per cell — wear-leveling firmware exists specifically to spread writes evenly and extend real-world lifespan, relevant for embedded flash just as much as consumer SSDs.</li>
+      <li>"ROM" in casual modern use is almost never true unchangeable read-only memory anymore — it's a naming holdover from when that was literally true.</li>
+      <li>A "slow computer" is very often a storage bottleneck, not a <a href="/electronics/cpu/index.html">CPU</a> or <a href="/electronics/memory/index.html">RAM</a> one — an old HDD is frequently the single biggest upgrade available for a sluggish older machine.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/electronics/memory/index.html", "title": "Memory (RAM)" },
+  "related": [
+    { "href": "/electronics/memory/index.html", "title": "Memory (RAM)" },
+    { "href": "/bootloaders/index.html", "title": "Bootloaders" },
+    { "href": "/embedded/index.html", "title": "Embedded" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
