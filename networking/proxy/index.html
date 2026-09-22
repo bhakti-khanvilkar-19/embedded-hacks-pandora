@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Proxy — Networking — Embedded Pandora</title>
+<meta name="description" content="Forward proxy vs. reverse proxy — the single question that tells them apart, and why caching, filtering, anonymity, and load balancing all fall out of the same basic idea." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>Proxy</h1>
+  <p class="lede">
+    A proxy sits between a client and a server, same as a <a href="/networking/vpn/index.html">VPN</a> —
+    but for a different job. A VPN's whole point is encrypting and tunneling traffic; a proxy's point is
+    acting <em>on behalf of</em> one side — caching, filtering, hiding an identity, or spreading load —
+    and it may not involve encryption at all.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A server that sits between a client and a destination, making the request on one side's behalf.</dd>
+      <dt>Mental model</dt><dd>A personal assistant who places calls for you — the other party talks to your assistant, never directly to you.</dd>
+      <dt>Key numbers</dt><dd>The one question that tells the two kinds apart: which side is the proxy standing in front of — the clients, or the servers?</dd>
+      <dt>Reach for it when</dt><dd>Caching repeated requests, filtering/monitoring traffic, hiding a client's identity, or distributing load across several backend servers.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#forward-vs-reverse">Forward proxy vs. reverse proxy</a></li>
+      <li><a href="#why-use-one">Why use one at all</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="forward-vs-reverse">Forward proxy vs. reverse proxy</h2>
+  <p>Both are the same basic idea — "stand in the middle" — pointed in opposite directions:</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 230" role="img" aria-labelledby="proxy-types-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="proxy-types-title">A forward proxy sits in front of clients, making requests to the internet on their behalf; a reverse proxy sits in front of servers, receiving requests from the internet and routing them to the right backend</title>
+
+      <text class="seq-sub" x="175" y="18" text-anchor="middle" font-weight="700">Forward proxy</text>
+      <rect class="frame-box block-teal" x="20" y="30" width="80" height="40" rx="6" />
+      <text class="frame-label" x="60" y="54" text-anchor="middle" font-size="9">Client</text>
+      <rect class="frame-box block-amber" x="140" y="30" width="90" height="40" rx="6" />
+      <text class="frame-label" x="185" y="54" text-anchor="middle" font-size="9">Proxy</text>
+      <rect class="frame-box block-violet" x="270" y="30" width="80" height="40" rx="6" />
+      <text class="frame-label" x="310" y="54" text-anchor="middle" font-size="9">Internet</text>
+      <line x1="100" y1="50" x2="136" y2="50" class="seq-arrow" stroke-width="1.2" />
+      <polygon class="seq-arrowhead" points="140,50 132,46 132,54" />
+      <line x1="230" y1="50" x2="266" y2="50" class="seq-arrow" stroke-width="1.2" />
+      <polygon class="seq-arrowhead" points="270,50 262,46 262,54" />
+      <text class="seq-note" x="175" y="90" text-anchor="middle" font-size="9">The destination sees the proxy's identity, not the client's.</text>
+
+      <text class="seq-sub" x="525" y="18" text-anchor="middle" font-weight="700">Reverse proxy</text>
+      <rect class="frame-box block-violet" x="370" y="30" width="80" height="40" rx="6" />
+      <text class="frame-label" x="410" y="54" text-anchor="middle" font-size="9">Internet</text>
+      <rect class="frame-box block-amber" x="490" y="30" width="90" height="40" rx="6" />
+      <text class="frame-label" x="535" y="54" text-anchor="middle" font-size="9">Proxy</text>
+      <rect class="frame-box block-teal" x="620" y="15" width="70" height="30" rx="6" />
+      <text class="frame-label" x="655" y="34" text-anchor="middle" font-size="8">Server A</text>
+      <rect class="frame-box block-teal" x="620" y="55" width="70" height="30" rx="6" />
+      <text class="frame-label" x="655" y="74" text-anchor="middle" font-size="8">Server B</text>
+      <line x1="450" y1="50" x2="486" y2="50" class="seq-arrow" stroke-width="1.2" />
+      <polygon class="seq-arrowhead" points="490,50 482,46 482,54" />
+      <line x1="580" y1="44" x2="616" y2="32" class="seq-arrow" stroke-width="1.2" />
+      <line x1="580" y1="56" x2="616" y2="68" class="seq-arrow" stroke-width="1.2" />
+      <text class="seq-note" x="525" y="100" text-anchor="middle" font-size="9">The client only ever sees the proxy's address, never a real backend.</text>
+
+      <text class="seq-note" x="350" y="150" text-anchor="middle">Same shape, opposite side — a forward proxy is a client's agent; a reverse proxy is a server's.</text>
+      <text class="seq-note" x="350" y="170" text-anchor="middle">A reverse proxy distributing requests across several backends is also, in effect, a load balancer.</text>
+    </svg>
+    <figcaption class="diagram__caption">The single diagnostic question: which side is the proxy standing in front of, the requester or the destination?</figcaption>
+  </figure>
+
+  <h2 id="why-use-one">Why use one at all</h2>
+  <ul class="point-list">
+    <li><strong>Caching —</strong> serving a repeated request straight from a stored copy instead of hitting the real origin again, whether that's a corporate forward proxy caching common downloads or a reverse proxy/CDN caching a popular page.</li>
+    <li><strong>Filtering —</strong> a forward proxy blocking access to certain destinations (corporate content policy); a reverse proxy blocking malicious-looking requests before they ever reach a real backend.</li>
+    <li><strong>Anonymity —</strong> a forward proxy hides the originating client's real address from whatever it's talking to.</li>
+    <li><strong>Load distribution —</strong> a reverse proxy spreading incoming requests across multiple backend servers, so no single server has to handle all the traffic alone.</li>
+  </ul>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Corporate outbound web filtering —</strong> a forward proxy that every employee's traffic passes through on the way out to the internet.</li>
+    <li><strong>Nginx/HAProxy in front of a web application —</strong> the standard reverse-proxy pattern, routing incoming requests to one of several backend application servers.</li>
+    <li><strong>CDN edge servers —</strong> functionally reverse proxies and caches placed physically close to users, serving cached content without a round trip to the real origin server.</li>
+    <li><strong>TLS termination —</strong> a reverse proxy handling <a href="/networking/https/index.html">TLS</a> decryption once at the edge, so backend servers behind it only ever handle plain, already-decrypted traffic and don't each need their own certificate.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Mixing up "forward" and "reverse" is extremely common — always ask which side the proxy is standing in front of, not which direction traffic happens to be moving in any one example.</li>
+      <li>A caching proxy serving stale data is a classic, genuinely hard bug class — cache invalidation is famously one of the notoriously difficult problems in computer science, and a proxy layer is exactly where it bites.</li>
+      <li>An open forward proxy — reachable and usable by anyone on the internet, not just its intended clients — is a real abuse vector, the same class of misconfiguration as <a href="/networking/smtp/index.html#gotchas">SMTP's open-relay problem</a>.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/networking/vpn/index.html", "title": "VPN" },
+    { "href": "/networking/https/index.html", "title": "HTTPS & TLS" },
+    { "href": "/networking/router/index.html", "title": "Router & NAT" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

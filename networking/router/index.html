@@ -132,7 +132,7 @@
     <span class="callout__label">Field notes</span>
     <ul>
       <li><strong>Double NAT —</strong> two routers chained together (an ISP-provided modem/router combo plus your own router behind it) means a device is now two translation hops from the public internet — port forwarding on the inner router alone often silently fails, since the outer router never forwards the traffic to it in the first place.</li>
-      <li>NAT is not a firewall, even though it accidentally blocks unsolicited inbound traffic by default — a real security boundary needs its own dedicated rules, not this side effect.</li>
+      <li>NAT is not a <a href="/networking/firewall/index.html">firewall</a>, even though it accidentally blocks unsolicited inbound traffic by default — a real security boundary needs its own dedicated rules, not this side effect.</li>
       <li>Some older protocols embed an IP address or port directly inside their own payload (not just the packet headers) — NAT has no way to rewrite that, which is exactly the class of problem behind <a href="/networking/ftp/index.html#active-passive">FTP's active-mode NAT breakage</a>.</li>
     </ul>
   </div>

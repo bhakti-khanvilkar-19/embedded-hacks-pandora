@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Firewall &amp; DMZ — Networking — Embedded Pandora</title>
+<meta name="description" content="The deliberate, rule-based security boundary NAT only accidentally provides: packet filtering vs. stateful inspection vs. application-layer firewalls, and what a DMZ actually is." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>Firewall &amp; DMZ</h1>
+  <p class="lede">
+    <a href="/networking/router/index.html">Router &amp; NAT</a>'s own gotchas make a point of saying
+    "NAT is not a firewall, even though it accidentally blocks unsolicited inbound traffic by default." A
+    firewall is what that sentence is contrasting NAT against — a deliberate, rule-based security boundary,
+    not a side effect of address translation.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A system that inspects network traffic and allows or blocks it according to explicit rules.</dd>
+      <dt>Mental model</dt><dd>A security guard checking IDs against a list — a deliberate policy decision, not NAT's accident of "the door happens to be locked because nothing told it to open."</dd>
+      <dt>Key numbers</dt><dd>Rules can match at Layer 3/4 (IP address, port, protocol) or, for an application-aware firewall, Layer 7 (the actual request content) — see <a href="/networking/osi-model/index.html#applications">OSI vs. TCP/IP Model</a> for that same L4-vs-L7 distinction applied to load balancers.</dd>
+      <dt>Reach for it when</dt><dd>Any network boundary where you want explicit, auditable control over what's allowed to cross — home router, office perimeter, or a single embedded Linux device's own local rules.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#packet-filtering">Packet filtering</a></li>
+      <li><a href="#stateful">Stateful inspection</a></li>
+      <li><a href="#next-gen">Application-aware firewalls</a></li>
+      <li><a href="#dmz">The DMZ</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="packet-filtering">Packet filtering</h2>
+  <p>
+    The earliest and simplest kind: a table of rules matching each packet independently against source/
+    destination IP, port, and protocol — <em>allow</em> or <em>deny</em>, evaluated fresh for every single
+    packet with no memory of what came before it. Fast and simple, but blind to the difference between an
+    unsolicited inbound packet and a reply to a connection the inside network actually opened.
+  </p>
+
+  <h2 id="stateful">Stateful inspection</h2>
+  <p>
+    The modern default: the firewall tracks which connections were legitimately <em>initiated</em> from the
+    trusted side, and automatically allows the matching return traffic for those — everything else
+    unsolicited is dropped. This is the same underlying idea as the connection table
+    <a href="/networking/router/index.html#nat">NAT keeps for its own translation</a>, extended into an
+    explicit, auditable security policy rather than a side effect of address rewriting.
+  </p>
+
+  <h2 id="next-gen">Application-aware firewalls</h2>
+  <p>
+    A packet-filtering or stateful firewall only ever sees IP addresses and ports — it has no idea whether
+    port 443 traffic is a normal web request or something malicious tunneled inside HTTPS to look like one.
+    An application-aware (or "next-gen") firewall inspects Layer 7 content directly — the actual HTTP
+    request, the actual DNS query — and can block based on what's really being asked for, not just where
+    it's nominally headed.
+  </p>
+
+  <h2 id="dmz">The DMZ</h2>
+  <p>
+    A <strong>DMZ (Demilitarized Zone)</strong> is a separate network segment sitting between the fully
+    trusted internal LAN and the fully untrusted internet, specifically for hosting anything that has to
+    be reachable from outside — a public web server, a mail gateway. It's firewalled off from
+    <em>both</em> sides independently: the internet can reach the DMZ but not the internal LAN, and if a
+    DMZ server is ever compromised, the attacker still doesn't get a free path into the internal network,
+    since that boundary was never opened to begin with.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 170" role="img" aria-labelledby="dmz-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="dmz-title">Three zones separated by independent firewall rules: the internet can reach the DMZ but not the internal LAN, and the DMZ cannot reach the internal LAN either</title>
+      <rect class="frame-box block-amber" x="20" y="55" width="160" height="60" rx="8" />
+      <text class="frame-label" x="100" y="90" text-anchor="middle" font-size="11">Internet</text>
+      <text class="frame-caption" x="100" y="70" text-anchor="middle" font-size="8">untrusted</text>
+
+      <rect class="frame-box block-teal" x="270" y="55" width="160" height="60" rx="8" />
+      <text class="frame-label" x="350" y="90" text-anchor="middle" font-size="11">DMZ</text>
+      <text class="frame-caption" x="350" y="70" text-anchor="middle" font-size="8">public-facing servers</text>
+
+      <rect class="frame-box block-violet" x="520" y="55" width="160" height="60" rx="8" />
+      <text class="frame-label" x="600" y="90" text-anchor="middle" font-size="11">Internal LAN</text>
+      <text class="frame-caption" x="600" y="70" text-anchor="middle" font-size="8">fully trusted</text>
+
+      <line x1="180" y1="85" x2="266" y2="85" class="seq-arrow" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="270,85 260,80 260,90" />
+      <text class="seq-sub" x="225" y="72" text-anchor="middle" font-size="8">allowed</text>
+
+      <line x1="430" y1="85" x2="516" y2="85" class="seq-arrow" stroke-width="1.4" stroke-dasharray="3 2" />
+      <line x1="516" y1="95" x2="430" y2="95" class="seq-arrow" stroke-width="1.4" stroke-dasharray="3 2" />
+      <text class="seq-sub" x="475" y="115" text-anchor="middle" font-size="8">blocked both ways</text>
+
+      <text class="seq-note" x="350" y="145" text-anchor="middle">A compromised DMZ server still has no path into the internal LAN — that boundary was never opened.</text>
+    </svg>
+    <figcaption class="diagram__caption">Two independent firewall boundaries, not one — the DMZ is isolated from each side on its own terms.</figcaption>
+  </figure>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Home router firewalls —</strong> the basic stateful firewall built into nearly every consumer router, usually invisible unless you go looking for its settings.</li>
+    <li><strong>Corporate network perimeters —</strong> dedicated firewall appliances sitting at the boundary between an office network and the internet.</li>
+    <li><strong>Cloud security groups —</strong> AWS/Azure/GCP implement the same stateful-firewall concept as software configuration attached to virtual machines and networks, rather than a physical box.</li>
+    <li><strong>Embedded Linux device firewalls —</strong> a device running Linux (see the <a href="/linux/index.html">Linux</a> domain) can run its own local firewall rules (iptables/nftables) restricting what it accepts even on a trusted network, a real defense-in-depth layer for IoT fleets.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>An overly permissive rule set is one of the most common real-world security failures — "deny by default, allow explicitly" is the safer default policy, and it's easy to accidentally invert that while debugging and forget to tighten it back up.</li>
+      <li>A firewall protects the boundary it sits on — it does nothing about a device already inside the trusted zone behaving maliciously (a compromised IoT device on the internal LAN, for instance); that's what network segmentation (VLANs, a DMZ) is for, not the firewall alone.</li>
+      <li>A firewall rule that's technically correct but too broad (opening a whole port range instead of the one port actually needed) quietly expands the attack surface without ever showing up as an obvious bug.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/networking/router/index.html", "title": "Router & NAT" },
+    { "href": "/networking/osi-model/index.html", "title": "OSI vs. TCP/IP Model" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
