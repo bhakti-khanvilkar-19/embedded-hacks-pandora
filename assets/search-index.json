@@ -624,7 +624,7 @@
     "url": "/networking/index.html",
     "domain": "Networking",
     "category": "Overview",
-    "description": "How Ethernet, IP, TCP/UDP, and application protocols like HTTPS, MQTT, and CoAP stack on top of each other — a map of the domain plus a recommended reading order.",
+    "description": "How Ethernet, IP, TCP/UDP/QUIC, and a dozen application protocols (HTTP, HTTPS, DHCP, SSH, FTP, SMTP, WebSocket, MQTT, CoAP, AMQP) stack on top of each other — a map of the domain, the OSI/TCP-IP layering model, and a recommended reading order.",
     "tags": [
       "networking"
     ]
