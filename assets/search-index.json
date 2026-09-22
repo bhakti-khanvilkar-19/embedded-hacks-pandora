@@ -817,6 +817,17 @@
     ]
   },
   {
+    "title": "Error Handling — Go",
+    "url": "/go/error-handling/index.html",
+    "domain": "Go",
+    "category": "Error Handling",
+    "description": "Go has no exceptions, by design — the error interface, the if err != nil convention, wrapping errors for context, and panic/recover for genuinely unrecoverable situations only.",
+    "tags": [
+      "go",
+      "error-handling"
+    ]
+  },
+  {
     "title": "Functions & Multiple Return Values — Go",
     "url": "/go/functions-and-multiple-returns/index.html",
     "domain": "Go",
@@ -825,6 +836,17 @@
     "tags": [
       "go",
       "functions-and-multiple-returns"
+    ]
+  },
+  {
+    "title": "Goroutines & Channels — Go",
+    "url": "/go/goroutines-and-channels/index.html",
+    "domain": "Go",
+    "category": "Goroutines And Channels",
+    "description": "Go's concurrency model — goroutines as extremely cheap concurrent functions, and channels for communicating between them safely, contrasted with C/C++'s OS threads and manual mutex synchronization.",
+    "tags": [
+      "go",
+      "goroutines-and-channels"
     ]
   },
   {

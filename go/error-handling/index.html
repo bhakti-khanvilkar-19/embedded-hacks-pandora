@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Error Handling — Go — Embedded Pandora</title>
+<meta name="description" content="Go has no exceptions, by design — the error interface, the if err != nil convention, wrapping errors for context, and panic/recover for genuinely unrecoverable situations only." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Go</p>
+  <h1>Error Handling</h1>
+  <p class="lede">
+    Go has <strong>no exceptions</strong> at all — a deliberate design decision, not a missing feature.
+    Every function that can fail returns an explicit <code>error</code> value alongside its normal result,
+    using exactly the <a href="/go/functions-and-multiple-returns/index.html">multiple-return-value</a>
+    mechanism from earlier in this domain. This chapter is that convention in full, and why Go's designers
+    chose it over <a href="/cpp/exception-handling/index.html">C++'s exceptions</a>.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Errors as ordinary values, returned explicitly from functions and checked immediately by the caller — no throw/catch mechanism exists in the language.</dd>
+      <dt>Mental model</dt><dd>Where C++ says "stop everything and unwind until someone catches this," Go says "hand the error back like any other value, and let the caller decide right here, right now."</dd>
+      <dt>Key numbers</dt><dd><code>error</code> is a one-method interface (<code>Error() string</code>) — the simplest possible interface in the language, and one of its most used.</dd>
+      <dt>Reach for it when</dt><dd>Every function that can fail, essentially — checking <code>if err != nil</code> immediately after almost every call is the normal shape of idiomatic Go code.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#the-error-interface">The error interface</a></li>
+      <li><a href="#the-convention">The if err != nil convention</a></li>
+      <li><a href="#wrapping">Wrapping errors for context</a></li>
+      <li><a href="#panic-recover">panic and recover</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="the-error-interface">The error interface</h2>
+  <pre><code>type error interface {
+    Error() string
+}</code></pre>
+  <p>
+    That's the entire built-in definition — any type with an <code>Error() string</code> method satisfies
+    <code>error</code>, using the same implicit-implementation rule from
+    <a href="/go/interfaces/index.html">Interfaces</a>. Creating one is usually this simple:
+  </p>
+  <pre><code>err := errors.New("file not found")
+fmt.Println(err.Error())   // file not found
+fmt.Println(err)             // file not found — fmt knows to call Error() automatically</code></pre>
+
+  <h2 id="the-convention">The if err != nil convention</h2>
+  <pre><code>func readConfig(path string) (string, error) {
+    data, err := os.ReadFile(path)
+    if err != nil {
+        return "", err   // pass the error straight up to OUR caller
+    }
+    return string(data), nil   // nil error means success
+}
+
+func main() {
+    config, err := readConfig("settings.txt")
+    if err != nil {
+        fmt.Println("failed to read config:", err)
+        return
+    }
+    fmt.Println(config)
+}</code></pre>
+  <p>
+    <code>nil</code> is Go's zero value for an interface — an <code>error</code> that's <code>nil</code>
+    means "nothing went wrong." This is genuinely close to
+    <a href="/c/functions/index.html">C's own return-code convention</a> in spirit, but Go's version is
+    checked by strong, near-universal <em>convention</em> rather than being merely legal to ignore.
+  </p>
+
+  <h2 id="wrapping">Wrapping errors for context</h2>
+  <p>
+    <code>fmt.Errorf</code> with <code>%w</code> wraps an underlying error with additional context, while
+    keeping the original error inspectable:
+  </p>
+  <pre><code>func loadUser(id int) (*User, error) {
+    data, err := readConfig("user.txt")
+    if err != nil {
+        return nil, fmt.Errorf("loading user %d: %w", id, err)   // adds context, keeps the original
+    }
+    // ...
+}
+
+// If it fails: "loading user 42: open user.txt: no such file or directory"
+// errors.Is() and errors.Unwrap() can still recover the original error from the wrapped one</code></pre>
+  <p>
+    This solves a real problem plain string concatenation can't: the caller several layers up still has
+    access to the <em>original</em> error, not just a string that mentions it, letting code check for a
+    specific underlying failure even through several layers of added context.
+  </p>
+
+  <h2 id="panic-recover">panic and recover</h2>
+  <p>
+    Go does have <code>panic</code>, but it's reserved for genuinely unrecoverable situations — a programming
+    bug, not an expected failure condition:
+  </p>
+  <pre><code>func mustPositive(n int) int {
+    if n < 0 {
+        panic("mustPositive: negative input")   // this should never happen if the code is correct
+    }
+    return n
+}</code></pre>
+  <p>
+    The rule of thumb Go's own standard library follows: return an <code>error</code> for anything a caller
+    could reasonably expect and handle (a missing file, a bad network response); reserve <code>panic</code>
+    for violated invariants that indicate an actual bug. This is a narrower, more deliberate use than
+    <a href="/cpp/exception-handling/index.html">C++ exceptions</a>, which are commonly used for a much
+    wider range of error conditions.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every standard library I/O function —</strong> file operations, network calls, and JSON parsing in Go's standard library all return <code>error</code> as their last value, without exception.</li>
+    <li><strong>Input validation in library code —</strong> returning a descriptive <code>error</code> from a constructor-like function, since Go has no constructors to throw from in the first place.</li>
+    <li><strong>Request handling in web services —</strong> each layer (database, business logic, HTTP handler) wraps errors with its own context as they propagate up, producing a readable failure trail without a stack unwind.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Ignoring a returned error (<code>data, _ := os.ReadFile(path)</code>) is legal Go and a genuinely common real bug — nothing forces you to check <code>err</code>, exactly the same unchecked-failure risk as an ignored C return code.</li>
+      <li>An unrecovered <code>panic</code> crashes the entire program (or, in a goroutine, can crash it even more abruptly) — using <code>panic</code> for routine, expected error conditions is a real anti-pattern, not a shortcut.</li>
+      <li>A deferred <code>recover()</code> call can catch a panic and let the program continue — but overusing this to paper over <code>panic</code>s used for expected failures just reinvents exception handling with extra steps, defeating the point of Go's convention.</li>
+      <li>Wrapping an error with <code>%w</code> and then comparing it directly with <code>==</code> to the original error fails — always use <code>errors.Is()</code>, which correctly unwraps the chain, when checking for a specific underlying error.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/go/goroutines-and-channels/index.html", "title": "Goroutines & Channels" },
+  "next": { "href": "/go/packages-and-modules/index.html", "title": "Packages & Modules" },
+  "related": [
+    { "href": "/cpp/exception-handling/index.html", "title": "Exception Handling" },
+    { "href": "/go/interfaces/index.html", "title": "Interfaces" },
+    { "href": "/go/functions-and-multiple-returns/index.html", "title": "Functions & Multiple Return Values" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
