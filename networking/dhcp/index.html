@@ -66,22 +66,22 @@
       <line x1="80" y1="40" x2="80" y2="248" class="seq-lifeline" />
       <line x1="550" y1="40" x2="550" y2="248" class="seq-lifeline" />
 
-      <line x1="80" y1="68" x2="543" y2="68" class="seq-arrow" stroke-width="2" />
+      <line x1="80" y1="68" x2="543" y2="68" class="seq-arrow flow-path" stroke-width="2" />
       <polygon class="seq-arrowhead" points="550,68 538,63 538,73" />
       <text class="seq-label" x="310" y="56" text-anchor="middle"><tspan class="seq-tag-con">DISCOVER</tspan></text>
       <text class="seq-sub" x="310" y="84" text-anchor="middle">broadcast: "any DHCP server out there?"</text>
 
-      <line x1="550" y1="116" x2="87" y2="116" class="seq-arrow" stroke-width="2" />
+      <line x1="550" y1="116" x2="87" y2="116" class="seq-arrow flow-path flow-path--reverse" stroke-width="2" />
       <polygon class="seq-arrowhead" points="80,116 92,111 92,121" />
       <text class="seq-label" x="310" y="104" text-anchor="middle"><tspan class="seq-tag-ack">OFFER</tspan></text>
       <text class="seq-sub" x="310" y="132" text-anchor="middle">"you can have 192.168.1.42, lease 24h"</text>
 
-      <line x1="80" y1="164" x2="543" y2="164" class="seq-arrow" stroke-width="2" />
+      <line x1="80" y1="164" x2="543" y2="164" class="seq-arrow flow-path" stroke-width="2" />
       <polygon class="seq-arrowhead" points="550,164 538,159 538,169" />
       <text class="seq-label" x="310" y="152" text-anchor="middle"><tspan class="seq-tag-con">REQUEST</tspan></text>
       <text class="seq-sub" x="310" y="180" text-anchor="middle">broadcast: "I accept that offer" (other servers stand down)</text>
 
-      <line x1="550" y1="212" x2="87" y2="212" class="seq-arrow" stroke-width="2" />
+      <line x1="550" y1="212" x2="87" y2="212" class="seq-arrow flow-path flow-path--reverse" stroke-width="2" />
       <polygon class="seq-arrowhead" points="80,212 92,207 92,217" />
       <text class="seq-label" x="310" y="200" text-anchor="middle"><tspan class="seq-tag-ack">ACK</tspan></text>
       <text class="seq-sub" x="310" y="228" text-anchor="middle">lease confirmed — client can now use 192.168.1.42</text>
