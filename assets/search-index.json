@@ -293,6 +293,17 @@
     ]
   },
   {
+    "title": "Pointers — C",
+    "url": "/c/pointers/index.html",
+    "domain": "C",
+    "category": "Pointers",
+    "description": "What a pointer actually is — a variable holding a memory address — the address-of and dereference operators, pointer arithmetic, passing by reference, and NULL, with a memory diagram.",
+    "tags": [
+      "c",
+      "pointers"
+    ]
+  },
+  {
     "title": "Strings — C",
     "url": "/c/strings/index.html",
     "domain": "C",
@@ -301,6 +312,17 @@
     "tags": [
       "c",
       "strings"
+    ]
+  },
+  {
+    "title": "Structs & Unions — C",
+    "url": "/c/structs-and-unions/index.html",
+    "domain": "C",
+    "category": "Structs And Unions",
+    "description": "Grouping related, differently-typed values into one custom type with struct, versus sharing one block of memory between several interpretations with union — the fundamentals, with a memory-layout diagram of each.",
+    "tags": [
+      "c",
+      "structs-and-unions"
     ]
   },
   {

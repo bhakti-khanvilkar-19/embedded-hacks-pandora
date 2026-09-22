@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Structs & Unions — C — Embedded Pandora</title>
+<meta name="description" content="Grouping related, differently-typed values into one custom type with struct, versus sharing one block of memory between several interpretations with union — the fundamentals, with a memory-layout diagram of each." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C</p>
+  <h1>Structs &amp; Unions</h1>
+  <p class="lede">
+    An array groups many values of the <em>same</em> type. A <code>struct</code> is the opposite: it groups
+    several values of <em>different</em> types into one new, custom type — a sensor reading's timestamp,
+    value, and status flag, bundled as a single unit instead of three separate loose variables. A
+    <code>union</code> looks similar but means something almost opposite, covered second.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd><code>struct</code>: a custom type bundling several named fields, each with its own type and its own storage. <code>union</code>: several named fields sharing the exact same storage.</dd>
+      <dt>Mental model</dt><dd>A <code>struct</code> is a form with several separate labeled boxes to fill in. A <code>union</code> is one box with several different labels you can read it under — only one label's data is valid at a time.</dd>
+      <dt>Key numbers</dt><dd>A struct's size is roughly the sum of its fields' sizes (plus possible padding); a union's size is exactly its <em>largest</em> field's size, no more.</dd>
+      <dt>Reach for it when</dt><dd><code>struct</code> whenever several values conceptually belong together (a point's x/y, a sensor reading's fields); <code>union</code> specifically when you need to interpret the same bytes more than one way, never both at once.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#declaring-struct">Declaring and using a struct</a></li>
+      <li><a href="#struct-layout">A struct's memory layout</a></li>
+      <li><a href="#nested-and-arrays">Structs with arrays, and arrays of structs</a></li>
+      <li><a href="#unions">Unions</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="declaring-struct">Declaring and using a struct</h2>
+  <pre><code>struct SensorReading {
+    int timestamp;
+    float value;
+    char status;
+};
+
+struct SensorReading r1 = {1000, 23.5f, 'O'};   // O for "OK"
+
+printf("%d\n", r1.timestamp);   // 1000 — the DOT operator accesses a field
+printf("%.1f\n", r1.value);     // 23.5
+r1.status = 'E';                 // fields are ordinary, assignable variables</code></pre>
+  <p>
+    Each field is accessed with the <strong>dot operator</strong> (<code>.</code>) — <code>r1.value</code>
+    reads exactly the way it sounds: "r1's value field."
+  </p>
+
+  <h2 id="struct-layout">A struct's memory layout</h2>
+  <p>
+    Unlike a <code>union</code>, every field in a <code>struct</code> gets its <em>own</em> separate storage,
+    laid out one after another:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 500 120" role="img" aria-labelledby="struct-layout-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="struct-layout-title">struct SensorReading lays timestamp, value, and status out one after another in memory, each with its own separate storage</title>
+      <text class="seq-note" x="250" y="14" text-anchor="middle" font-size="9">struct SensorReading r1 — each field owns its own bytes</text>
+      <rect class="frame-box block-teal" x="20" y="30" width="150" height="55" rx="6" />
+      <text class="frame-label" x="95" y="55" text-anchor="middle" font-size="10">timestamp</text>
+      <text class="frame-caption" x="95" y="71" text-anchor="middle" font-size="8">int, 4 bytes</text>
+
+      <rect class="frame-box block-amber" x="180" y="30" width="150" height="55" rx="6" />
+      <text class="frame-label" x="255" y="55" text-anchor="middle" font-size="10">value</text>
+      <text class="frame-caption" x="255" y="71" text-anchor="middle" font-size="8">float, 4 bytes</text>
+
+      <rect class="frame-box block-green" x="340" y="30" width="140" height="55" rx="6" />
+      <text class="frame-label" x="410" y="55" text-anchor="middle" font-size="10">status</text>
+      <text class="frame-caption" x="410" y="71" text-anchor="middle" font-size="8">char, 1 byte (+ padding)</text>
+
+      <text class="seq-note" x="250" y="105" text-anchor="middle" font-size="8">Total size ≈ sum of fields — often rounded up for alignment (see Embedded C's Alignment &amp; Padding)</text>
+    </svg>
+    <figcaption class="diagram__caption">All three fields exist simultaneously and independently — changing <code>status</code> has zero effect on <code>timestamp</code> or <code>value</code>.</figcaption>
+  </figure>
+
+  <h2 id="nested-and-arrays">Structs with arrays, and arrays of structs</h2>
+  <pre><code>struct SensorReading history[10];   // an array of 10 whole structs
+
+history[0].timestamp = 1000;
+history[0].value = 23.5f;
+history[3].status = 'E';
+
+for (int i = 0; i < 10; i++) {
+    printf("%d: %.1f\n", history[i].timestamp, history[i].value);
+}</code></pre>
+  <p>
+    This combination — an array of structs — is one of the most common real data structures in C: a fixed
+    history of readings, a table of records, a list of connected devices.
+  </p>
+
+  <h2 id="unions">Unions</h2>
+  <p>
+    A <code>union</code> looks exactly like a <code>struct</code> syntactically, but every field shares
+    <strong>the exact same memory</strong> — writing one field overwrites whatever was in every other field,
+    because there's only ever one shared block of storage underneath:
+  </p>
+  <pre><code>union Value {
+    int as_int;
+    float as_float;
+    char as_bytes[4];
+};
+
+union Value v;
+v.as_int = 65;
+printf("%d\n", v.as_int);   // 65
+printf("%d\n", v.as_bytes[0]);   // some byte of 65's representation — as_int and as_bytes are THE SAME memory</code></pre>
+  <figure class="diagram">
+    <svg viewBox="0 0 340 110" role="img" aria-labelledby="union-layout-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="union-layout-title">union Value has one shared 4-byte block of memory, interpreted as as_int, as_float, or as_bytes depending on which field is accessed</title>
+      <rect class="frame-box block-violet" x="90" y="20" width="160" height="55" rx="6" />
+      <text class="frame-label" x="170" y="52" text-anchor="middle" font-size="11">4 shared bytes</text>
+      <text class="seq-note" x="170" y="14" text-anchor="middle" font-size="9">union Value — ONE block, three labels</text>
+      <text class="seq-sub" x="170" y="95" text-anchor="middle" font-size="8">as_int, as_float, and as_bytes all read/write these SAME 4 bytes</text>
+    </svg>
+    <figcaption class="diagram__caption">Unlike the struct above, there is only one box here — a union's size is its single largest field, not the sum of all of them.</figcaption>
+  </figure>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Sensor/GPS records —</strong> bundling a timestamp, a value, and a status/quality flag together is exactly the <a href="/sensors/index.html">Sensors</a> domain's typical record shape.</li>
+    <li><strong>Network packet headers —</strong> a struct with fields matching a protocol's exact header layout, one field per header value.</li>
+    <li><strong>Type-punning with a union —</strong> reinterpreting the same 4 bytes as either a <code>float</code> or its raw bit pattern, a common low-level trick — see <a href="/embedded-c/index.html">Embedded C</a> for where this gets genuinely important (and genuinely dangerous) on real hardware.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A struct's total size is often <em>larger</em> than the sum of its fields, due to compiler-inserted padding for alignment — never assume a struct's size without checking <code>sizeof</code>. Full treatment in <a href="/embedded-c/index.html">Embedded C's</a> Alignment &amp; Padding chapter.</li>
+      <li>Copying a struct with <code>=</code> (<code>r2 = r1;</code>) copies every field's value — this works fine for simple structs, but copies pointers as raw addresses, not the data they point to, which can cause two structs to unexpectedly share the same pointed-to memory.</li>
+      <li>Reading a union field that wasn't the last one written is technically undefined behavior in strict standard C, even though it "works" (and is even explicitly relied on) in practice on most real compilers — a well-known, common exception to how strictly the standard is usually followed.</li>
+      <li>Forgetting the <code>struct</code> keyword when declaring a variable (<code>SensorReading r1;</code> instead of <code>struct SensorReading r1;</code>) is a compile error in plain C — this is exactly the kind of friction <code>typedef</code> exists to remove, letting you write just <code>SensorReading r1;</code> once set up.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/c/pointers/index.html", "title": "Pointers" },
+  "related": [
+    { "href": "/embedded-c/index.html", "title": "Embedded C" },
+    { "href": "/sensors/index.html", "title": "Sensors" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
