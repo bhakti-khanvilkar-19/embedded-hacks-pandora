@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ethernet — Networking — Embedded Pandora</title>
+<meta name="description" content="The physical/data-link layer underneath IP: MAC addresses, frame structure, switching, ARP, and unicast/broadcast/multicast addressing." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>Ethernet</h1>
+  <p class="lede">
+    IP addresses and ports are logical — they exist as numbers in software. Something still has to
+    physically move electrical signals down a wire (or radio waves, for Wi-Fi) from one device to the
+    next. That's Ethernet's job: the local, one-hop delivery layer that everything else, including
+    <a href="/networking/ip/index.html">IP</a>, ultimately rides on top of.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The physical/data-link layer that moves frames between two devices on the same local network, addressed by MAC address.</dd>
+      <dt>Mental model</dt><dd>Local hand-to-hand delivery inside one building — it has no idea what "the internet" is, only "the device next to me on this wire."</dd>
+      <dt>Key numbers</dt><dd>MAC addresses are 48 bits (6 hex byte-pairs); a standard frame carries up to 1500 bytes of payload (the MTU).</dd>
+      <dt>Reach for it when</dt><dd>You don't choose it directly — every IP packet needs an Ethernet (or Wi-Fi) frame to actually leave the device on a wired/wireless LAN.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#mac-addresses">MAC addresses</a></li>
+      <li><a href="#frame">The Ethernet frame</a></li>
+      <li><a href="#switching">How a switch forwards frames</a></li>
+      <li><a href="#arp">ARP — bridging IP to MAC</a></li>
+      <li><a href="#cast-types">Unicast, broadcast, and multicast</a></li>
+      <li><a href="#encapsulation">Encapsulation — how IP and UDP ride inside a frame</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="mac-addresses">MAC addresses</h2>
+  <ul class="point-list">
+    <li><strong>Burned into the hardware</strong> — every network interface (wired or Wi-Fi) has a 48-bit MAC address set at the factory, written as six hex byte-pairs: <code>3C:E1:A1:9B:04:7F</code>.</li>
+    <li><strong>Unlike an IP address, it doesn't change</strong> when the device joins a different network — it identifies the physical interface itself, not a position in any particular network.</li>
+    <li><strong>Only meaningful locally</strong> — a MAC address has no concept of "far away." It only ever needs to be unique among devices sharing the same physical link or switch.</li>
+  </ul>
+
+  <h2 id="frame">The Ethernet frame</h2>
+  <p>
+    An Ethernet frame wraps whatever it's handed — an IP packet, almost always — with a small header in
+    front and a checksum at the end. It never needs to understand what's inside; it just delivers the
+    whole thing to the interface with the matching destination MAC address.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 150" role="img" aria-labelledby="eth-frame-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="eth-frame-title">An Ethernet frame's structure: preamble, destination MAC, source MAC, type, payload, and a trailing checksum</title>
+      <rect class="frame-box block-violet" x="20" y="45" width="70" height="50" rx="6" />
+      <text class="frame-label" x="55" y="75" text-anchor="middle" font-size="9">preamble</text>
+
+      <rect class="frame-box block-violet" x="95" y="45" width="130" height="50" rx="6" />
+      <text class="frame-label" x="160" y="68" text-anchor="middle" font-size="9">dest MAC</text>
+      <text class="frame-caption" x="160" y="84" text-anchor="middle" font-size="8">3C:E1:A1:9B:04:7F</text>
+
+      <rect class="frame-box block-violet" x="230" y="45" width="130" height="50" rx="6" />
+      <text class="frame-label" x="295" y="68" text-anchor="middle" font-size="9">source MAC</text>
+      <text class="frame-caption" x="295" y="84" text-anchor="middle" font-size="8">88:66:5A:12:C0:03</text>
+
+      <rect class="frame-box block-violet" x="365" y="45" width="60" height="50" rx="6" />
+      <text class="frame-label" x="395" y="75" text-anchor="middle" font-size="9">type</text>
+
+      <rect class="frame-box block-blue" x="430" y="45" width="170" height="50" rx="6" />
+      <text class="frame-label" x="515" y="75" text-anchor="middle" font-size="9">payload (the IP packet)</text>
+
+      <rect class="frame-box block-violet" x="605" y="45" width="75" height="50" rx="6" />
+      <text class="frame-label" x="642" y="75" text-anchor="middle" font-size="9">checksum</text>
+
+      <text class="seq-note" x="350" y="122" text-anchor="middle">14 bytes of header, up to 1500 bytes of payload, 4 bytes of trailing checksum (FCS)</text>
+    </svg>
+    <figcaption class="diagram__caption">Ethernet doesn't care what's inside the payload — it just delivers this whole frame to the interface owning the matching destination MAC.</figcaption>
+  </figure>
+
+  <h2 id="switching">How a switch forwards frames</h2>
+  <p>
+    A switch learns which MAC address lives on which physical port by watching the source MAC of every
+    frame that arrives, then builds a table (<code>MAC address → port</code>). Once it knows where a
+    destination MAC lives, it forwards a frame out <em>only</em> that one port — not every port, the way
+    a dumb hub would. A frame to a MAC address the switch hasn't learned yet, or a genuine broadcast, is
+    the one case it still floods out every port.
+  </p>
+
+  <h2 id="arp">ARP — bridging IP to MAC</h2>
+  <p>
+    A device usually only knows the destination's <em>IP</em> address — but Ethernet frames need a
+    destination <em>MAC</em> address to actually go anywhere. Address Resolution Protocol (ARP) is the
+    lookup that bridges the two: the sender broadcasts "who has 192.168.1.1? tell 192.168.1.42," and
+    whichever device owns that IP replies directly with its MAC address. The answer gets cached for a
+    while so this doesn't have to repeat for every packet. See
+    <a href="/networking/linux-networking-tools/index.html">Linux Networking Tools</a> for inspecting a
+    live ARP cache with <code>ip neigh</code>.
+  </p>
+
+  <h2 id="cast-types">Unicast, broadcast, and multicast</h2>
+  <p>
+    Every frame's destination MAC address declares, at the addressing level, how many interfaces it's
+    meant for — the same three-way split that IP addressing reuses one layer up.
+  </p>
+
+  <h3>Unicast — one sender, one receiver</h3>
+  <figure class="diagram">
+    <svg viewBox="0 0 500 110" role="img" aria-labelledby="uni-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="uni-title">One device sending directly to exactly one other device's specific MAC address</title>
+      <circle class="frame-box block-green" r="26" cx="60" cy="55" />
+      <text class="frame-label" x="60" y="59" text-anchor="middle" font-size="10">A</text>
+      <circle class="frame-box block-green" r="26" cx="440" cy="55" />
+      <text class="frame-label" x="440" y="59" text-anchor="middle" font-size="10">B</text>
+      <line x1="90" y1="55" x2="408" y2="55" class="seq-arrow flow-path" stroke-width="1.6" />
+      <polygon class="seq-arrowhead" points="415,55 403,50 403,60" />
+      <text class="seq-sub" x="250" y="42" text-anchor="middle">dest MAC = B's own address</text>
+    </svg>
+    <figcaption class="diagram__caption">One specific destination MAC, one recipient — the overwhelming majority of traffic.</figcaption>
+  </figure>
+
+  <h3>Broadcast — one sender, every device on the local network</h3>
+  <figure class="diagram">
+    <svg viewBox="0 0 500 170" role="img" aria-labelledby="broad-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="broad-title">One device sending to the reserved all-ones broadcast MAC address, reaching every device on the same local network</title>
+      <circle class="frame-box block-amber" r="26" cx="60" cy="85" />
+      <text class="frame-label" x="60" y="89" text-anchor="middle" font-size="10">A</text>
+      <circle class="frame-box block-amber" r="20" cx="420" cy="25" />
+      <circle class="frame-box block-amber" r="20" cx="440" cy="85" />
+      <circle class="frame-box block-amber" r="20" cx="420" cy="145" />
+      <line x1="90" y1="78" x2="398" y2="28" class="seq-arrow flow-path" stroke-width="1.4" />
+      <line x1="90" y1="85" x2="418" y2="85" class="seq-arrow flow-path" stroke-width="1.4" />
+      <line x1="90" y1="92" x2="398" y2="142" class="seq-arrow flow-path" stroke-width="1.4" />
+      <circle class="pulse-dot" r="4" cx="90" cy="85" fill="var(--accent)" />
+      <text class="seq-sub" x="60" y="135" text-anchor="middle">dest MAC =</text>
+      <text class="seq-sub" x="60" y="150" text-anchor="middle">FF:FF:FF:FF:FF:FF</text>
+    </svg>
+    <figcaption class="diagram__caption">The reserved all-ones MAC address — every device on the segment receives and processes it. ARP and DHCP both depend on this.</figcaption>
+  </figure>
+
+  <h3>Multicast — one sender, a subscribed group</h3>
+  <figure class="diagram">
+    <svg viewBox="0 0 500 170" role="img" aria-labelledby="multi-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="multi-title">One device sending to a multicast MAC address, reaching only devices that joined that group, while a non-member device receives nothing</title>
+      <circle class="frame-box block-violet" r="26" cx="60" cy="85" />
+      <text class="frame-label" x="60" y="89" text-anchor="middle" font-size="10">A</text>
+      <circle class="frame-box block-violet" r="20" cx="420" cy="25" />
+      <text class="frame-caption" x="420" y="8" text-anchor="middle" font-size="9">joined group</text>
+      <circle class="frame-box block-violet" r="20" cx="420" cy="145" />
+      <text class="frame-caption" x="420" y="168" text-anchor="middle" font-size="9">joined group</text>
+      <circle class="frame-box" r="20" cx="440" cy="85" />
+      <text class="frame-caption" x="440" y="112" text-anchor="middle" font-size="9">not joined — nothing</text>
+      <line x1="90" y1="78" x2="398" y2="28" class="seq-arrow flow-path" stroke-width="1.4" />
+      <line x1="90" y1="92" x2="398" y2="142" class="seq-arrow flow-path" stroke-width="1.4" />
+      <text class="seq-sub" x="60" y="135" text-anchor="middle">dest MAC in</text>
+      <text class="seq-sub" x="60" y="150" text-anchor="middle">01:00:5E:xx:xx:xx</text>
+    </svg>
+    <figcaption class="diagram__caption">A reserved MAC address range — only interfaces that explicitly joined that group process the frame. Used for things like IPTV streams and some device-discovery protocols.</figcaption>
+  </figure>
+
+  <h2 id="encapsulation">Encapsulation — how IP and UDP ride inside a frame</h2>
+  <p>
+    Nothing travels naked. Application data gets wrapped in layers, each one added by a different piece
+    of software, each one only meaningful to its matching layer on the other end — like nesting a letter
+    inside an envelope, inside a courier bag.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 230" role="img" aria-labelledby="encap-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="encap-title">Application data nested inside a UDP header, inside an IP header, inside an Ethernet frame — each outer layer wrapping the one before it</title>
+      <rect class="frame-box block-violet" x="20" y="15" width="660" height="200" rx="10" />
+      <text class="frame-label" x="36" y="35" font-size="10">Ethernet frame — MAC → MAC, local network only</text>
+
+      <rect class="frame-box block-blue" x="50" y="48" width="600" height="150" rx="8" />
+      <text class="frame-label" x="66" y="68" font-size="10">IP packet — IP → IP, across networks</text>
+
+      <rect class="frame-box block-teal" x="80" y="82" width="540" height="98" rx="8" />
+      <text class="frame-label" x="96" y="102" font-size="10">UDP segment — port → port, which program</text>
+
+      <rect class="frame-box block-amber" x="110" y="116" width="480" height="48" rx="6" />
+      <text class="frame-label" x="350" y="145" text-anchor="middle" font-size="11" font-weight="700">your actual data</text>
+
+      <text class="frame-caption" x="600" y="195" text-anchor="end" font-size="9">20 B header ↑</text>
+      <text class="frame-caption" x="350" y="212" text-anchor="middle" font-size="9">14 B header</text>
+    </svg>
+    <figcaption class="diagram__caption">Each layer only adds a small header in front of what it was handed. On arrival, the receiving machine strips them off in reverse order.</figcaption>
+  </figure>
+  <ol>
+    <li>An app hands raw bytes to the OS along with a destination IP and port.</li>
+    <li><a href="/networking/udp/index.html">UDP</a> wraps it with an 8-byte header (source port, dest port, length, checksum).</li>
+    <li><a href="/networking/ip/index.html">IP</a> wraps that with a 20-byte header (source/destination IP, TTL, protocol).</li>
+    <li>Ethernet wraps that with source/destination MAC addresses, ready to go out on the wire.</li>
+    <li>On arrival, each layer is stripped off in reverse and handed up to the next one.</li>
+  </ol>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every wired/Wi-Fi-connected MCU or SBC —</strong> before it can send a single IP packet, it needs a link-layer frame and a MAC address — see the <a href="/embedded/index.html">Embedded</a> domain for the hardware side.</li>
+    <li><strong>DHCP —</strong> a device with no IP address yet sends its initial request as an Ethernet broadcast, since it has no unicast address to be addressed by.</li>
+    <li><strong>Managed switches in industrial/automotive networks —</strong> VLANs and port-based traffic isolation are built directly on Ethernet framing and MAC-based forwarding.</li>
+    <li><strong>mDNS/device discovery —</strong> many "zero-configuration" device-discovery protocols rely on multicast frames so a new device can announce itself without knowing anyone's address in advance.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A MAC address identifies a physical <em>interface</em>, not a machine — a device with both Wi-Fi and Ethernet has two different MAC addresses, one per interface.</li>
+      <li>Broadcast traffic doesn't cross a router by design — a router is exactly the boundary where "local network" ends, which is also why ARP and DHCP only ever work on the segment a device is directly attached to.</li>
+      <li>A stale ARP cache entry (a device's IP reused by new hardware without the cache expiring) is a classic "it was working a minute ago" LAN bug — clearing/inspecting it is one of the first things worth checking, see <a href="/networking/linux-networking-tools/index.html">Linux Networking Tools</a>.</li>
+      <li>The 1500-byte MTU isn't arbitrary — a payload larger than that either gets fragmented by IP or rejected, which is why <a href="/networking/ip/index.html#why-unreliable">Path MTU Discovery</a> exists.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "next": { "href": "/networking/ip/index.html", "title": "IP" },
+  "related": [
+    { "href": "/networking/ip/index.html", "title": "IP" },
+    { "href": "/networking/udp/index.html", "title": "UDP" },
+    { "href": "/networking/linux-networking-tools/index.html", "title": "Linux Networking Tools" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

@@ -52,6 +52,42 @@
     <dt>Checksum</dt><dd>Optional in IPv4, mandatory in IPv6 — covers header and data, catches corruption but not loss or reordering.</dd>
   </dl>
   <p>That's the entire header — 8 bytes, versus TCP's minimum 20.</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 170" role="img" aria-labelledby="udp-hdr-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="udp-hdr-title">The four fields of a UDP header: source port, destination port, length, and checksum, each two bytes, eight bytes total</title>
+      <rect class="frame-box block-blue" x="20" y="15" width="320" height="52" rx="6" />
+      <text class="frame-label" x="180" y="38" text-anchor="middle" font-size="11">source port</text>
+      <text class="frame-caption" x="180" y="55" text-anchor="middle">2 bytes — 0–65535</text>
+
+      <rect class="frame-box block-teal" x="360" y="15" width="320" height="52" rx="6" />
+      <text class="frame-label" x="520" y="38" text-anchor="middle" font-size="11">destination port</text>
+      <text class="frame-caption" x="520" y="55" text-anchor="middle">2 bytes — 0–65535</text>
+
+      <rect class="frame-box block-amber" x="20" y="80" width="320" height="52" rx="6" />
+      <text class="frame-label" x="180" y="103" text-anchor="middle" font-size="11">length</text>
+      <text class="frame-caption" x="180" y="120" text-anchor="middle">2 bytes — header + data size</text>
+
+      <rect class="frame-box block-violet" x="360" y="80" width="320" height="52" rx="6" />
+      <text class="frame-label" x="520" y="103" text-anchor="middle" font-size="11">checksum</text>
+      <text class="frame-caption" x="520" y="120" text-anchor="middle">2 bytes — corruption check</text>
+
+      <text class="seq-note" x="350" y="156" text-anchor="middle">8 bytes total, always — then the payload follows immediately after</text>
+    </svg>
+    <figcaption class="diagram__caption">Four fields, 2 bytes each. Compare to TCP's 20+ byte header, which carries a dozen more fields for reliability bookkeeping.</figcaption>
+  </figure>
+  <div class="callout callout--note">
+    <span class="callout__label">A tiny worked example</span>
+    <p>
+      A sensor sends the 2-byte value <code>0x0419</code> (1049) from port 51820 to port 5005. The bytes
+      leaving the network card look like this:
+    </p>
+    <p style="display:flex; flex-wrap:wrap; gap:0.4em; font-family: var(--font-mono); font-size: 0.85rem;">
+      <span>CA 6C</span><span>13 8D</span><span>00 0A</span><span>3F 2E</span><span>04 19</span>
+    </p>
+    <p style="font-size: 0.85rem; color: var(--ink-faint); margin-top: 0.2em;">
+      src port 51820 · dst port 5005 · length 10 (8 header + 2 data) · checksum · data = 0x0419
+    </p>
+  </div>
 
   <figure class="diagram">
     <svg viewBox="0 0 640 150" role="img" aria-labelledby="udp-send-title" xmlns="http://www.w3.org/2000/svg">
@@ -152,7 +188,8 @@
   "related": [
     { "href": "/networking/ip/index.html", "title": "IP" },
     { "href": "/networking/tcp/index.html", "title": "TCP" },
-    { "href": "/networking/coap/index.html", "title": "CoAP" }
+    { "href": "/networking/coap/index.html", "title": "CoAP" },
+    { "href": "/networking/ethernet/index.html", "title": "Ethernet" }
   ]
 }
 </script>

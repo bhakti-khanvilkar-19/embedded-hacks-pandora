@@ -554,6 +554,17 @@
     ]
   },
   {
+    "title": "Ethernet — Networking",
+    "url": "/networking/ethernet/index.html",
+    "domain": "Networking",
+    "category": "Ethernet",
+    "description": "The physical/data-link layer underneath IP: MAC addresses, frame structure, switching, ARP, and unicast/broadcast/multicast addressing.",
+    "tags": [
+      "networking",
+      "ethernet"
+    ]
+  },
+  {
     "title": "HTTPS &amp; TLS — Networking",
     "url": "/networking/https/index.html",
     "domain": "Networking",

@@ -37,6 +37,7 @@
     <span class="toc__label">On this page</span>
     <ul>
       <li><a href="#addressing">Addressing</a></li>
+      <li><a href="#ports">Ports and sockets — finding the program, not just the machine</a></li>
       <li><a href="#header">The IPv4 header, briefly</a></li>
       <li><a href="#ttl-routing">TTL and hop-by-hop routing</a></li>
       <li><a href="#why-unreliable">Why IP has no reliability built in</a></li>
@@ -69,6 +70,66 @@
     table — repeating hop by hop until it reaches a router directly attached
     to the destination's network.
   </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 150" role="img" aria-labelledby="ip-split-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="ip-split-title">An IPv4 address split into a network portion and a host portion by a subnet mask</title>
+      <rect class="frame-box block-teal" x="20" y="15" width="140" height="46" rx="6" />
+      <text class="frame-label" x="90" y="43" text-anchor="middle" font-size="13">192</text>
+      <rect class="frame-box block-teal" x="170" y="15" width="140" height="46" rx="6" />
+      <text class="frame-label" x="240" y="43" text-anchor="middle" font-size="13">168</text>
+      <rect class="frame-box block-teal" x="320" y="15" width="140" height="46" rx="6" />
+      <text class="frame-label" x="390" y="43" text-anchor="middle" font-size="13">1</text>
+      <rect class="frame-box block-amber" x="470" y="15" width="140" height="46" rx="6" />
+      <text class="frame-label" x="540" y="43" text-anchor="middle" font-size="13">42</text>
+
+      <text class="seq-sub" x="240" y="80" text-anchor="middle">network portion — "which neighborhood"</text>
+      <text class="seq-sub" x="540" y="80" text-anchor="middle">host portion — "which house"</text>
+      <text class="seq-note" x="350" y="112" text-anchor="middle">subnet mask 255.255.255.0 → first 3 bytes = network, last byte = host</text>
+      <text class="seq-note" x="350" y="130" text-anchor="middle">every device here shares 192.168.1.* — only the last number differs</text>
+    </svg>
+    <figcaption class="diagram__caption">Same shape as a mailing address: a shared "neighborhood" prefix, then a number unique to one device in it.</figcaption>
+  </figure>
+
+  <h2 id="ports">Ports and sockets — finding the program, not just the machine</h2>
+  <p>
+    An IP address gets a packet to the right <em>machine</em>, but a machine runs many programs at once.
+    A <strong>port</strong> — a number from 0 to 65535 — says which one of those programs a packet is
+    actually for. If the IP address is the building's street address, a port number is the apartment door
+    inside it: the network only needs the street address to reach the building, and the OS routes the
+    rest internally once it arrives, using a table of "which program is listening on which port."
+  </p>
+  <p>
+    Ports 0–1023 are "well-known" and reserved by convention for standard services (80/443 for web, 53
+    for DNS, 22 for SSH). A program has to explicitly <strong>bind</strong> to a port before anything
+    addressed to it arrives — data sent to a port nobody is listening on is simply dropped.
+  </p>
+  <p>
+    Put an IP address and a port together and you get a <strong>socket</strong> — the actual address both
+    ends of a conversation use. A server binds a fixed, well-known port and listens on it forever; a
+    client doesn't need a fixed port at all, so its OS grabs any free number above 1024 (an
+    <em>ephemeral</em> port) just for that one conversation and discards it afterward.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 190" role="img" aria-labelledby="socket-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="socket-title">A client at a random ephemeral source port sending a request to a server's fixed well-known port, and the server replying back to that exact source port</title>
+      <rect class="seq-actor-chip" x="20" y="60" width="160" height="60" rx="8" />
+      <text class="seq-actor-text" x="100" y="84" text-anchor="middle">Client</text>
+      <text class="frame-caption" x="100" y="102" text-anchor="middle">192.168.1.42 : 51422</text>
+
+      <rect class="seq-actor-chip" x="520" y="60" width="160" height="60" rx="8" />
+      <text class="seq-actor-text" x="600" y="84" text-anchor="middle">Server</text>
+      <text class="frame-caption" x="600" y="102" text-anchor="middle">203.0.113.9 : 443</text>
+
+      <line x1="180" y1="82" x2="516" y2="82" class="seq-arrow flow-path" stroke-width="1.6" />
+      <polygon class="seq-arrowhead" points="522,82 512,77 512,87" />
+      <text class="seq-sub" x="350" y="70" text-anchor="middle">request → dest port 443 (fixed, always listening)</text>
+
+      <line x1="516" y1="140" x2="180" y2="140" class="seq-arrow flow-path--reverse" stroke-width="1.6" />
+      <polygon class="seq-arrowhead" points="174,140 184,135 184,145" />
+      <text class="seq-sub" x="350" y="160" text-anchor="middle">← reply — addressed back to port 51422 (ephemeral, this conversation only)</text>
+    </svg>
+    <figcaption class="diagram__caption">The server's port is fixed and known in advance; the client's port is picked fresh by its own OS, for this one exchange only.</figcaption>
+  </figure>
 
   <h2 id="header">The IPv4 header, briefly</h2>
   <p>
@@ -192,8 +253,10 @@
 
 <script type="application/json" id="page-meta">
 {
+  "prev": { "href": "/networking/ethernet/index.html", "title": "Ethernet" },
   "next": { "href": "/networking/tcp/index.html", "title": "TCP" },
   "related": [
+    { "href": "/networking/ethernet/index.html", "title": "Ethernet" },
     { "href": "/networking/tcp/index.html", "title": "TCP" },
     { "href": "/networking/udp/index.html", "title": "UDP" },
     { "href": "/networking/linux-networking-tools/index.html", "title": "Linux Networking Tools" }
