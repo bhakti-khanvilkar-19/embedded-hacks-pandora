@@ -674,6 +674,17 @@
     ]
   },
   {
+    "title": "Modem — Networking",
+    "url": "/networking/modem/index.html",
+    "domain": "Networking",
+    "category": "Modem",
+    "description": "The narrow, often-misunderstood job of a modem: translating an ISP's physical-layer signal into Ethernet — and why 'modem' and 'router' get used interchangeably even though they're not the same device.",
+    "tags": [
+      "networking",
+      "modem"
+    ]
+  },
+  {
     "title": "MQTT — Networking",
     "url": "/networking/mqtt/index.html",
     "domain": "Networking",
@@ -751,6 +762,17 @@
     ]
   },
   {
+    "title": "Switch — Networking",
+    "url": "/networking/switch/index.html",
+    "domain": "Networking",
+    "category": "Switch",
+    "description": "The hardware behind Ethernet's own forwarding rule: hub vs. switch, how a MAC address table gets learned, collision domains, and managed vs. unmanaged switches.",
+    "tags": [
+      "networking",
+      "switch"
+    ]
+  },
+  {
     "title": "TCP — Networking",
     "url": "/networking/tcp/index.html",
     "domain": "Networking",
@@ -781,6 +803,17 @@
     "tags": [
       "networking",
       "websocket"
+    ]
+  },
+  {
+    "title": "Wi-Fi — Networking",
+    "url": "/networking/wifi/index.html",
+    "domain": "Networking",
+    "category": "Wifi",
+    "description": "Ethernet's job over radio instead of copper: SSIDs and association, why 2.4GHz vs. 5GHz vs. 6GHz is a real physics tradeoff, and WEP through WPA3.",
+    "tags": [
+      "networking",
+      "wifi"
     ]
   },
   {

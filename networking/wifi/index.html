@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wi-Fi — Networking — Embedded Pandora</title>
+<meta name="description" content="Ethernet's job over radio instead of copper: SSIDs and association, why 2.4GHz vs. 5GHz vs. 6GHz is a real physics tradeoff, and WEP through WPA3." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>Wi-Fi</h1>
+  <p class="lede">
+    <a href="/networking/ethernet/index.html">Ethernet</a>'s page describes the Link layer's job as
+    "local, one-hop delivery by MAC address." Wi-Fi does exactly that same job — the same frames, the same
+    MAC addressing, the same place in the stack — over radio waves instead of a copper cable. Everything
+    built on top, from <a href="/networking/ip/index.html">IP</a> upward, has no idea which one it's
+    actually running over.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A family of wireless standards (802.11) doing Ethernet's job over radio instead of a cable.</dd>
+      <dt>Mental model</dt><dd>The same postal delivery job as Ethernet, with the physical wire replaced by a radio broadcast anyone in range can technically hear.</dd>
+      <dt>Key numbers</dt><dd>Marketed as "Wi-Fi 4/5/6/6E/7" (802.11n/ac/ax/ax/be); operates in the 2.4GHz, 5GHz, and newer 6GHz bands.</dd>
+      <dt>Reach for it when</dt><dd>Never chosen directly — a device either has a Wi-Fi radio or it doesn't; the application layers above never know the difference.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#same-job">Same job, different medium</a></li>
+      <li><a href="#ssid-association">SSIDs and association</a></li>
+      <li><a href="#bands">2.4GHz vs. 5GHz vs. 6GHz</a></li>
+      <li><a href="#security">WEP through WPA3</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="same-job">Same job, different medium</h2>
+  <p>
+    A Wi-Fi frame still has source and destination MAC addresses, still gets switched and routed by
+    exactly the same logic covered on the <a href="/networking/ethernet/index.html">Ethernet</a> and
+    <a href="/networking/router/index.html">Router</a> pages, and still just carries an
+    <a href="/networking/ip/index.html">IP</a> packet as its payload. The only real difference is the
+    physical medium — a broadcast radio signal instead of electrical pulses down a wire — which is also
+    exactly why that difference matters enormously for one specific thing: security, covered below.
+  </p>
+
+  <h2 id="ssid-association">SSIDs and association</h2>
+  <p>
+    An Ethernet cable's physical connection <em>is</em> the "join this network" step — plug it in, done. A
+    wireless device has no equivalent physical certainty, so Wi-Fi adds an explicit step: it scans for
+    broadcast <strong>SSIDs</strong> (network names), then <strong>associates</strong> with one — a short
+    handshake authenticating the device and the access point to each other before any real data frame is
+    allowed to pass. Only after association succeeds does a device behave, from every layer above, exactly
+    like it's plugged into an Ethernet switch.
+  </p>
+
+  <h2 id="bands">2.4GHz vs. 5GHz vs. 6GHz</h2>
+  <p>Every Wi-Fi band trades off the same two physical properties against each other:</p>
+  <table>
+    <thead><tr><th>Band</th><th>Range &amp; penetration</th><th>Speed &amp; interference</th></tr></thead>
+    <tbody>
+      <tr><td>2.4GHz</td><td>Longest range, best at penetrating walls/floors</td><td>Slowest, most crowded — shared with Bluetooth, microwaves, and every neighboring router</td></tr>
+      <tr><td>5GHz</td><td>Shorter range, attenuates more through walls</td><td>Faster, meaningfully less crowded than 2.4GHz</td></tr>
+      <tr><td>6GHz</td><td>Shortest range of the three</td><td>Fastest, cleanest spectrum — newest devices only</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Lower frequency radio waves travel further and bend around/through obstacles more easily — the same
+    physics that makes AM radio reach further than FM. There's no band that simply wins; the right choice
+    depends on whether range or throughput matters more for a given device's location.
+  </p>
+
+  <h2 id="security">WEP through WPA3</h2>
+  <p>
+    Because a Wi-Fi signal is, by its nature, receivable by anyone within range, encryption at this layer
+    carries weight an Ethernet cable never needed as urgently — nobody can silently tap a signal that
+    never left a physical wire. <strong>WEP</strong> (the original standard) is now completely broken and
+    should never be used. <strong>WPA</strong>, then <strong>WPA2</strong>, then <strong>WPA3</strong> each
+    replaced the previous generation's cryptographic weaknesses — WPA2 is still widely deployed and
+    considered reasonably secure with a strong password; WPA3 is the current standard, adding protection
+    even for public/open networks that previously had no encryption at all.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Nearly every consumer device without a physical port —</strong> phones, laptops, tablets rely on Wi-Fi as their only Link-layer option.</li>
+    <li><strong>Industrial wireless sensor networks —</strong> deploying sensors across a large facility without running physical cable to each one.</li>
+    <li><strong>Wi-Fi as an embedded peripheral —</strong> chips like the ESP32 class of microcontrollers integrate a full Wi-Fi radio directly on-die, letting a small embedded project join a wireless network with minimal extra hardware.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>2.4GHz congestion in dense apartment buildings — dozens of overlapping networks all sharing the same few channels — is a classic, physics-driven cause of "my Wi-Fi is slow here" that switching routers won't fix.</li>
+      <li>A device "connected to Wi-Fi" with no internet access has successfully associated with the access point — the Wi-Fi link itself is fine — but is failing somewhere further up the stack, commonly <a href="/networking/dhcp/index.html">DHCP</a> or <a href="/networking/dns/index.html">DNS</a>; treat "Wi-Fi is connected" and "the internet works" as two separate, independently-failing things.</li>
+      <li>Switching to 5GHz isn't automatically an upgrade — its shorter range and weaker wall penetration can leave a device with a <em>worse</em> connection than 2.4GHz once it's a room or two away from the access point, despite the higher theoretical speed.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/networking/ethernet/index.html", "title": "Ethernet" },
+    { "href": "/networking/router/index.html", "title": "Router & NAT" },
+    { "href": "/networking/https/index.html", "title": "HTTPS & TLS" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
