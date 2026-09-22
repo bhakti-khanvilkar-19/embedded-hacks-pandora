@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Goroutines & Channels — Go — Embedded Pandora</title>
+<meta name="description" content="Go's concurrency model — goroutines as extremely cheap concurrent functions, and channels for communicating between them safely, contrasted with C/C++'s OS threads and manual mutex synchronization." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Go</p>
+  <h1>Goroutines &amp; Channels</h1>
+  <p class="lede">
+    This is the feature Go is most associated with, and the one <a href="/go/introduction/index.html">Introduction
+    to Go</a> named as the language's central design goal. A <strong>goroutine</strong> is an extremely
+    cheap, independently-scheduled function call; a <strong>channel</strong> is a typed pipe two goroutines
+    use to pass data safely, without touching a mutex directly.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A goroutine is a lightweight, concurrently-executing function, managed by Go's own runtime rather than the OS directly. A channel is a typed conduit for sending values between goroutines.</dd>
+      <dt>Mental model</dt><dd>Go's own slogan for it: "don't communicate by sharing memory; share memory by communicating" — pass data through a channel instead of having two threads both reach into the same shared variable.</dd>
+      <dt>Key numbers</dt><dd>A goroutine starts with only a few KB of stack (growing as needed) — genuinely cheap to spawn thousands of, unlike a full OS thread.</dd>
+      <dt>Reach for it when</dt><dd>Work can happen concurrently (multiple network requests, parallel processing) and you'd otherwise reach for OS threads plus manual locking in C/C++.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#goroutines">Goroutines</a></li>
+      <li><a href="#channels">Channels</a></li>
+      <li><a href="#the-pattern">The producer/consumer pattern, visually</a></li>
+      <li><a href="#select">select — waiting on multiple channels</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="goroutines">Goroutines</h2>
+  <pre><code>func sayHello() {
+    fmt.Println("Hello from a goroutine")
+}
+
+func main() {
+    go sayHello()   // the "go" keyword — runs sayHello CONCURRENTLY, doesn't wait for it
+    fmt.Println("Hello from main")
+    time.Sleep(100 * time.Millisecond)   // give the goroutine time to run before main exits
+}</code></pre>
+  <p>
+    The <code>go</code> keyword is the entire mechanism — prefixing any function call with it launches that
+    call as a new goroutine, running concurrently with everything else. This is dramatically lighter-weight
+    than spawning an OS thread in C/C++, which is exactly why Go programs commonly run thousands of
+    goroutines at once without a second thought.
+  </p>
+
+  <h2 id="channels">Channels</h2>
+  <pre><code>ch := make(chan int)   // a channel that carries int values
+
+go func() {
+    ch <- 42   // SEND 42 into the channel
+}()
+
+value := <-ch   // RECEIVE from the channel — blocks until something is sent
+fmt.Println(value)   // 42</code></pre>
+  <p>
+    Sending and receiving both <strong>block</strong> by default until the other side is ready — this is the
+    actual safety mechanism. Instead of two goroutines racing to read and write the same shared variable
+    (exactly the hazard a mutex exists to prevent in C/C++), they hand a value through the channel, one at a
+    time, with the language itself enforcing the handoff.
+  </p>
+
+  <h2 id="the-pattern">The producer/consumer pattern, visually</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 140" role="img" aria-labelledby="channel-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="channel-title">A producer goroutine sends values into a channel; a consumer goroutine receives them on the other end, one at a time</title>
+      <rect class="frame-box block-amber" x="20" y="40" width="140" height="55" rx="8" />
+      <text class="frame-label" x="90" y="65" text-anchor="middle" font-size="10">producer</text>
+      <text class="frame-caption" x="90" y="81" text-anchor="middle" font-size="8">goroutine</text>
+
+      <line x1="160" y1="67" x2="206" y2="67" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="210,67 200,62 200,72" />
+
+      <rect class="frame-box block-teal" x="210" y="40" width="140" height="55" rx="8" />
+      <text class="frame-label" x="280" y="65" text-anchor="middle" font-size="10">channel</text>
+      <text class="frame-caption" x="280" y="81" text-anchor="middle" font-size="8">chan int</text>
+
+      <line x1="350" y1="67" x2="396" y2="67" class="seq-arrow flow-path" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="400,67 390,62 390,72" />
+
+      <rect class="frame-box block-green" x="400" y="40" width="140" height="55" rx="8" />
+      <text class="frame-label" x="470" y="65" text-anchor="middle" font-size="10">consumer</text>
+      <text class="frame-caption" x="470" y="81" text-anchor="middle" font-size="8">goroutine</text>
+
+      <text class="seq-note" x="280" y="120" text-anchor="middle" font-size="8.5">Both sides block until the other is ready — this is the safety guarantee, built into the language</text>
+    </svg>
+    <figcaption class="diagram__caption">No shared variable, no mutex to remember to lock — the channel itself is the synchronization mechanism.</figcaption>
+  </figure>
+
+  <h2 id="select">select — waiting on multiple channels</h2>
+  <pre><code>select {
+case msg1 := <-channel1:
+    fmt.Println("received from channel1:", msg1)
+case msg2 := <-channel2:
+    fmt.Println("received from channel2:", msg2)
+case <-time.After(1 * time.Second):
+    fmt.Println("timed out waiting")
+}</code></pre>
+  <p>
+    <code>select</code> waits on multiple channel operations at once, proceeding with whichever one becomes
+    ready first — Go's built-in tool for exactly the "wait on several things simultaneously, plus a timeout"
+    problem that's much more manual to build in C/C++.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Handling many simultaneous network connections —</strong> a Go web server commonly spawns one goroutine per incoming request, each handled independently and cheaply.</li>
+    <li><strong>Fan-out/fan-in processing —</strong> splitting work across several worker goroutines reading from a shared input channel, then collecting results on an output channel.</li>
+    <li><strong>Timeouts and cancellation —</strong> <code>select</code> with <code>time.After</code> (as above) is the idiomatic Go pattern for "do this, but give up after N seconds."</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A goroutine that blocks forever on a channel nobody ever sends to (or receives from) is a real, genuine deadlock — Go's runtime can detect and report the simplest case (every goroutine blocked), but not every possible deadlock shape.</li>
+      <li>Launching a goroutine with <code>go</code> and never synchronizing with it means <code>main</code> can exit before it finishes — exactly what the <code>time.Sleep</code> in the first example works around informally; real code uses a <code>sync.WaitGroup</code> or a channel to wait properly instead.</li>
+      <li>Goroutines are cheap, but not free — spawning genuinely unbounded numbers of them (one per item in an enormous, uncontrolled input) can still exhaust memory; a worker-pool pattern with a fixed number of goroutines is the common fix.</li>
+      <li>Go's concurrency model doesn't eliminate every possible race condition — sharing a plain variable (not a channel) between goroutines without synchronization is still a real data race, exactly like the shared-memory hazard <a href="/embedded/interrupts/index.html">Embedded's Interrupts</a> chapter warns about for ISR/main-loop shared state.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/go/slices-arrays-maps/index.html", "title": "Slices, Arrays & Maps" },
+  "next": { "href": "/go/error-handling/index.html", "title": "Error Handling" },
+  "related": [
+    { "href": "/embedded/interrupts/index.html", "title": "Interrupts" },
+    { "href": "/embedded/rtos/index.html", "title": "RTOS" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
