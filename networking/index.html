@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Networking — Embedded Pandora</title>
-<meta name="description" content="How Ethernet, IP, TCP/UDP, and application protocols like HTTPS, MQTT, and CoAP stack on top of each other — a map of the domain plus a recommended reading order." />
+<meta name="description" content="How Ethernet, IP, TCP/UDP/QUIC, and a dozen application protocols (HTTP, HTTPS, DHCP, SSH, FTP, SMTP, WebSocket, MQTT, CoAP, AMQP) stack on top of each other — a map of the domain, the OSI/TCP-IP layering model, and a recommended reading order." />
 <script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <link rel="stylesheet" href="/assets/css/base.css" />
 <link rel="stylesheet" href="/assets/css/components.css" />
@@ -28,7 +28,10 @@
   <p>
     Every protocol here sits at one of four layers, each one solving exactly the problem the layer below
     it can't. Application protocols never talk to Ethernet directly — they hand data down, one layer at a
-    time, and each layer only ever talks to the one immediately above or below it.
+    time, and each layer only ever talks to the one immediately above or below it. If you've also heard of
+    a <em>7-layer</em> model (OSI) and aren't sure how it relates to the 4 layers here, or you've ever
+    wondered why "TCP/IP" doesn't leave UDP out in the cold, <a href="/networking/osi-model/index.html">OSI
+    vs. TCP/IP Model</a> answers both directly — read it first if either of those has ever tripped you up.
   </p>
   <figure class="diagram">
     <svg viewBox="0 0 700 390" role="img" aria-labelledby="net-stack-title" xmlns="http://www.w3.org/2000/svg">
@@ -82,9 +85,9 @@
   </figure>
   <ul class="point-list">
     <li><strong><a href="/networking/ethernet/index.html">Ethernet</a></strong> gets a frame to the next device over — nothing further. It has no idea what "the internet" is.</li>
-    <li><strong><a href="/networking/ip/index.html">IP</a></strong> solves what Ethernet can't: addressing and routing across many networks, hop by hop, with no delivery guarantee of its own.</li>
-    <li><strong><a href="/networking/tcp/index.html">TCP</a></strong> and <strong><a href="/networking/udp/index.html">UDP</a></strong> solve what IP can't: telling one program on a machine from another (via ports), and — for TCP only — turning IP's best-effort delivery into a reliable, ordered stream.</li>
-    <li>Everything above that is an <strong>application protocol</strong> — a message format and set of rules built on top of TCP or UDP for one specific job: encrypted web traffic (HTTPS), IoT pub/sub (MQTT), enterprise messaging (AMQP), constrained-device REST (CoAP), name lookup (DNS).</li>
+    <li><strong><a href="/networking/ip/index.html">IP</a></strong> solves what Ethernet can't: addressing and routing across many networks, hop by hop, with no delivery guarantee of its own. (<a href="/networking/bgp/index.html">BGP</a> is the protocol that actually builds those routing tables at internet scale — it technically runs over TCP, one layer up, even though its job is squarely about this layer.)</li>
+    <li><strong><a href="/networking/tcp/index.html">TCP</a></strong> and <strong><a href="/networking/udp/index.html">UDP</a></strong> solve what IP can't: telling one program on a machine from another (via ports), and — for TCP only — turning IP's best-effort delivery into a reliable, ordered stream. <a href="/networking/quic/index.html">QUIC</a> is a third, newer option here too — reliable like TCP, but built on top of UDP instead.</li>
+    <li>Everything above that is an <strong>application protocol</strong> — a message format and set of rules built on top of a transport for one specific job. This domain now covers ten of them; see the full grouped list below.</li>
   </ul>
 
   <h2 id="where-to-start">Where to start</h2>
@@ -93,21 +96,32 @@
     before it, and explicitly says so where it matters.
   </p>
   <ol class="point-list">
-    <li><strong><a href="/networking/ethernet/index.html">Ethernet</a></strong> — start at the bottom. Every topic above this one exists to solve a problem Ethernet by itself can't.</li>
+    <li><strong><a href="/networking/osi-model/index.html">OSI vs. TCP/IP Model</a></strong> — read this zeroth, even before Ethernet. It sets up the vocabulary ("Layer 3," "Layer 7") and the layering mental model every other topic here assumes.</li>
+    <li><strong><a href="/networking/ethernet/index.html">Ethernet</a></strong> — every topic above this one exists to solve a problem Ethernet by itself can't.</li>
     <li><strong><a href="/networking/ip/index.html">IP</a></strong> — once you've seen Ethernet's "local only" limit, IP's whole reason for existing (addressing across networks) makes sense.</li>
-    <li><strong><a href="/networking/tcp/index.html">TCP</a></strong>, then <strong><a href="/networking/udp/index.html">UDP</a></strong> — read TCP first; UDP's own page explains itself largely by contrast with TCP's guarantees.</li>
+    <li><strong><a href="/networking/tcp/index.html">TCP</a></strong>, then <strong><a href="/networking/udp/index.html">UDP</a></strong> — read TCP first; UDP's own page explains itself largely by contrast with TCP's guarantees. <a href="/networking/quic/index.html">QUIC</a> is worth reading right after both, since it only makes sense as a reaction to specific costs in each.</li>
     <li>Pick an <strong>application protocol</strong> by what you're actually building:
       <ul>
-        <li>Web traffic, general request/response → <a href="/networking/https/index.html">HTTPS &amp; TLS</a></li>
+        <li>Web traffic, general request/response → <a href="/networking/http/index.html">HTTP</a>, then <a href="/networking/https/index.html">HTTPS &amp; TLS</a></li>
+        <li>A persistent connection the server can push to → <a href="/networking/websocket/index.html">WebSocket</a></li>
+        <li>Automatic network configuration for a new device → <a href="/networking/dhcp/index.html">DHCP</a></li>
+        <li>Remote shell access or administration → <a href="/networking/ssh/index.html">SSH</a></li>
+        <li>Legacy file transfer → <a href="/networking/ftp/index.html">FTP</a></li>
+        <li>Outbound notification/alert email → <a href="/networking/smtp/index.html">SMTP</a></li>
         <li>IoT devices publishing to a broker → <a href="/networking/mqtt/index.html">MQTT</a></li>
         <li>Constrained/battery-powered devices, REST-style → <a href="/networking/coap/index.html">CoAP</a></li>
         <li>Enterprise messaging with routing rules → <a href="/networking/amqp/index.html">AMQP</a></li>
       </ul>
     </li>
-    <li>Then, as reference rather than reading order: <strong><a href="/networking/iot-architecture/index.html">IoT Architecture</a></strong> (how these pieces combine in a real device-to-cloud system), <strong><a href="/networking/serialization/index.html">Serialization</a></strong> (how the bytes inside any of these payloads are actually structured), and <strong><a href="/networking/linux-networking-tools/index.html">Linux Networking Tools</a></strong> (how to observe all of the above on a real running system).</li>
+    <li>Then, as reference rather than reading order: <strong><a href="/networking/bgp/index.html">BGP</a></strong> (how internet-scale routing tables actually get built), <strong><a href="/networking/iot-architecture/index.html">IoT Architecture</a></strong> (how these pieces combine in a real device-to-cloud system), <strong><a href="/networking/serialization/index.html">Serialization</a></strong> (how the bytes inside any of these payloads are actually structured), and <strong><a href="/networking/linux-networking-tools/index.html">Linux Networking Tools</a></strong> (how to observe all of the above on a real running system).</li>
   </ol>
 
   <h2>Topics</h2>
+
+  <h3>Foundations</h3>
+  <ul class="topic-list">
+    <li><a href="/networking/osi-model/index.html"><span>OSI vs. TCP/IP Model — 7 layers vs. 4, and what "TCP/IP" actually means</span><span class="status">written</span></a></li>
+  </ul>
 
   <h3>Link layer</h3>
   <ul class="topic-list">
@@ -116,18 +130,26 @@
 
   <h3>Network layer</h3>
   <ul class="topic-list">
-    <li><a href="/networking/ip/index.html"><span>IP — Internet Protocol (addressing &amp; routing)</span><span class="status">written</span></a></li>
+    <li><a href="/networking/ip/index.html"><span>IP — Internet Protocol (addressing &amp; routing, IPv4 vs. IPv6)</span><span class="status">written</span></a></li>
+    <li><a href="/networking/bgp/index.html"><span>BGP — routing between Autonomous Systems at internet scale</span><span class="status">written</span></a></li>
   </ul>
 
   <h3>Transport layer</h3>
   <ul class="topic-list">
     <li><a href="/networking/tcp/index.html"><span>TCP — reliable, connection-oriented transport</span><span class="status">written</span></a></li>
     <li><a href="/networking/udp/index.html"><span>UDP — connectionless transport</span><span class="status">written</span></a></li>
+    <li><a href="/networking/quic/index.html"><span>QUIC — reliable transport rebuilt on top of UDP</span><span class="status">written</span></a></li>
   </ul>
 
   <h3>Application &amp; messaging layer</h3>
   <ul class="topic-list">
+    <li><a href="/networking/http/index.html"><span>HTTP — methods, status codes, headers, statelessness</span><span class="status">written</span></a></li>
     <li><a href="/networking/https/index.html"><span>HTTPS &amp; TLS — encrypting and authenticating a connection</span><span class="status">written</span></a></li>
+    <li><a href="/networking/websocket/index.html"><span>WebSocket — persistent, full-duplex connections over HTTP's handshake</span><span class="status">written</span></a></li>
+    <li><a href="/networking/dhcp/index.html"><span>DHCP — automatic IP address assignment</span><span class="status">written</span></a></li>
+    <li><a href="/networking/ssh/index.html"><span>SSH — encrypted remote shell access and tunneling</span><span class="status">written</span></a></li>
+    <li><a href="/networking/ftp/index.html"><span>FTP — legacy two-channel file transfer</span><span class="status">written</span></a></li>
+    <li><a href="/networking/smtp/index.html"><span>SMTP — relaying outbound email</span><span class="status">written</span></a></li>
     <li><a href="/networking/mqtt/index.html"><span>MQTT — publish/subscribe messaging over TCP</span><span class="status">written</span></a></li>
     <li><a href="/networking/coap/index.html"><span>CoAP — REST over UDP for constrained devices</span><span class="status">written</span></a></li>
     <li><a href="/networking/amqp/index.html"><span>AMQP — exchanges, queues, and bindings</span><span class="status">written</span></a></li>
