@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Functions & Multiple Return Values — Go — Embedded Pandora</title>
+<meta name="description" content="Go functions can return more than one value directly — the mechanism behind Go's entire error-handling convention, plus named returns and variadic functions." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Go</p>
+  <h1>Functions &amp; Multiple Return Values</h1>
+  <p class="lede">
+    <a href="/c/functions/index.html">C functions</a> return exactly one value — anything more requires an
+    output pointer parameter. Go functions can return <strong>more than one value directly</strong>, no
+    pointer trick required — a small syntax feature that turns out to be the foundation of how Go handles
+    errors everywhere in the language.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Go functions can declare and return more than one value in a single <code>return</code> statement.</dd>
+      <dt>Mental model</dt><dd>Where C smuggles a second output value out through a pointer parameter, Go just lets a function hand back two (or more) values directly, as first-class citizens of the return statement.</dd>
+      <dt>Key numbers</dt><dd>The overwhelmingly common pattern is exactly two return values: <code>(result, error)</code> — covered in full in the upcoming Error Handling chapter.</dd>
+      <dt>Reach for it when</dt><dd>A function's caller genuinely needs more than one piece of information back — most often a result plus whether something went wrong.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#basic-functions">Functions, the familiar parts</a></li>
+      <li><a href="#multiple-returns">Multiple return values</a></li>
+      <li><a href="#named-returns">Named return values</a></li>
+      <li><a href="#variadic">Variadic functions</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="basic-functions">Functions, the familiar parts</h2>
+  <pre><code>func add(a int, b int) int {
+    return a + b
+}
+
+func multiply(a, b int) int {   // same type back-to-back: the type is written once
+    return a * b
+}
+
+result := add(3, 4)   // 7</code></pre>
+  <p>
+    Structurally the same idea as <a href="/c/functions/index.html">C functions</a> — a name, parameters, a
+    return type, a body — with one small syntax difference: the return type comes <em>after</em> the
+    parameter list, not before the function name.
+  </p>
+
+  <h2 id="multiple-returns">Multiple return values</h2>
+  <pre><code>func divide(a, b float64) (float64, bool) {   // returns TWO values: the result, and whether it succeeded
+    if b == 0 {
+        return 0, false
+    }
+    return a / b, true
+}
+
+result, ok := divide(10, 2)
+if ok {
+    fmt.Println(result)   // 5
+}
+
+result2, ok2 := divide(10, 0)
+if !ok2 {
+    fmt.Println("division failed")   // division failed
+}</code></pre>
+  <p>
+    Compare this to how the equivalent would look in <a href="/c/pointers/index.html">C</a> — an output
+    pointer parameter, and the return value repurposed as a success/failure flag:
+  </p>
+  <pre><code>// C: the pointer-based equivalent
+int divide(float a, float b, float *result) {
+    if (b == 0) return 0;     // 0 = failure
+    *result = a / b;
+    return 1;                   // 1 = success
+}</code></pre>
+  <p>
+    Go's version needs no address-of operator at the call site, no dereferencing inside the function, and no
+    risk of a caller forgetting to pass a valid pointer — the two return values are simply there.
+  </p>
+
+  <h2 id="named-returns">Named return values</h2>
+  <p>
+    A function can name its return values in the signature — they behave like pre-declared local variables,
+    and a bare <code>return</code> sends back whatever they currently hold:
+  </p>
+  <pre><code>func divide(a, b float64) (result float64, ok bool) {
+    if b == 0 {
+        return   // returns the zero values: 0, false
+    }
+    result = a / b
+    ok = true
+    return   // returns result and ok, whatever they currently are
+}</code></pre>
+  <p>
+    Useful for self-documenting what each return value means, but easy to overuse — most Go style guides
+    recommend named returns only when they genuinely clarify the function, not as a default habit.
+  </p>
+
+  <h2 id="variadic">Variadic functions</h2>
+  <p>
+    A function can accept a variable number of arguments of the same type — Go's equivalent of the concept
+    behind C's <code>printf</code>-style variadic functions, but type-safe:
+  </p>
+  <pre><code>func sum(numbers ...int) int {   // accepts any number of ints
+    total := 0
+    for _, n := range numbers {
+        total += n
+    }
+    return total
+}
+
+sum(1, 2, 3)        // 6
+sum(1, 2, 3, 4, 5)   // 15
+sum()                 // 0 — zero arguments is valid too</code></pre>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every I/O operation in Go's standard library —</strong> file reads, network calls, and parsing functions almost universally return <code>(value, error)</code> — the pattern the upcoming Error Handling chapter covers in full.</li>
+    <li><strong>Map lookups —</strong> Go's built-in map access itself returns two values: the value, and whether the key actually existed — directly reusing this same language feature.</li>
+    <li><strong>Type assertions —</strong> converting an interface back to a concrete type (covered in the Interfaces chapter) also returns a value plus a success flag, the same shape as the <code>divide</code> example above.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Ignoring a returned error (or success flag) is a common real bug — Go doesn't force you to check it, so silently discarding <code>divide(10, 0)</code>'s second return value re-introduces exactly the "unchecked error code" problem C has, just with nicer syntax.</li>
+      <li>The blank identifier <code>_</code> explicitly discards a return value you genuinely don't need (as used for the index in the <code>sum</code> example's <code>for _, n := range numbers</code>) — a deliberate choice, different from silently ignoring one.</li>
+      <li>Named return values combined with an early bare <code>return</code> can make it easy to lose track of exactly what's being returned at each exit point — if a function has several early returns, consider being explicit (<code>return result, ok</code>) rather than relying on the bare form everywhere.</li>
+      <li>A variadic parameter must be the <em>last</em> parameter in a function's signature — Go enforces this at compile time, the same restriction C's own variadic functions have.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/go/variables-types-control-flow/index.html", "title": "Variables, Types & Control Flow" },
+  "next": { "href": "/go/structs-and-methods/index.html", "title": "Structs & Methods" },
+  "related": [
+    { "href": "/c/functions/index.html", "title": "Functions" },
+    { "href": "/c/pointers/index.html", "title": "Pointers" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
