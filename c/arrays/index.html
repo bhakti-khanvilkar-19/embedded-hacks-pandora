@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Arrays — C — Embedded Pandora</title>
+<meta name="description" content="How C stores a fixed-size sequence of same-typed values back to back in memory — 1D and 2D arrays, indexing, and the array/pointer relationship that trips up almost everyone at first." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">C</p>
+  <h1>Arrays</h1>
+  <p class="lede">
+    An array is a fixed number of values of the <em>same type</em>, stored back to back in one contiguous
+    block of memory, accessed by a numeric position. It's C's most basic collection type — no dynamic
+    resizing, no built-in bounds checking, just a block of memory and an index into it.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A fixed-size, contiguous block of same-typed values, accessed by a zero-based numeric index.</dd>
+      <dt>Mental model</dt><dd>A row of same-size mailboxes, numbered starting at 0 — the array's name is really just the address of the first mailbox.</dd>
+      <dt>Key numbers</dt><dd>Indexing starts at <code>0</code>, not <code>1</code> — the last valid index of an array of size <code>N</code> is <code>N - 1</code>.</dd>
+      <dt>Reach for it when</dt><dd>You need a fixed number of same-typed values you'll access by position — sensor readings, a lookup table, a fixed-size buffer.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#declaring">Declaring and indexing an array</a></li>
+      <li><a href="#memory-layout">Memory layout</a></li>
+      <li><a href="#iterating">Iterating over an array</a></li>
+      <li><a href="#2d">2D arrays</a></li>
+      <li><a href="#arrays-and-pointers">Arrays and pointers</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="declaring">Declaring and indexing an array</h2>
+  <pre><code>int readings[5];              // an array of 5 ints, uninitialized
+int scores[5] = {90, 85, 77, 92, 60};   // declared and initialized at once
+
+printf("%d\n", scores[0]);    // 90 — the FIRST element
+printf("%d\n", scores[4]);    // 60 — the LAST element (size 5, so indices 0-4)
+
+scores[2] = 100;               // overwrite the element at index 2</code></pre>
+  <p>
+    The number inside the square brackets when declaring (<code>[5]</code>) is the array's fixed
+    <strong>size</strong> — decided once, at declaration, and never changeable afterward. The number inside
+    square brackets when <em>using</em> the array (<code>scores[2]</code>) is an <strong>index</strong> —
+    which element you're reading or writing.
+  </p>
+
+  <h2 id="memory-layout">Memory layout</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 560 130" role="img" aria-labelledby="array-mem-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="array-mem-title">The five elements of scores sit in one contiguous block of memory, each 4 bytes, with scores itself referring to the address of index 0</title>
+      <text class="seq-note" x="280" y="16" text-anchor="middle" font-size="9">int scores[5] = {90, 85, 77, 92, 60};</text>
+      <rect class="frame-box block-teal" x="20" y="30" width="100" height="50" rx="4" />
+      <text class="frame-label" x="70" y="60" text-anchor="middle" font-size="12">90</text>
+      <rect class="frame-box block-teal" x="120" y="30" width="100" height="50" rx="4" />
+      <text class="frame-label" x="170" y="60" text-anchor="middle" font-size="12">85</text>
+      <rect class="frame-box block-teal" x="220" y="30" width="100" height="50" rx="4" />
+      <text class="frame-label" x="270" y="60" text-anchor="middle" font-size="12">77</text>
+      <rect class="frame-box block-teal" x="320" y="30" width="100" height="50" rx="4" />
+      <text class="frame-label" x="370" y="60" text-anchor="middle" font-size="12">92</text>
+      <rect class="frame-box block-teal" x="420" y="30" width="100" height="50" rx="4" />
+      <text class="frame-label" x="470" y="60" text-anchor="middle" font-size="12">60</text>
+
+      <text class="seq-sub" x="70" y="94" text-anchor="middle" font-size="8">[0]</text>
+      <text class="seq-sub" x="170" y="94" text-anchor="middle" font-size="8">[1]</text>
+      <text class="seq-sub" x="270" y="94" text-anchor="middle" font-size="8">[2]</text>
+      <text class="seq-sub" x="370" y="94" text-anchor="middle" font-size="8">[3]</text>
+      <text class="seq-sub" x="470" y="94" text-anchor="middle" font-size="8">[4]</text>
+      <text class="seq-note" x="280" y="114" text-anchor="middle" font-size="8">One block, no gaps — element [i] always sits at (start address) + i × (element size)</text>
+    </svg>
+    <figcaption class="diagram__caption">This contiguity is exactly why indexing is fast (one address calculation, no searching) and exactly why there's no bounds checking — the compiler trusts the index you give it.</figcaption>
+  </figure>
+
+  <h2 id="iterating">Iterating over an array</h2>
+  <pre><code>int scores[5] = {90, 85, 77, 92, 60};
+int total = 0;
+
+for (int i = 0; i < 5; i++) {
+    total += scores[i];
+}
+printf("Average: %d\n", total / 5);   // Average: 80</code></pre>
+  <p>
+    A <code>for</code> loop counting up to the array's size is the standard, idiomatic way to touch every
+    element — see <a href="/c/loops/index.html">Loops</a> if this shape isn't familiar yet.
+  </p>
+
+  <h2 id="2d">2D arrays</h2>
+  <p>
+    An array of arrays — useful for grid-like data (a small image, a game board, a matrix):
+  </p>
+  <pre><code>int grid[2][3] = {
+    {1, 2, 3},
+    {4, 5, 6}
+};
+
+printf("%d\n", grid[1][2]);   // 6 — row 1, column 2</code></pre>
+  <p>
+    In memory, a 2D array is still one contiguous block — <code>grid[1][2]</code> is really shorthand for
+    "skip past row 0 entirely, then take column 2 of row 1." Rows are stored one after another,
+    left to right, top to bottom (<strong>row-major order</strong>).
+  </p>
+
+  <h2 id="arrays-and-pointers">Arrays and pointers</h2>
+  <p>
+    An array's name, used almost anywhere in an expression, automatically becomes a pointer to its first
+    element — this is called <strong>array decay</strong>. It's why <code>scores</code> and
+    <code>&amp;scores[0]</code> print the exact same address:
+  </p>
+  <pre><code>int scores[5] = {90, 85, 77, 92, 60};
+printf("%p\n", (void*)scores);       // e.g. 0x7ffee2a1
+printf("%p\n", (void*)&scores[0]);   // exact same address</code></pre>
+  <p>
+    This relationship is genuinely important and genuinely confusing at first — it's covered in full depth,
+    including exactly where it breaks down, in <a href="/embedded-c/pointers/index.html">Embedded C's
+    Pointers</a> chapter, worth reading once the next chapter (Pointers, in this domain) has introduced the
+    basics.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Sensor sample buffers —</strong> a fixed-size array holding the last N readings from an ADC, for averaging or filtering.</li>
+    <li><strong>Lookup tables —</strong> a precomputed array (a sine table, a CRC table) traded for the cost of a computation, common in performance-sensitive embedded code.</li>
+    <li><strong>Framebuffers —</strong> a 2D array (or a 1D array indexed as if 2D) representing pixel data for a small display.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>C performs <strong>no bounds checking</strong> — <code>scores[10]</code> on a 5-element array compiles and runs, reading or writing whatever memory happens to be past the array's end. This is undefined behavior, not a caught error, and it's one of the most common real sources of memory corruption bugs.</li>
+      <li>An array declared inside a function is <strong>not</strong> automatically initialized to zero — its contents are whatever garbage was already in that stack memory, unless you explicitly initialize it.</li>
+      <li><code>sizeof(array)</code> gives the array's <em>total</em> byte size only while the array itself is still in scope — pass it to another function (where it decays to a plain pointer) and <code>sizeof</code> on that parameter gives the pointer's size instead, a classic beginner trap.</li>
+      <li>Array size must be a compile-time constant in standard C (with a widely-supported GCC/Clang extension for variable-length arrays) — you cannot resize an array after declaring it; that flexibility is what <a href="/embedded-c/dynamic-memory/index.html">Dynamic Memory</a> is for.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/c/functions/index.html", "title": "Functions" },
+  "next": { "href": "/c/strings/index.html", "title": "Strings" },
+  "related": [
+    { "href": "/embedded-c/pointers/index.html", "title": "Pointers" },
+    { "href": "/embedded-c/dynamic-memory/index.html", "title": "Dynamic Memory" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

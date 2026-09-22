@@ -228,6 +228,17 @@
     ]
   },
   {
+    "title": "Arrays — C",
+    "url": "/c/arrays/index.html",
+    "domain": "C",
+    "category": "Arrays",
+    "description": "How C stores a fixed-size sequence of same-typed values back to back in memory — 1D and 2D arrays, indexing, and the array/pointer relationship that trips up almost everyone at first.",
+    "tags": [
+      "c",
+      "arrays"
+    ]
+  },
+  {
     "title": "Control Flow — C",
     "url": "/c/control-flow/index.html",
     "domain": "C",
@@ -279,6 +290,17 @@
     "tags": [
       "c",
       "loops"
+    ]
+  },
+  {
+    "title": "Strings — C",
+    "url": "/c/strings/index.html",
+    "domain": "C",
+    "category": "Strings",
+    "description": "C has no built-in string type — a string is just a char array ending in a NUL byte. How that actually works in memory, the string.h functions, and the missing-NUL-terminator bug that causes real crashes.",
+    "tags": [
+      "c",
+      "strings"
     ]
   },
   {
