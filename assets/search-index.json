@@ -838,6 +838,17 @@
     ]
   },
   {
+    "title": "Interfaces — Go",
+    "url": "/go/interfaces/index.html",
+    "domain": "Go",
+    "category": "Interfaces",
+    "description": "Go's answer to polymorphism — implemented implicitly, with no 'implements' keyword, contrasted directly with C++'s virtual functions and abstract classes. The empty interface, and type assertions.",
+    "tags": [
+      "go",
+      "interfaces"
+    ]
+  },
+  {
     "title": "Introduction to Go — Go",
     "url": "/go/introduction/index.html",
     "domain": "Go",
@@ -846,6 +857,17 @@
     "tags": [
       "go",
       "introduction"
+    ]
+  },
+  {
+    "title": "Slices, Arrays & Maps — Go",
+    "url": "/go/slices-arrays-maps/index.html",
+    "domain": "Go",
+    "category": "Slices Arrays Maps",
+    "description": "Go's built-in collection types — fixed-size arrays, the far more common resizable slice built on top of one, and maps — with a comparison table and a slice-header diagram.",
+    "tags": [
+      "go",
+      "slices-arrays-maps"
     ]
   },
   {
