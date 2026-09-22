@@ -60,7 +60,7 @@
     consequence of the protocol predating NAT and modern firewalls by decades.
   </p>
   <dl class="kv">
-    <dt>Active mode</dt><dd>The <em>server</em> initiates the data connection back to the client, on a port the client told it to use. This breaks immediately if the client is behind NAT or a firewall — the server is trying to open an unsolicited inbound connection to a machine that, from the internet's point of view, doesn't have a directly reachable address at all.</dd>
+    <dt>Active mode</dt><dd>The <em>server</em> initiates the data connection back to the client, on a port the client told it to use. This breaks immediately if the client is behind <a href="/networking/router/index.html#nat">NAT</a> or a firewall — the server is trying to open an unsolicited inbound connection to a machine that, from the internet's point of view, doesn't have a directly reachable address at all.</dd>
     <dt>Passive mode</dt><dd>The <em>client</em> initiates both connections — it asks the server "which port should I use for data," and the server picks one and waits. This works through client-side NAT, which is why passive mode is the practical default almost everywhere today.</dd>
   </dl>
   <p>
