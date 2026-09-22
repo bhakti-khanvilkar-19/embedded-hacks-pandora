@@ -817,6 +817,17 @@
     ]
   },
   {
+    "title": "Functions & Multiple Return Values — Go",
+    "url": "/go/functions-and-multiple-returns/index.html",
+    "domain": "Go",
+    "category": "Functions And Multiple Returns",
+    "description": "Go functions can return more than one value directly — the mechanism behind Go's entire error-handling convention, plus named returns and variadic functions.",
+    "tags": [
+      "go",
+      "functions-and-multiple-returns"
+    ]
+  },
+  {
     "title": "Go",
     "url": "/go/index.html",
     "domain": "Go",
@@ -835,6 +846,17 @@
     "tags": [
       "go",
       "introduction"
+    ]
+  },
+  {
+    "title": "Structs & Methods — Go",
+    "url": "/go/structs-and-methods/index.html",
+    "domain": "Go",
+    "category": "Structs And Methods",
+    "description": "Go's answer to C++ classes, without inheritance — structs, methods with a receiver, value vs. pointer receivers, and composition (embedding) as Go's deliberate alternative to inheritance.",
+    "tags": [
+      "go",
+      "structs-and-methods"
     ]
   },
   {

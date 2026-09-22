@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Structs & Methods — Go — Embedded Pandora</title>
+<meta name="description" content="Go's answer to C++ classes, without inheritance — structs, methods with a receiver, value vs. pointer receivers, and composition (embedding) as Go's deliberate alternative to inheritance." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Go</p>
+  <h1>Structs &amp; Methods</h1>
+  <p class="lede">
+    A Go <code>struct</code> starts out looking identical to a
+    <a href="/c/structs-and-unions/index.html">C struct</a> — a bundle of named fields. What's different is
+    what you can attach to it: <strong>methods</strong>, functions associated with a specific type, giving
+    Go something close to <a href="/cpp/classes-and-objects/index.html">C++'s classes</a> — deliberately
+    without inheritance, Go's most consequential design decision covered in this chapter.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A struct is a bundle of named fields, like C's. A method is a function with a special "receiver" parameter, associating it with a specific type.</dd>
+      <dt>Mental model</dt><dd>Where C++ says "a class owns its methods," Go says "a method is just a function that happens to take a specific type as its first, special argument" — syntactically attached, conceptually separate.</dd>
+      <dt>Key numbers</dt><dd>Two receiver kinds: value receivers (get a copy) and pointer receivers (can modify the original) — choosing between them is this chapter's most important practical decision.</dd>
+      <dt>Reach for it when</dt><dd>Bundling related data (a struct) is needed almost everywhere; methods specifically when behavior naturally belongs to that data.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#structs">Structs</a></li>
+      <li><a href="#methods">Methods and receivers</a></li>
+      <li><a href="#value-vs-pointer">Value receivers vs. pointer receivers</a></li>
+      <li><a href="#embedding">Embedding — composition instead of inheritance</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="structs">Structs</h2>
+  <pre><code>type SensorReading struct {
+    Timestamp int
+    Value     float64
+    Status    string
+}
+
+r := SensorReading{Timestamp: 1000, Value: 23.5, Status: "OK"}
+fmt.Println(r.Timestamp)   // 1000 — dot operator, exactly like C</code></pre>
+  <p>
+    Field names starting with a capital letter (<code>Timestamp</code>, not <code>timestamp</code>) are
+    <strong>exported</strong> — visible outside the package that defines them. This is Go's entire access
+    control mechanism: capitalization, not a <code>public</code>/<code>private</code> keyword like
+    <a href="/cpp/classes-and-objects/index.html#access-control">C++'s</a>.
+  </p>
+
+  <h2 id="methods">Methods and receivers</h2>
+  <pre><code>type Circle struct {
+    Radius float64
+}
+
+func (c Circle) Area() float64 {   // (c Circle) is the RECEIVER — associates Area with Circle
+    return 3.14159 * c.Radius * c.Radius
+}
+
+circle := Circle{Radius: 5}
+fmt.Println(circle.Area())   // 78.5397 — called just like a C++ method</code></pre>
+  <p>
+    <code>(c Circle)</code> between <code>func</code> and the method name is the <strong>receiver</strong> —
+    it's what makes <code>Area</code> callable as <code>circle.Area()</code> instead of a free-floating
+    function. Structurally, this is the same "hidden first argument" idea from
+    <a href="/cpp/classes-and-objects/index.html#member-functions">C++'s member functions</a>, just written
+    explicitly instead of implicitly.
+  </p>
+
+  <h2 id="value-vs-pointer">Value receivers vs. pointer receivers</h2>
+  <pre><code>func (c Circle) Scale(factor float64) {   // VALUE receiver — gets a COPY
+    c.Radius *= factor                     // only changes the copy — caller's circle is unaffected
+}
+
+func (c *Circle) ScalePtr(factor float64) {   // POINTER receiver — gets the REAL thing
+    c.Radius *= factor                          // actually changes the caller's circle
+}
+
+circle := Circle{Radius: 5}
+circle.Scale(2)
+fmt.Println(circle.Radius)      // still 5 — Scale only touched a copy
+
+circle.ScalePtr(2)
+fmt.Println(circle.Radius)      // 10 — ScalePtr touched the real thing</code></pre>
+  <p>
+    This is exactly the <a href="/c/pointers/index.html#pass-by-reference">pass-by-value vs. pass-by-reference</a>
+    distinction from C, applied to methods specifically. The practical rule of thumb: use a pointer receiver
+    whenever a method needs to modify the receiver, or when the struct is large enough that copying it on
+    every call would be wasteful.
+  </p>
+
+  <h2 id="embedding">Embedding — composition instead of inheritance</h2>
+  <p>
+    Go has <strong>no inheritance</strong> at all — deliberately, a core design decision, not a missing
+    feature. Instead, a struct can <strong>embed</strong> another struct, gaining its fields and methods
+    directly:
+  </p>
+  <pre><code>type Sensor struct {
+    Name string
+}
+
+func (s Sensor) PrintName() {
+    fmt.Println(s.Name)
+}
+
+type TemperatureSensor struct {
+    Sensor              // embedded — NOT "extends Sensor," just "contains a Sensor, promoted"
+    Unit string
+}
+
+t := TemperatureSensor{Sensor: Sensor{Name: "Temp"}, Unit: "Celsius"}
+t.PrintName()          // works — Sensor's method is "promoted" up to TemperatureSensor
+fmt.Println(t.Name)     // works — Sensor's field is promoted too</code></pre>
+  <p>
+    This looks similar to <a href="/cpp/inheritance-and-polymorphism/index.html">C++ inheritance</a> at the
+    call site, but it's genuinely different underneath: <code>TemperatureSensor</code> literally
+    <em>contains</em> a <code>Sensor</code> value as a field — there's no shared type hierarchy, no
+    <code>virtual</code>, and no "is-a" relationship the compiler enforces. It's composition, with Go's
+    syntax making the common case of "just forward these calls" nearly invisible.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Request/response types in web services —</strong> a struct per API endpoint bundling exactly the fields that request or response needs, extremely common in Go server code.</li>
+    <li><strong>Configuration structs —</strong> a struct with exported fields matching a YAML/JSON config file's structure, parsed directly into it.</li>
+    <li><strong>Embedding for shared behavior —</strong> embedding a common <code>Logger</code> or <code>BaseHandler</code> struct into many other structs, sharing behavior without a class hierarchy.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Mixing value and pointer receivers on the same type is legal but discouraged — pick one convention (almost always pointer receivers, once a type has <em>any</em> method that needs to mutate it) and use it consistently across every method on that type.</li>
+      <li>A large struct with only value receivers copies its entire contents on every single method call — a real, easy-to-miss performance cost that pointer receivers avoid.</li>
+      <li>Embedding is not inheritance, and code that assumes it behaves identically will be surprised — there's no polymorphism through an embedded type the way there is through a C++ base class; see the next chapter, Interfaces, for Go's actual answer to that problem.</li>
+      <li>Lowercase (unexported) struct fields are invisible outside their own package, including to code that embeds the struct from another package — a real, sometimes-surprising access restriction worth remembering when designing a struct meant to be embedded elsewhere.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/go/functions-and-multiple-returns/index.html", "title": "Functions & Multiple Return Values" },
+  "next": { "href": "/go/interfaces/index.html", "title": "Interfaces" },
+  "related": [
+    { "href": "/c/structs-and-unions/index.html", "title": "Structs & Unions" },
+    { "href": "/cpp/classes-and-objects/index.html", "title": "Classes & Objects" },
+    { "href": "/cpp/inheritance-and-polymorphism/index.html", "title": "Inheritance & Polymorphism" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
