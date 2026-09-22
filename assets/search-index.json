@@ -576,6 +576,17 @@
     ]
   },
   {
+    "title": "DNS — Networking",
+    "url": "/networking/dns/index.html",
+    "domain": "Networking",
+    "category": "DNS",
+    "description": "How a domain name becomes an IP address before anything else can happen: the resolution chain, record types, caching/TTL, and why 'the internet is down' is so often actually DNS.",
+    "tags": [
+      "networking",
+      "dns"
+    ]
+  },
+  {
     "title": "Ethernet — Networking",
     "url": "/networking/ethernet/index.html",
     "domain": "Networking",
@@ -693,6 +704,17 @@
     "tags": [
       "networking",
       "quic"
+    ]
+  },
+  {
+    "title": "Router &amp; NAT — Networking",
+    "url": "/networking/router/index.html",
+    "domain": "Networking",
+    "category": "Router",
+    "description": "What the box in the corner actually does: routing vs. switching, the default gateway, how NAT lets a whole house share one public IP, and port forwarding.",
+    "tags": [
+      "networking",
+      "router"
     ]
   },
   {

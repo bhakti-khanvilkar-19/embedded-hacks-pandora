@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Router &amp; NAT — Networking — Embedded Pandora</title>
+<meta name="description" content="What the box in the corner actually does: routing vs. switching, the default gateway, how NAT lets a whole house share one public IP, and port forwarding." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>Router &amp; NAT</h1>
+  <p class="lede">
+    The box most people call "the router" is really several devices sharing one case: a router (this
+    page), a switch, a Wi-Fi access point, and a DHCP server, usually all in one. This page is about the
+    router's own specific job — moving packets between different networks, and translating addresses at
+    the boundary between them.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>A device that forwards packets between two or more distinct networks, based on IP address.</dd>
+      <dt>Mental model</dt><dd>A mail sorting office: it reads the destination address on each package and decides which outgoing truck (network) it belongs on — a switch never makes this decision, it only knows about the one building it's in.</dd>
+      <dt>Key numbers</dt><dd>Operates at the <a href="/networking/ip/index.html">Network layer</a>; a home router typically bridges a private LAN (<code>192.168.x.x</code>) to one public IP from the ISP.</dd>
+      <dt>Reach for it when</dt><dd>Never chosen directly by an application — it's the infrastructure that makes a LAN's devices reachable from, and able to reach, the wider internet.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#routing-vs-switching">Routing vs. switching</a></li>
+      <li><a href="#default-gateway">The default gateway</a></li>
+      <li><a href="#nat">NAT — sharing one public address</a></li>
+      <li><a href="#port-forwarding">Port forwarding</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="routing-vs-switching">Routing vs. switching</h2>
+  <p>
+    This is the same distinction <a href="/networking/ethernet/index.html">Ethernet</a> and
+    <a href="/networking/ip/index.html">IP</a> already draw at the protocol level, now attached to actual
+    hardware:
+  </p>
+  <dl class="kv">
+    <dt>A switch</dt><dd>Connects devices on the <em>same</em> network, forwarding by MAC address — it has no concept of "a different network" at all.</dd>
+    <dt>A router</dt><dd>Connects <em>different</em> networks, forwarding by IP address — it's the device that exists specifically because a switch's job stops at the edge of one local network.</dd>
+  </dl>
+  <p>
+    A home "router" box does both: it switches traffic between your LAN's wired/Wi-Fi devices, and
+    separately routes traffic between your LAN as a whole and your ISP's network — two different jobs,
+    bundled into one device for convenience.
+  </p>
+
+  <h2 id="default-gateway">The default gateway</h2>
+  <p>
+    Every device on a LAN is configured — almost always automatically, via <a href="/networking/dhcp/index.html">DHCP</a> —
+    with a <strong>default gateway</strong> address: the router's own LAN-facing IP. The rule a device
+    follows is simple: if a destination address is on my own local network, send the frame directly; if
+    it isn't, hand it to the default gateway and let it figure out the rest. This is the exact mechanism
+    <a href="/networking/ip/index.html#addressing">IP's own addressing section</a> describes as "a packet
+    is handed to a gateway/router."
+  </p>
+
+  <h2 id="nat">NAT — sharing one public address</h2>
+  <p>
+    <a href="/networking/ip/index.html#private">Private IP ranges</a> like <code>192.168.x.x</code> aren't
+    routable on the public internet — so every device behind a home router needs to be translated to the
+    router's one public IP before its traffic can leave the building. <strong>Network Address Translation
+    (NAT)</strong> is what performs that translation, and it does it per-connection, not just per-device,
+    by also rewriting the port number.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 230" role="img" aria-labelledby="nat-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="nat-title">Three devices on private IP addresses each get translated to the router's one public IP, distinguished from each other only by port number, and the router keeps a translation table to route replies back correctly</title>
+      <rect class="frame-box block-teal" x="20" y="20" width="180" height="40" rx="6" />
+      <text class="frame-label" x="110" y="45" text-anchor="middle" font-size="10">192.168.1.10 : 51000</text>
+      <rect class="frame-box block-teal" x="20" y="80" width="180" height="40" rx="6" />
+      <text class="frame-label" x="110" y="105" text-anchor="middle" font-size="10">192.168.1.11 : 51000</text>
+      <rect class="frame-box block-teal" x="20" y="140" width="180" height="40" rx="6" />
+      <text class="frame-label" x="110" y="165" text-anchor="middle" font-size="10">192.168.1.12 : 51000</text>
+
+      <rect class="frame-box block-amber" x="280" y="70" width="140" height="90" rx="8" />
+      <text class="frame-label" x="350" y="105" text-anchor="middle" font-size="11" font-weight="700">Router</text>
+      <text class="frame-caption" x="350" y="123" text-anchor="middle" font-size="9">NAT table</text>
+      <text class="frame-caption" x="350" y="140" text-anchor="middle" font-size="8">rewrites src port</text>
+
+      <rect class="frame-box block-violet" x="500" y="90" width="180" height="50" rx="6" />
+      <text class="frame-label" x="590" y="112" text-anchor="middle" font-size="10">203.0.113.9</text>
+      <text class="frame-caption" x="590" y="128" text-anchor="middle" font-size="8">one public IP</text>
+
+      <line x1="200" y1="40" x2="278" y2="90" class="seq-arrow" stroke-width="1.2" />
+      <line x1="200" y1="100" x2="278" y2="105" class="seq-arrow" stroke-width="1.2" />
+      <line x1="200" y1="160" x2="278" y2="120" class="seq-arrow" stroke-width="1.2" />
+      <line x1="420" y1="105" x2="496" y2="105" class="seq-arrow" stroke-width="1.6" />
+      <polygon class="seq-arrowhead" points="500,105 490,100 490,110" />
+
+      <text class="seq-note" x="350" y="195" text-anchor="middle">.10:51000 → :40001 · .11:51000 → :40002 · .12:51000 → :40003</text>
+      <text class="seq-note" x="350" y="213" text-anchor="middle">All three devices used the same source port — NAT's table is what tells them apart on the way back.</text>
+    </svg>
+    <figcaption class="diagram__caption">This is why devices behind the same home router look identical from the internet's point of view — only the translated (IP, port) pair, tracked in the router's own table, tells them apart.</figcaption>
+  </figure>
+
+  <h2 id="port-forwarding">Port forwarding</h2>
+  <p>
+    NAT's default behavior blocks unsolicited inbound connections — nothing in its table yet means nothing
+    to translate an incoming packet against, so it's dropped. <strong>Port forwarding</strong> is the
+    deliberate exception: a manually configured rule saying "anything arriving on public port X should
+    always go to this specific internal device," used whenever something inside the LAN — a home server, a
+    self-hosted service, an embedded device being remotely debugged — needs to accept connections
+    initiated from outside.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every home and office internet connection —</strong> the router is the single boundary between a private LAN and the public internet.</li>
+    <li><strong>Cloud VPC routing —</strong> cloud providers implement the same routing/NAT concepts in software, at massive scale, to connect virtual private networks to the public internet.</li>
+    <li><strong>IoT device remote access —</strong> a self-hosted home-automation hub reachable from outside the house is almost always relying on either port forwarding or, more commonly today, an outbound tunnel like the <a href="/networking/ssh/index.html#tunneling">reverse SSH tunnels</a> covered on the SSH page — specifically to avoid needing port forwarding at all.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li><strong>Double NAT —</strong> two routers chained together (an ISP-provided modem/router combo plus your own router behind it) means a device is now two translation hops from the public internet — port forwarding on the inner router alone often silently fails, since the outer router never forwards the traffic to it in the first place.</li>
+      <li>NAT is not a firewall, even though it accidentally blocks unsolicited inbound traffic by default — a real security boundary needs its own dedicated rules, not this side effect.</li>
+      <li>Some older protocols embed an IP address or port directly inside their own payload (not just the packet headers) — NAT has no way to rewrite that, which is exactly the class of problem behind <a href="/networking/ftp/index.html#active-passive">FTP's active-mode NAT breakage</a>.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/networking/ip/index.html", "title": "IP" },
+    { "href": "/networking/dhcp/index.html", "title": "DHCP" },
+    { "href": "/networking/ethernet/index.html", "title": "Ethernet" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

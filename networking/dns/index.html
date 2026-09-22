@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DNS — Networking — Embedded Pandora</title>
+<meta name="description" content="How a domain name becomes an IP address before anything else can happen: the resolution chain, record types, caching/TTL, and why 'the internet is down' is so often actually DNS." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>DNS — Domain Name System</h1>
+  <p class="lede">
+    Almost every other page in this domain starts from an <a href="/networking/ip/index.html">IP
+    address</a> already in hand. DNS is the step before that step — the lookup that turns a name a human
+    can remember (<code>example.com</code>) into the numeric address <a href="/networking/ip/index.html">IP</a>
+    actually needs, run automatically, invisibly, before nearly every connection on the internet.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The distributed lookup system that translates human-readable domain names into IP addresses.</dd>
+      <dt>Mental model</dt><dd>A phonebook: you know a name, DNS looks up the number — except the phonebook is split across thousands of independently-run servers instead of one big book.</dd>
+      <dt>Key numbers</dt><dd>Port 53; mostly <a href="/networking/udp/index.html">UDP</a> (falls back to <a href="/networking/tcp/index.html">TCP</a> for large responses).</dd>
+      <dt>Reach for it when</dt><dd>Never directly — it runs automatically the instant any application connects to something by name instead of by raw IP address.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#why-dns">Why names instead of just addresses</a></li>
+      <li><a href="#hierarchy">The domain hierarchy</a></li>
+      <li><a href="#resolution">Resolving a name, hop by hop</a></li>
+      <li><a href="#record-types">Record types</a></li>
+      <li><a href="#caching">Caching and TTL</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="why-dns">Why names instead of just addresses</h2>
+  <p>
+    An <a href="/networking/ip/index.html">IP address</a> can change — a server gets migrated, a site
+    moves to a new host, a home internet connection gets a new address from its ISP. A domain name stays
+    stable through all of that, as long as its DNS records are updated to point at the current address.
+    Names are also simply easier for a human to remember, type, and trust than a string of numbers.
+  </p>
+
+  <h2 id="hierarchy">The domain hierarchy</h2>
+  <p>
+    A domain name reads right to left as a hierarchy, most general to most specific — the opposite
+    direction from how it's typically read aloud:
+  </p>
+  <dl class="kv">
+    <dt>Root</dt><dd>The unnamed top of the entire system — represented by the invisible trailing dot in <code>example.com.</code>.</dd>
+    <dt>TLD (Top-Level Domain)</dt><dd><code>.com</code>, <code>.org</code>, <code>.io</code> — the first real level, managed by a registry for each one.</dd>
+    <dt>Domain</dt><dd><code>example</code> in <code>example.com</code> — registered by an individual or organization.</dd>
+    <dt>Subdomain</dt><dd><code>www</code> or <code>api</code> in <code>www.example.com</code> — created freely by whoever controls the domain, no registration needed.</dd>
+  </dl>
+
+  <h2 id="resolution">Resolving a name, hop by hop</h2>
+  <p>
+    Looking up a name for the first time is a chain of "who do I ask next" hops, each server referring the
+    resolver one level further down the hierarchy:
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 760 220" role="img" aria-labelledby="dns-resolve-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="dns-resolve-title">A client asks its resolver, which asks a root server, then a TLD server, then the authoritative server, each one referring it one level further down the hierarchy until the answer comes back</title>
+
+      <rect class="seq-actor-chip" x="10" y="55" width="100" height="44" rx="8" />
+      <text class="seq-actor-text" x="60" y="81" text-anchor="middle">Client</text>
+
+      <rect class="frame-box block-teal" x="170" y="50" width="110" height="54" rx="6" />
+      <text class="frame-label" x="225" y="72" text-anchor="middle" font-weight="700" font-size="10">Resolver</text>
+      <text class="frame-caption" x="225" y="90" text-anchor="middle" font-size="8">e.g. 8.8.8.8</text>
+
+      <rect class="frame-box block-amber" x="340" y="50" width="100" height="54" rx="6" />
+      <text class="frame-label" x="390" y="72" text-anchor="middle" font-weight="700" font-size="10">Root</text>
+      <text class="frame-caption" x="390" y="90" text-anchor="middle" font-size="8">"ask .com"</text>
+
+      <rect class="frame-box block-green" x="500" y="50" width="110" height="54" rx="6" />
+      <text class="frame-label" x="555" y="72" text-anchor="middle" font-weight="700" font-size="10">.com TLD</text>
+      <text class="frame-caption" x="555" y="90" text-anchor="middle" font-size="8">"ask example.com's NS"</text>
+
+      <rect class="frame-box block-violet" x="670" y="50" width="80" height="54" rx="6" />
+      <text class="frame-label" x="710" y="72" text-anchor="middle" font-weight="700" font-size="9">Authoritative</text>
+      <text class="frame-caption" x="710" y="90" text-anchor="middle" font-size="8">has the A record</text>
+
+      <line x1="110" y1="77" x2="166" y2="77" class="seq-arrow" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="170,77 160,72 160,82" />
+      <line x1="280" y1="65" x2="336" y2="65" class="seq-arrow" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="340,65 330,60 330,70" />
+      <line x1="440" y1="65" x2="496" y2="65" class="seq-arrow" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="500,65 490,60 490,70" />
+      <line x1="610" y1="65" x2="666" y2="65" class="seq-arrow" stroke-width="1.4" />
+      <polygon class="seq-arrowhead" points="670,65 660,60 660,70" />
+
+      <line x1="710" y1="120" x2="60" y2="120" class="seq-arrow" stroke-width="1.6" />
+      <polygon class="seq-arrowhead" points="52,120 64,115 64,125" />
+      <text class="seq-sub" x="380" y="135" text-anchor="middle">"example.com is at 93.184.216.34" — travels back to the client</text>
+
+      <text class="seq-note" x="380" y="175" text-anchor="middle">Each hop up top only ever answers "ask this other server next" — only the last one has the actual address.</text>
+      <text class="seq-note" x="380" y="193" text-anchor="middle">Once answered, the resolver caches the result so this whole chain doesn't repeat for a while.</text>
+    </svg>
+    <figcaption class="diagram__caption">A cold lookup can take four hops; a cached one (the common case) is answered by the resolver alone, in one step.</figcaption>
+  </figure>
+
+  <h2 id="record-types">Record types</h2>
+  <dl class="kv">
+    <dt>A</dt><dd>Maps a name to an <a href="/networking/ip/index.html">IPv4</a> address.</dd>
+    <dt>AAAA</dt><dd>Maps a name to an IPv6 address.</dd>
+    <dt>CNAME</dt><dd>An alias — points one name at another name, which is then resolved in turn.</dd>
+    <dt>MX</dt><dd>Which server handles email for this domain — the record <a href="/networking/smtp/index.html">SMTP</a> looks up before delivering a message.</dd>
+    <dt>TXT</dt><dd>Arbitrary text — commonly used for domain ownership verification and, notably, the SPF/DKIM records <a href="/networking/smtp/index.html#gotchas">SMTP's own gotchas</a> mention as the fix for outbound mail landing in spam.</dd>
+    <dt>NS</dt><dd>Which servers are authoritative for this domain — the record a TLD server hands back to point the resolver at the right place.</dd>
+  </dl>
+
+  <h2 id="caching">Caching and TTL</h2>
+  <p>
+    Every DNS record carries a <strong>TTL (Time To Live)</strong> — how many seconds a resolver is
+    allowed to keep reusing that answer before asking again. This is why most lookups are fast: the
+    four-hop chain above only happens once per TTL window, not on every single request. It's also why
+    changing a DNS record isn't instant — every resolver that already cached the old answer keeps serving
+    it until that cached copy's TTL expires, which is why DNS changes are described as "propagating"
+    rather than taking effect immediately.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Every web and app connection —</strong> a browser, an IoT device's cloud check-in, an API client — all resolve a name before opening a single <a href="/networking/tcp/index.html">TCP</a> or <a href="/networking/udp/index.html">UDP</a> connection.</li>
+    <li><strong>CDN geo-routing —</strong> a CDN can return a different IP address depending on where the resolver's request came from, routing users to the nearest data center without the application knowing anything changed.</li>
+    <li><strong>Service discovery —</strong> some systems use DNS itself (including special record types like SRV) as a lightweight way for services to find each other by name rather than hardcoded IPs.</li>
+    <li><strong>Load balancing via DNS —</strong> returning multiple A records for one name lets clients spread load across several servers before any smarter load balancer is even involved.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>"The internet is down" is extremely often actually "DNS is down" — a device that can successfully <code>ping</code> a raw IP address but can't reach anything by name has a DNS problem, not a connectivity problem; this is one of the first things worth checking.</li>
+      <li>A DNS record change doesn't take effect everywhere at once — a low TTL set <em>before</em> a planned change (so old caches expire quickly) is a standard practice ahead of migrating a service to a new address.</li>
+      <li>DNS queries are, by default, neither encrypted nor authenticated — DNS spoofing/cache poisoning (tricking a resolver into caching a wrong answer) is a real attack class; DNS-over-HTTPS (DoH) and DNS-over-TLS (DoT) exist specifically to close the unencrypted-query gap, layering DNS on top of <a href="/networking/https/index.html">TLS</a>.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/networking/ip/index.html", "title": "IP" },
+    { "href": "/networking/udp/index.html", "title": "UDP" },
+    { "href": "/networking/smtp/index.html", "title": "SMTP" },
+    { "href": "/networking/https/index.html", "title": "HTTPS & TLS" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>

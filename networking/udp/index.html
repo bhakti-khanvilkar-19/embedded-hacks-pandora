@@ -139,7 +139,7 @@
   <table>
     <thead><tr><th>Use case</th><th>Why UDP fits</th></tr></thead>
     <tbody>
-      <tr><td>DNS queries</td><td>Single small request/response — TCP's handshake overhead isn't worth it for the common case.</td></tr>
+      <tr><td><a href="/networking/dns/index.html">DNS</a> queries</td><td>Single small request/response — TCP's handshake overhead isn't worth it for the common case.</td></tr>
       <tr><td>Real-time media (VoIP, video)</td><td>A late retransmitted packet is worse than a dropped one — the application handles loss itself.</td></tr>
       <tr><td>Simple LAN telemetry / broadcast-discovery</td><td>Low overhead, and UDP supports broadcast/multicast, which TCP structurally cannot (it's point-to-point).</td></tr>
       <tr><td>Constrained IoT devices</td><td><a href="/networking/coap/index.html">CoAP</a> builds a REST-style protocol on UDP specifically to avoid TCP's per-connection RAM and handshake cost on small devices.</td></tr>
