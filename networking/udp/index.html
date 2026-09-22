@@ -162,7 +162,7 @@
   <ul class="point-list">
     <li><strong>DNS —</strong> the domain name lookup that runs before nearly every internet connection is a single UDP request/response.</li>
     <li><strong>CoAP-based IoT devices —</strong> constrained sensors and actuators (see <a href="/networking/coap/index.html">CoAP</a>) use UDP specifically to avoid TCP's connection-state cost.</li>
-    <li><strong>Video calls and streaming —</strong> WebRTC and most real-time video/audio protocols use UDP because a dropped frame is better than a stalled one.</li>
+    <li><strong>Video calls and streaming —</strong> WebRTC and most real-time video/audio protocols use UDP because a dropped frame is better than a stalled one — see <a href="/networking/bandwidth/index.html#jitter">Jitter</a> for why irregular delay, not just average latency, is what actually wrecks call quality.</li>
     <li><strong>Network Time Protocol (NTP) —</strong> time synchronization is a lightweight UDP exchange, precisely because low, predictable overhead matters more than guaranteed delivery.</li>
     <li><strong>Firmware/device discovery on a LAN —</strong> UDP broadcast is how many IoT devices announce themselves on a local network before any connection is established.</li>
   </ul>

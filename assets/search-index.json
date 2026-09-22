@@ -543,6 +543,17 @@
     ]
   },
   {
+    "title": "Bandwidth, Latency &amp; Jitter — Networking",
+    "url": "/networking/bandwidth/index.html",
+    "domain": "Networking",
+    "category": "Bandwidth",
+    "description": "Why a 'fast' connection and a 'responsive' one aren't the same thing: bandwidth vs. throughput, latency, jitter, and the bits-vs-bytes mixup behind nearly every ISP speed complaint.",
+    "tags": [
+      "networking",
+      "bandwidth"
+    ]
+  },
+  {
     "title": "BGP — Networking",
     "url": "/networking/bgp/index.html",
     "domain": "Networking",
