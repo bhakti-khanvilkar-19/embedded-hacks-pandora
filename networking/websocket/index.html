@@ -62,11 +62,11 @@
       <rect class="seq-actor-chip" x="520" y="30" width="110" height="36" rx="8" />
       <text class="seq-actor-text" x="575" y="53" text-anchor="middle">Server</text>
 
-      <line class="seq-arrow" x1="120" y1="58" x2="512" y2="58" stroke-width="1.6" />
+      <line class="seq-arrow flow-path" x1="120" y1="58" x2="512" y2="58" stroke-width="1.6" />
       <polygon class="seq-arrowhead" points="520,58 508,53 508,63" />
       <text class="seq-label" x="320" y="46" text-anchor="middle"><tspan class="seq-tag-con">GET /stream · Upgrade: websocket</tspan></text>
 
-      <line class="seq-arrow" x1="520" y1="98" x2="128" y2="98" stroke-width="1.6" />
+      <line class="seq-arrow flow-path flow-path--reverse" x1="520" y1="98" x2="128" y2="98" stroke-width="1.6" />
       <polygon class="seq-arrowhead" points="120,98 132,93 132,103" />
       <text class="seq-label" x="320" y="86" text-anchor="middle"><tspan class="seq-tag-ack">101 Switching Protocols</tspan></text>
 
@@ -74,10 +74,10 @@
       <text class="frame-label" x="320" y="142" text-anchor="middle" font-size="10">Same TCP connection — now carrying WebSocket frames, either direction, anytime</text>
 
       <text class="seq-sub" x="320" y="178" text-anchor="middle" font-size="8">client → server, anytime</text>
-      <line class="seq-arrow" x1="150" y1="186" x2="502" y2="186" stroke-width="1.2" stroke-dasharray="3 2" />
+      <line class="seq-arrow flow-path" x1="150" y1="186" x2="502" y2="186" stroke-width="1.2" />
       <polygon class="seq-arrowhead" points="510,186 498,182 498,190" />
 
-      <line class="seq-arrow" x1="510" y1="210" x2="158" y2="210" stroke-width="1.2" stroke-dasharray="3 2" />
+      <line class="seq-arrow flow-path flow-path--reverse" x1="510" y1="210" x2="158" y2="210" stroke-width="1.2" />
       <polygon class="seq-arrowhead" points="150,210 162,206 162,214" />
       <text class="seq-sub" x="320" y="228" text-anchor="middle" font-size="8">server → client, anytime</text>
     </svg>

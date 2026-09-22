@@ -81,17 +81,17 @@
       <line x1="75" y1="36" x2="75" y2="248" class="seq-lifeline" />
       <line x1="545" y1="36" x2="545" y2="248" class="seq-lifeline" />
 
-      <line x1="75" y1="64" x2="538" y2="64" class="seq-arrow" stroke-width="2" />
+      <line x1="75" y1="64" x2="538" y2="64" class="seq-arrow flow-path" stroke-width="2" />
       <polygon class="seq-arrowhead" points="545,64 533,59 533,69" />
       <text class="seq-label" x="310" y="52" text-anchor="middle"><tspan class="seq-tag-con">ClientHello</tspan></text>
       <text class="seq-sub" x="310" y="80" text-anchor="middle">supported cipher suites, a key share for key exchange</text>
 
-      <line x1="545" y1="116" x2="82" y2="116" class="seq-arrow" stroke-width="2" />
+      <line x1="545" y1="116" x2="82" y2="116" class="seq-arrow flow-path flow-path--reverse" stroke-width="2" />
       <polygon class="seq-arrowhead" points="75,116 87,111 87,121" />
       <text class="seq-label" x="310" y="104" text-anchor="middle"><tspan class="seq-tag-ack">ServerHello + Certificate + key share + Finished</tspan></text>
       <text class="seq-sub" x="310" y="132" text-anchor="middle">both sides can now compute the same shared secret</text>
 
-      <line x1="75" y1="164" x2="538" y2="164" class="seq-arrow" stroke-width="2" />
+      <line x1="75" y1="164" x2="538" y2="164" class="seq-arrow flow-path" stroke-width="2" />
       <polygon class="seq-arrowhead" points="545,164 533,159 533,169" />
       <text class="seq-label" x="310" y="152" text-anchor="middle">Finished</text>
       <text class="seq-sub" x="310" y="180" text-anchor="middle">client confirms it derived the same keys</text>
