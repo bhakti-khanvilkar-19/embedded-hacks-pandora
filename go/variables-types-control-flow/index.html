@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Variables, Types & Control Flow — Go — Embedded Pandora</title>
+<meta name="description" content="Declaring variables with var and :=, Go's built-in types, type inference, and if/for/switch — Go's only loop keyword covers every C loop shape, explained by direct contrast with C." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Go</p>
+  <h1>Variables, Types &amp; Control Flow</h1>
+  <p class="lede">
+    Go is statically typed, exactly like C — every variable has one fixed type, known at compile time. What's
+    different is how you get there: Go can often <em>infer</em> a variable's type from its initial value,
+    removing a lot of the type-name repetition <a href="/c/variables-types-operators/index.html">C requires</a>.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>Statically-typed variable declarations (<code>var</code> or <code>:=</code>), Go's built-in types, and <code>if</code>/<code>for</code>/<code>switch</code> for control flow.</dd>
+      <dt>Mental model</dt><dd>Same rigid typing discipline as C, but the compiler is willing to figure out the type itself whenever it obviously can, so you don't have to write it twice.</dd>
+      <dt>Key numbers</dt><dd>Exactly one loop keyword (<code>for</code>) covers every shape C needs three keywords for (<code>for</code>, <code>while</code>, <code>do-while</code>).</dd>
+      <dt>Reach for it when</dt><dd>Any time you'd declare a variable or branch on a condition — this is Go's most-used syntax, used in literally every program.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#declaring">Declaring variables: var and :=</a></li>
+      <li><a href="#types">Go's built-in types</a></li>
+      <li><a href="#if">if — no parentheses required</a></li>
+      <li><a href="#for">for — Go's only loop keyword</a></li>
+      <li><a href="#switch">switch — no fall-through by default</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="declaring">Declaring variables: var and :=</h2>
+  <pre><code>var age int = 25        // explicit type, C-style order reversed (name THEN type)
+var name string = "Ada"
+var price float64         // no initializer — defaults to the type's "zero value" (0 here)
+
+count := 10               // := infers the type from the value — count is an int, automatically
+message := "Hello"        // message is a string, automatically</code></pre>
+  <p>
+    <code>:=</code> is the idiomatic, far more common form inside functions — you only reach for the longer
+    <code>var</code> form when you need to declare a variable without immediately initializing it, or when
+    you're declaring it outside any function.
+  </p>
+
+  <h2 id="types">Go's built-in types</h2>
+  <table>
+    <thead><tr><th>Go type</th><th>Closest C equivalent</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><code>int</code></td><td><code>int</code></td><td>Platform's natural word size (32 or 64 bits) — like C, size isn't fixed by the spec</td></tr>
+      <tr><td><code>int32</code>, <code>int64</code></td><td><code>int32_t</code>, <code>int64_t</code></td><td>Fixed-width, exactly like C's <code>stdint.h</code> types from <a href="/embedded-c/data-types/index.html">Embedded C</a></td></tr>
+      <tr><td><code>float64</code></td><td><code>double</code></td><td>The default floating-point type in Go — used far more often than <code>float32</code></td></tr>
+      <tr><td><code>string</code></td><td><code>char*</code> / char array</td><td>A real, built-in type — not a convention layered on <code>char</code> arrays like <a href="/c/strings/index.html">C strings</a></td></tr>
+      <tr><td><code>bool</code></td><td><code>_Bool</code> / <code>int</code></td><td>A genuine boolean type from the start — Go never had C's "0 is false" convention</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Every variable declared without an explicit initial value gets a well-defined <strong>zero value</strong>
+    (<code>0</code> for numbers, <code>""</code> for strings, <code>false</code> for booleans) — unlike a
+    plain <a href="/c/variables-types-operators/index.html">C local variable</a>, which starts as
+    uninitialized garbage.
+  </p>
+
+  <h2 id="if">if — no parentheses required</h2>
+  <pre><code>temperature := 85
+
+if temperature > 90 {
+    fmt.Println("Too hot")
+} else if temperature < 60 {
+    fmt.Println("Too cold")
+} else {
+    fmt.Println("Comfortable")
+}</code></pre>
+  <p>
+    Functionally identical to <a href="/c/control-flow/index.html">C's <code>if</code>/<code>else if</code>/<code>else</code></a>
+    — the only real difference is syntax: no parentheses around the condition, and the braces are mandatory
+    even for a single statement (removing an entire category of C bug from
+    <a href="/c/control-flow/index.html#gotchas">C's Control Flow gotchas</a> about a dangling <code>if</code>
+    with no braces).
+  </p>
+
+  <h2 id="for">for — Go's only loop keyword</h2>
+  <p>
+    Go has exactly one loop keyword, shaped to cover every case C needs three separate keywords for:
+  </p>
+  <pre><code>// C-style three-part for (like C's for loop)
+for i := 0; i < 5; i++ {
+    fmt.Println(i)
+}
+
+// condition-only (like C's while loop)
+count := 0
+for count < 5 {
+    fmt.Println(count)
+    count++
+}
+
+// no condition at all (like C's for (;;) or while (1))
+for {
+    fmt.Println("forever, until a break")
+    break
+}</code></pre>
+  <p>
+    All three are the same keyword, just with different parts omitted — see
+    <a href="/c/loops/index.html">C's Loops</a> for the three separate forms Go collapses into this one.
+  </p>
+
+  <h2 id="switch">switch — no fall-through by default</h2>
+  <pre><code>day := 3
+
+switch day {
+case 1:
+    fmt.Println("Monday")
+case 2:
+    fmt.Println("Tuesday")
+case 3:
+    fmt.Println("Wednesday")
+default:
+    fmt.Println("Some other day")
+}
+// Wednesday — and execution stops here automatically, no break needed</code></pre>
+  <p>
+    This is the single biggest behavioral difference from <a href="/c/control-flow/index.html#switch">C's <code>switch</code></a>:
+    Go's cases <strong>do not fall through</strong> by default — each case implicitly breaks. Go still
+    supports intentional fall-through, but only with an explicit <code>fallthrough</code> keyword, inverting
+    C's "opt out of fall-through" into "opt in."
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Request handling in web services —</strong> <code>if</code>/<code>switch</code> on an HTTP method or status code is one of the most common patterns in Go server code.</li>
+    <li><strong>Configuration parsing —</strong> <code>:=</code> type inference keeps config-loading code compact, since the types are usually obvious from context.</li>
+    <li><strong>Polling/retry loops —</strong> the condition-only <code>for</code> form is Go's idiomatic replacement for a C-style <code>while</code> loop, common in networked service code waiting on a resource.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Forgetting that Go's <code>switch</code> doesn't fall through is a common early mistake coming from C — code that "should" fall through silently doesn't, unless <code>fallthrough</code> is added explicitly.</li>
+      <li><code>:=</code> can only be used to declare a <em>new</em> variable — using it when the variable already exists in the same scope is a compile error; use plain <code>=</code> to reassign an existing variable's value.</li>
+      <li>Go's compiler rejects an unused variable outright (see <a href="/go/introduction/index.html#gotchas">Introduction to Go's gotchas</a>) — a variable declared with <code>:=</code> and never referenced again fails to compile, not just warns.</li>
+      <li>Comparing floating-point values with <code>==</code> has exactly the same reliability problem in Go as in <a href="/c/control-flow/index.html#gotchas">C</a> — the underlying IEEE 754 representation issue doesn't go away just because the language changed.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/go/introduction/index.html", "title": "Introduction to Go" },
+  "related": [
+    { "href": "/c/control-flow/index.html", "title": "Control Flow" },
+    { "href": "/c/loops/index.html", "title": "Loops" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
