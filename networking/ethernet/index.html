@@ -37,6 +37,7 @@
     <span class="toc__label">On this page</span>
     <ul>
       <li><a href="#mac-addresses">MAC addresses</a></li>
+      <li><a href="#cabling">The physical cable</a></li>
       <li><a href="#frame">The Ethernet frame</a></li>
       <li><a href="#switching">How a switch forwards frames</a></li>
       <li><a href="#arp">ARP — bridging IP to MAC</a></li>
@@ -53,6 +54,25 @@
     <li><strong>Unlike an IP address, it doesn't change</strong> when the device joins a different network — it identifies the physical interface itself, not a position in any particular network.</li>
     <li><strong>Only meaningful locally</strong> — a MAC address has no concept of "far away." It only ever needs to be unique among devices sharing the same physical link or switch.</li>
   </ul>
+
+  <h2 id="cabling">The physical cable</h2>
+  <p>
+    Everything above is about the frame; this is about the wire it actually travels down. A standard
+    Ethernet cable carries <strong>4 twisted pairs</strong> of copper wires — twisted specifically to
+    cancel out electromagnetic interference between adjacent pairs — terminated in an
+    <strong>RJ45</strong> connector at each end.
+  </p>
+  <dl class="kv">
+    <dt>Cat5e</dt><dd>Up to 1 Gbps, the long-standing baseline for most existing home/office wiring.</dd>
+    <dt>Cat6</dt><dd>Up to 10 Gbps over short runs, tighter twist rates and better shielding than Cat5e.</dd>
+    <dt>Cat6a / Cat8</dt><dd>Higher speeds and/or longer guaranteed run lengths at 10 Gbps, for data-center and future-proofed installs.</dd>
+    <dt>Fiber</dt><dd>Light instead of electricity — immune to electromagnetic interference entirely, and able to run vastly further than copper before the signal degrades, at real added cost and fragility.</dd>
+  </dl>
+  <p>
+    A cable's category rating is a real, physical property of the copper and its twisting — plugging a
+    10 Gbps-capable switch and network card into each other over an old Cat5 cable still caps the link at
+    whatever that cable's own rating actually supports.
+  </p>
 
   <h2 id="frame">The Ethernet frame</h2>
   <p>

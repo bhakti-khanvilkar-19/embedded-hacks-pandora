@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bandwidth, Latency &amp; Jitter — Networking — Embedded Pandora</title>
+<meta name="description" content="Why a 'fast' connection and a 'responsive' one aren't the same thing: bandwidth vs. throughput, latency, jitter, and the bits-vs-bytes mixup behind nearly every ISP speed complaint." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>Bandwidth, Latency &amp; Jitter</h1>
+  <p class="lede">
+    "Bandwidth" gets used loosely to mean "how fast is my internet" — but it's really only one of several
+    independent properties that together decide whether a connection actually feels fast. A link can have
+    enormous bandwidth and still feel sluggish, for reasons bandwidth alone can't explain.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>The maximum data-carrying capacity of a link — how much data <em>could</em> cross it per second, not how fast any single piece of data arrives.</dd>
+      <dt>Mental model</dt><dd>A pipe's width (bandwidth — how much water can flow through at once) is a completely different property from its length (latency — how long one drop takes to travel it).</dd>
+      <dt>Key numbers</dt><dd>Measured in bits per second (Mbps, Gbps) — not bytes. An "100 Mbps" connection tops out around 12.5 MB/s, not 100 MB/s.</dd>
+      <dt>Reach for it when</dt><dd>Describing a link's theoretical maximum capacity — never as a stand-in for how responsive or reliable it feels.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#bandwidth-vs-throughput">Bandwidth vs. throughput</a></li>
+      <li><a href="#latency">Latency — a completely independent property</a></li>
+      <li><a href="#jitter">Jitter</a></li>
+      <li><a href="#bits-vs-bytes">Bits vs. bytes</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="bandwidth-vs-throughput">Bandwidth vs. throughput</h2>
+  <p>
+    <strong>Bandwidth</strong> is the theoretical maximum a link could ever carry. <strong>Throughput</strong>
+    is what actually gets through in practice — always less than or equal to bandwidth, reduced by protocol
+    overhead, congestion, retransmissions, and whatever else is sharing the link at the same moment. A
+    "1 Gbps" link that measures 600 Mbps of real throughput isn't broken — it's simply never operating
+    under the one perfect, uncontended condition its rated number describes.
+  </p>
+
+  <h2 id="latency">Latency — a completely independent property</h2>
+  <p>
+    <strong>Latency</strong> is how long one single bit takes to travel from sender to receiver — and it
+    has almost nothing to do with bandwidth. A satellite internet link can offer very high bandwidth while
+    still feeling laggy for anything interactive, because the physical round trip to a satellite and back
+    takes real time no amount of extra capacity can shorten.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 210" role="img" aria-labelledby="bw-lat-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="bw-lat-title">A wide, short pipe representing a fiber link with high bandwidth and low latency, compared to a wide but very long pipe representing a satellite link with equally high bandwidth but much higher latency</title>
+
+      <text class="seq-sub" x="20" y="18">Fiber — high bandwidth, low latency</text>
+      <rect class="frame-box block-teal" x="20" y="26" width="260" height="36" rx="6" />
+      <circle class="pulse-dot" r="5" cx="30" cy="44" fill="var(--teal)" />
+      <text class="frame-caption" x="300" y="49" font-size="9">short physical distance</text>
+
+      <text class="seq-sub" x="20" y="100">Satellite — equally high bandwidth, much higher latency</text>
+      <rect class="frame-box block-violet" x="20" y="108" width="660" height="36" rx="6" />
+      <circle class="pulse-dot" r="5" cx="30" cy="126" fill="var(--violet)" />
+      <text class="frame-caption" x="690" y="131" text-anchor="end" font-size="9">~36,000 km each way</text>
+
+      <text class="seq-note" x="350" y="175" text-anchor="middle">Both pipes are wide (bandwidth) — only their length (physical distance, i.e. latency) differs.</text>
+      <text class="seq-note" x="350" y="193" text-anchor="middle">More bandwidth never shortens a pipe — a faster plan doesn't fix a distance problem.</text>
+    </svg>
+    <figcaption class="diagram__caption">Pipe width and pipe length are independent measurements — a link can max out one while barely touching the other.</figcaption>
+  </figure>
+
+  <h2 id="jitter">Jitter</h2>
+  <p>
+    <strong>Jitter</strong> is variation in latency over time — packets arriving at inconsistent intervals
+    instead of a steady, predictable rhythm. A connection with mediocre but <em>consistent</em> latency can
+    feel smoother for real-time audio/video than one with a lower <em>average</em> latency that occasionally
+    spikes — the spikes are what a listener actually perceives as a stutter, not the average number on a
+    speed test. This is exactly why real-time media reaches for <a href="/networking/udp/index.html">UDP</a>
+    in the first place: waiting for a retransmission introduces exactly the kind of irregular delay jitter
+    describes, which is worse than simply dropping the occasional sample.
+  </p>
+
+  <h2 id="bits-vs-bytes">Bits vs. bytes</h2>
+  <p>
+    Network speeds are conventionally quoted in <strong>bits</strong> per second (Mbps); file sizes and
+    download progress bars are conventionally shown in <strong>bytes</strong> (MB) — and there are 8 bits
+    in a byte. A "100 Mbps" connection has a real-world ceiling around 12.5 MB/s, not 100 MB/s — not a
+    fault in the connection, just two different units that look deceptively similar written down. This
+    single unit mismatch is behind an enormous fraction of "my internet isn't as fast as advertised"
+    complaints.
+  </p>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Video streaming —</strong> primarily a bandwidth problem — enough sustained throughput to keep a buffer filled matters far more than latency for a service like this.</li>
+    <li><strong>Competitive online gaming —</strong> primarily a latency problem — a player's connection can have modest bandwidth and still feel great, or huge bandwidth and still feel bad, entirely depending on round-trip time to the game server.</li>
+    <li><strong>VoIP and video calls —</strong> primarily a jitter problem — audio quality degrades from inconsistent delay long before raw bandwidth becomes the bottleneck.</li>
+    <li><strong>Embedded/IoT telemetry links —</strong> often bandwidth-constrained by design (cellular data costs, LPWAN radio limits), which is exactly why compact <a href="/networking/serialization/index.html">serialization</a> formats and protocols like <a href="/networking/coap/index.html">CoAP</a> matter more here than they would over a home broadband connection.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>A network path's real bandwidth is only ever as high as its slowest single link — one old switch, a cheap cable, or a congested Wi-Fi channel anywhere along the path caps the whole connection, no matter how fast every other segment is.</li>
+      <li>Buying more bandwidth to fix a "laggy" video call is a common, well-intentioned mistake — laggy usually means latency or jitter, neither of which more bandwidth does anything to fix.</li>
+      <li>ISP marketing numbers describe bandwidth under ideal, uncontended lab conditions — real throughput during a household's peak evening usage is a different, always-lower number, and that gap is expected, not a defect.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "related": [
+    { "href": "/networking/udp/index.html", "title": "UDP" },
+    { "href": "/networking/tcp/index.html", "title": "TCP" },
+    { "href": "/networking/wifi/index.html", "title": "Wi-Fi" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
