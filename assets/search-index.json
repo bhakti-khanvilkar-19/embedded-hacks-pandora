@@ -1232,6 +1232,17 @@
     ]
   },
   {
+    "title": "Project-Based Example — Networking",
+    "url": "/networking/project-based-example/index.html",
+    "domain": "Networking",
+    "category": "Project Based Example",
+    "description": "A real production IoT gateway device, traced protocol by protocol — two independent adapters (raw UDP and CoAP) publishing onto one shared local message bus, and a single gateway relaying qualifying traffic on to the cloud over MQTT or WebSocket.",
+    "tags": [
+      "networking",
+      "project-based-example"
+    ]
+  },
+  {
     "title": "Proxy — Networking",
     "url": "/networking/proxy/index.html",
     "domain": "Networking",
