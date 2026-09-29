@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Project-Based Example — Networking — Embedded Pandora</title>
+<meta name="description" content="A real production IoT gateway device, traced protocol by protocol — two independent adapters (raw UDP and CoAP) publishing onto one shared local message bus, and a single gateway relaying qualifying traffic on to the cloud over MQTT or WebSocket." />
+<script>(function(){try{var t=localStorage.getItem('ep-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="/assets/css/base.css" />
+<link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+
+<main class="page">
+  <p class="kicker">Networking</p>
+  <h1>Project-Based Example: A Real IoT Device Architecture</h1>
+  <p class="lede">
+    Every other page in this domain explains one protocol in isolation. This page is the opposite: one real,
+    production embedded Linux gateway device, and exactly how <a href="/networking/udp/index.html">UDP</a>,
+    <a href="/networking/coap/index.html">CoAP</a>, an AMQP-style message bus,
+    <a href="/networking/mqtt/index.html">MQTT</a>, and <a href="/networking/websocket/index.html">WebSocket</a>
+    all show up on the <em>same device</em>, doing genuinely different jobs. It's grounded in an actual
+    architecture, not a hypothetical — including a correction of the one assumption almost everyone makes
+    about it the first time.
+  </p>
+
+  <div class="quickref">
+    <span class="quickref__label">Quick reference</span>
+    <dl>
+      <dt>What it is</dt><dd>An embedded Linux IoT gateway running two independent protocol adapters side by side, both publishing onto one shared local message bus, with one component relaying qualifying traffic on to the cloud.</dd>
+      <dt>Mental model</dt><dd>Not one pipeline — two separate front doors into the same building. Both adapters share infrastructure (the bus, the cloud uplink); neither one's code ever calls the other.</dd>
+      <dt>Key numbers</dt><dd>2 independent adapters (raw UDP on port 47000, CoAP on port 5683); 1 shared local message bus, reachable only on loopback (127.0.0.1); 2 possible transports out to the cloud (MQTT or WebSocket), chosen by configuration.</dd>
+      <dt>Reach for it when</dt><dd>You want to see every protocol covered elsewhere in this domain working together on one real device, instead of only in isolation — and as a worked example of how easy it is to assume the wrong architecture from a diagram alone.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <span class="toc__label">On this page</span>
+    <ul>
+      <li><a href="#the-device">The device, in one sentence</a></li>
+      <li><a href="#two-adapters">Two independent protocol adapters</a></li>
+      <li><a href="#not-a-pipeline">The mistake this section exists to prevent</a></li>
+      <li><a href="#local-bus">The shared local bus</a></li>
+      <li><a href="#to-the-cloud">From the local bus to the cloud</a></li>
+      <li><a href="#walkthrough-udp">Walkthrough: a sensor, over raw UDP</a></li>
+      <li><a href="#walkthrough-coap">Walkthrough: a sensor, over CoAP</a></li>
+      <li><a href="#follow-one-byte">Follow one byte, start to finish</a></li>
+      <li><a href="#device-by-layer">The whole device, by layer</a></li>
+      <li><a href="#applications">Real-world applications</a></li>
+      <li><a href="#gotchas">Gotchas</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="the-device">The device, in one sentence</h2>
+  <p>
+    The device is an embedded Linux board (an i.MX8MP-class SoC, running Ubuntu Core with each component
+    packaged as a separately-confined snap) sitting between two populations of sensor hardware and a cloud
+    backend — its whole job is ingesting two structurally different kinds of device traffic, getting both
+    onto one shared internal bus, and relaying the traffic that matters onward.
+  </p>
+  <ul class="point-list">
+    <li><strong>Protocol adapters / applications —</strong> the only layer that actually produces or forwards data; everything below it exists to support this layer, not to do its job for it.</li>
+    <li><strong>Core messaging infrastructure —</strong> the shared local bus every adapter publishes onto, plus the one component with a door out to the cloud.</li>
+    <li><strong>Connectivity —</strong> whatever gets the Linux network stack onto a working link at all (LTE, Ethernet) — a lower-level OS concern the layers above don't need to know about.</li>
+    <li><strong>Hardware &amp; boot —</strong> partitions, bootloader, device tree — the base everything else runs on top of.</li>
+  </ul>
+  <p>
+    The rest of this page works top to bottom through that stack, then end to end through two real device-to-cloud
+    journeys.
+  </p>
+
+  <h2 id="two-adapters">Two independent protocol adapters</h2>
+  <p>
+    Two components ingest sensor traffic, and they don't share a line of runtime code — only the infrastructure
+    underneath them.
+  </p>
+  <table>
+    <thead><tr><th></th><th>UDP adapter</th><th>CoAP adapter</th></tr></thead>
+    <tbody>
+      <tr><td>Transport</td><td>Plain <a href="/networking/udp/index.html">UDP</a> — no CoAP involved at all</td><td><a href="/networking/coap/index.html">CoAP</a>, RFC 7252, built on UDP</td></tr>
+      <tr><td>Bind address</td><td><code>0.0.0.0:47000</code> — every IPv4 interface</td><td><code>[::]:5683</code> — every interface, <strong>IPv6 only</strong></td></tr>
+      <tr><td>Device population</td><td>A separate sensor family, talking raw UDP directly</td><td>Peripherals reachable through a border router, talking CoAP</td></tr>
+      <tr><td>Current handling</td><td>Logs <code>source / bytes / payload(hex)</code> and re-emits every datagram as a raw signal — no decoding or schema validation yet, by explicit design</td><td>Parses each request into an <code>{OID, payload}</code> envelope; a per-OID parser registry decodes known OIDs into structured data, and forwards unrecognized OIDs on unparsed</td></tr>
+      <tr><td>Standard discovery</td><td>N/A — not a REST protocol</td><td>Standard CoAP resource discovery (<code>GET /.well-known/core</code>) is deliberately <strong>not implemented</strong> — the resources here are project-specific paths, not generic CoAP</td></tr>
+      <tr><td>Confinement</td><td colspan="2">Both run as strictly-confined Ubuntu Core snaps, each declaring only the network plugs it actually needs to open its own socket.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    The CoAP adapter doesn't reimplement RFC 7252 itself — the core wire-protocol engine (retransmission,
+    message matching, CON/ACK/RST handling covered on the <a href="/networking/coap/index.html#reliability">CoAP
+    page</a>) lives inside a general-purpose CoAP library it imports, wrapped by this project's own SDK layer.
+    None of that low-level protocol logic is bespoke.
+  </p>
+
+  <h2 id="not-a-pipeline">The mistake this section exists to prevent</h2>
+  <p>
+    Looking at a device diagram that lists both adapters, it's a completely natural first guess that one feeds
+    the other — "CoAP traffic comes in, gets relayed as UDP to the other adapter." That guess is wrong, and
+    it's wrong in a way that only shows up once you actually go read the source rather than infer from names
+    and proximity.
+  </p>
+  <table>
+    <thead><tr><th></th><th>The natural first guess</th><th>What the source actually shows</th></tr></thead>
+    <tbody>
+      <tr><td>Relationship</td><td>Chained — the CoAP adapter's output feeds the UDP adapter</td><td>Parallel, independent components, each with its own ingestion responsibility</td></tr>
+      <tr><td>What the UDP adapter listens for</td><td>CoAP traffic relayed from the CoAP adapter</td><td>Its own raw UDP traffic on port 47000, directly from its own device population — its own scope doc explicitly says to <strong>exclude</strong> CoAP-speaking devices from what it handles</td></tr>
+      <tr><td>What actually connects them</td><td>A data pipeline, one hop to the next</td><td>Shared infrastructure only — the same SDK, the same underlying message bus, and borrowed source-level patterns for how to call that SDK correctly</td></tr>
+      <tr><td>Runtime code path between them</td><td>Assumed to exist</td><td>None — no file in either component references the other; no RPC call or shared queue between them</td></tr>
+    </tbody>
+  </table>
+  <p>The corrected mental model: two separate front doors into the same building, not one door leading to another.</p>
+  <pre><code>Peripherals (CoAP devices)  --CoAP:5683-->  CoAP adapter   ---\
+                                                                 \
+                                             shared local message bus
+                                                                 /
+Sensor family B             --raw UDP:47000-->  UDP adapter  ---/</code></pre>
+  <p>
+    Both adapters independently receive their own protocol's traffic from their own device population, and
+    both independently publish onto the same shared bus for downstream consumers. Having the UDP adapter also
+    handle CoAP-speaking devices would <em>duplicate</em> a responsibility the CoAP adapter already owns — the
+    exact thing its own scope document's explicit exclusion is protecting against, not an oversight waiting to
+    be "fixed" by wiring the two together.
+  </p>
+  <div class="callout callout--warn">
+    <span class="callout__label">Common mistake this section exists to prevent</span>
+    <p>
+      Seeing "a future device will run both adapters" and assuming that means one feeds the other. The real
+      architecture is closer to "the device runs two independent protocol adapters side by side," each scoped
+      to a different device population, sharing only their SDK and message bus — never a request/response or
+      forwarding relationship between the two components themselves. A diagram that puts two boxes near each
+      other is not evidence of a code path between them; only the source is.
+    </p>
+  </div>
+
+  <h2 id="local-bus">The shared local bus</h2>
+  <p>
+    Both adapters, and every other component on the device, publish onto one local message broker — an
+    AMQP-style bus (see <a href="/networking/amqp/index.html">AMQP</a> for the exchanges/queues/bindings model
+    this kind of broker implements). A thin supervisor component launches the real broker process, health-checks
+    it every few seconds, and force-restarts it if it dies or stops answering.
+  </p>
+  <dl class="kv">
+    <dt>AMQP bind</dt><dd><code>127.0.0.1:5672</code> — loopback only, never reachable from any other device on the network.</dd>
+    <dt>Management interface</dt><dd><code>127.0.0.1:15672</code> — same restriction.</dd>
+    <dt>Default credentials</dt><dd>Only work from loopback, by explicit configuration — consistent with "same device only," not a real secret exposed to the network.</dd>
+  </dl>
+  <p>
+    Every log line naming an AMQP sender from either adapter, and every signal a component emits through the
+    shared SDK, is a client of this <em>one local broker instance</em> — never a network hop. The UDP adapter,
+    the CoAP adapter, and every other snap on the device are, architecturally, just peers of each other on this
+    one bus; it doesn't distinguish or prioritize between them.
+  </p>
+
+  <h2 id="to-the-cloud">From the local bus to the cloud</h2>
+  <p>
+    One component provides the device's only uplink: it's just another loopback AMQP client of the same local
+    broker everyone else uses, and its distinguishing job is the <em>other</em> side of that connection.
+  </p>
+  <ul class="point-list">
+    <li><strong>Relays local bus traffic to the cloud —</strong> over <a href="/networking/mqtt/index.html">MQTT</a> to a cloud IoT hub, or alternatively over <a href="/networking/websocket/index.html">WebSocket</a> to a real-time relay endpoint, depending on which connection string is configured.</li>
+    <li><strong>Buffers outgoing telemetry to disk when offline —</strong> and reports a heartbeat back to the cloud that includes whether the local bus itself is reachable.</li>
+    <li><strong>Exposes device-management RPCs</strong> over that same connection: package install/refresh, key management, and a maintenance tunnel back to the device — the same uplink carries commands down, not just telemetry up (see <a href="/networking/iot-architecture/index.html#telemetry">Telemetry vs. commands</a>).</li>
+  </ul>
+  <p>
+    Separately, at the OS level, one of several parallel connectivity mechanisms (an LTE modem path, or plain
+    Ethernet) gets the Linux network stack onto a working link at all. None of them touch the message bus, UDP,
+    or the CoAP service directly — they only set up the underlying link; whatever rides on top, including the
+    cloud uplink itself, is agnostic to which one is active.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 428" role="img" aria-labelledby="arch-overview-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="arch-overview-title">Two sensor populations feed two independent adapters, both of which publish onto one shared local message bus; a single gateway relays qualifying traffic onward via MQTT or WebSocket</title>
+
+      <rect class="frame-box block-blue" x="20" y="16" width="290" height="60" rx="8" />
+      <text class="frame-label" x="165" y="41" text-anchor="middle" font-size="11" font-weight="700">Sensor family — raw UDP</text>
+      <text class="frame-caption" x="165" y="57" text-anchor="middle" font-size="8.5">sends datagrams toward port 47000</text>
+
+      <rect class="frame-box block-teal" x="370" y="16" width="290" height="60" rx="8" />
+      <text class="frame-label" x="515" y="41" text-anchor="middle" font-size="11" font-weight="700">Peripherals — CoAP</text>
+      <text class="frame-caption" x="515" y="57" text-anchor="middle" font-size="8.5">POSTs an OID-tagged payload</text>
+
+      <line x1="165" y1="76" x2="165" y2="104" class="seq-arrow flow-path" stroke-width="1.5" />
+      <line x1="515" y1="76" x2="515" y2="104" class="seq-arrow flow-path" stroke-width="1.5" />
+
+      <rect class="frame-box block-blue" x="20" y="106" width="290" height="60" rx="8" />
+      <text class="frame-label" x="165" y="131" text-anchor="middle" font-size="11" font-weight="700">UDP adapter</text>
+      <text class="frame-caption" x="165" y="147" text-anchor="middle" font-size="8.5">binds 0.0.0.0:47000, logs + re-emits</text>
+
+      <rect class="frame-box block-teal" x="370" y="106" width="290" height="60" rx="8" />
+      <text class="frame-label" x="515" y="131" text-anchor="middle" font-size="11" font-weight="700">CoAP adapter</text>
+      <text class="frame-caption" x="515" y="147" text-anchor="middle" font-size="8.5">binds [::]:5683, decodes by OID</text>
+
+      <line x1="165" y1="166" x2="240" y2="196" class="seq-arrow flow-path" stroke-width="1.5" />
+      <line x1="515" y1="166" x2="440" y2="196" class="seq-arrow flow-path" stroke-width="1.5" />
+
+      <rect class="frame-box block-amber" x="20" y="196" width="640" height="54" rx="8" />
+      <text class="frame-label" x="340" y="221" text-anchor="middle" font-size="12" font-weight="700">Local AMQP bus — loopback only (127.0.0.1:5672)</text>
+      <text class="frame-caption" x="340" y="240" text-anchor="middle" font-size="8.5">both adapters are just peer clients of this one broker</text>
+
+      <line x1="340" y1="250" x2="340" y2="278" class="seq-arrow flow-path" stroke-width="1.5" />
+
+      <rect class="frame-box block-violet" x="220" y="280" width="240" height="54" rx="8" />
+      <text class="frame-label" x="340" y="305" text-anchor="middle" font-size="11.5" font-weight="700">Cloud gateway</text>
+      <text class="frame-caption" x="340" y="322" text-anchor="middle" font-size="8.5">relays qualifying traffic onward</text>
+
+      <line x1="340" y1="334" x2="165" y2="364" class="seq-arrow flow-path" stroke-width="1.5" />
+      <line x1="340" y1="334" x2="515" y2="364" class="seq-arrow flow-path" stroke-width="1.5" />
+
+      <rect class="frame-box block-green" x="20" y="366" width="290" height="54" rx="8" />
+      <text class="frame-label" x="165" y="391" text-anchor="middle" font-size="11" font-weight="700">MQTT → cloud IoT hub</text>
+      <text class="frame-caption" x="165" y="407" text-anchor="middle" font-size="8.5">one configured uplink option</text>
+
+      <rect class="frame-box block-green" x="370" y="366" width="290" height="54" rx="8" />
+      <text class="frame-label" x="515" y="391" text-anchor="middle" font-size="11" font-weight="700">WebSocket → cloud relay</text>
+      <text class="frame-caption" x="515" y="407" text-anchor="middle" font-size="8.5">the other configured option</text>
+    </svg>
+    <figcaption class="diagram__caption">Two independent paths in, one shared bus in the middle, two possible paths out — nothing here is one straight pipeline.</figcaption>
+  </figure>
+
+  <h2 id="walkthrough-udp">Walkthrough: a sensor, over raw UDP</h2>
+  <p>
+    One full device-to-cloud trip, hop by hop — each step names the layer doing the work and links back to
+    that layer's own page.
+  </p>
+  <ol class="point-list">
+    <li><strong>Application —</strong> the sensor builds a payload and sends it toward the gateway device's IP address, targeting port 47000.</li>
+    <li><strong><a href="/networking/udp/index.html">UDP</a> —</strong> the OS wraps it in an 8-byte UDP header: a source port it assigns itself, destination port 47000, and a length field.</li>
+    <li><strong><a href="/networking/ip/index.html">IP</a>, then <a href="/networking/ethernet/index.html">Ethernet</a> —</strong> wrapped in an IP header (source and destination address, protocol number 17 for UDP), then an Ethernet frame addressed to the gateway's MAC address, resolved via ARP if not already cached.</li>
+    <li><strong>Across the wire —</strong> sensor → switch/router → gateway device, invisible to every layer above Ethernet as long as the IP path resolves.</li>
+    <li><strong>Reception, bottom to top —</strong> the NIC receives the frame, Ethernet's header is stripped, IP's header is stripped, and the UDP header's destination port is matched against the one socket bound to 47000.</li>
+    <li><strong>The UDP adapter's socket —</strong> a blocking read call returns with the payload and the sender's address exactly as logged: source address, byte count.</li>
+    <li><strong>Logging + signal emission —</strong> logged, then emitted as a raw signal onto the local bus — the same AMQP client activity covered in <a href="#local-bus">The shared local bus</a> above.</li>
+    <li><strong>A caveat worth knowing —</strong> a signal reaching the bus isn't automatically the same as durable, cloud-bound data; some of this ecosystem's own example code deliberately emits <em>both</em> a signal and a separate, persisted data row for exactly this reason. Today's UDP adapter emits only the raw signal — a deferred, explicitly-scoped next step for it to also emit a structured, persisted row.</li>
+    <li><strong>The cloud gateway picks it up —</strong> subscribed to the scope of bus traffic meant for the cloud, and relays it onward exactly as it would for any other component's data.</li>
+    <li><strong>Transport &amp; cloud —</strong> depending on the gateway's configured connection string, this rides either <a href="/networking/mqtt/index.html">MQTT</a> to a cloud IoT hub or <a href="/networking/websocket/index.html">WebSocket</a> to a real-time relay — either way, it lands in the cloud as device-to-cloud telemetry.</li>
+  </ol>
+
+  <h2 id="walkthrough-coap">Walkthrough: a sensor, over CoAP</h2>
+  <p>
+    The second, independent trip — same shared bus and cloud mechanism at the end, but everything up to that
+    point is a completely different code path.
+  </p>
+  <ol class="point-list">
+    <li><strong>Application —</strong> a peripheral serializes its data, tags it with an OID (object identifier), and issues a CoAP <code>POST</code> to a sensor-data resource path on the gateway device.</li>
+    <li><strong><a href="/networking/coap/index.html">CoAP</a> over <a href="/networking/udp/index.html">UDP</a> —</strong> wrapped in a CoAP header (version/type/token-length, code <code>0.02 POST</code>, message ID, <code>Uri-Path</code> options), then a UDP header targeting port 5683.</li>
+    <li><strong>Across the wire —</strong> over the local link (often via a border router) to the gateway device, whose CoAP server binds every interface, IPv6 only.</li>
+    <li><strong>The CoAP adapter's server —</strong> the underlying CoAP library parses the packet and hands the raw payload to the matching resource-path handler.</li>
+    <li><strong>A CoAP acknowledgement goes straight back —</strong> independent of anything downstream, the server responds immediately (e.g. <code>2.05 Content</code>) — this is CoAP's own CON/ACK reliability from <a href="/networking/coap/index.html#reliability">Reliability on top of UDP</a>, confirming only that the packet was received, not that it ever reaches the cloud.</li>
+    <li><strong>OID lookup &amp; decode —</strong> the envelope is unwrapped; a registered OID gets decoded by its own parser into structured data, while an unrecognized OID is forwarded on unparsed so something else downstream can decode it.</li>
+    <li><strong>Onto the local bus —</strong> published via the shared SDK onto the same local broker every component in this walkthrough shares (see <a href="#local-bus">The shared local bus</a>).</li>
+    <li><strong>The cloud gateway →  MQTT or WebSocket —</strong> picked up as cloud-scoped traffic and relayed onward via whichever transport the gateway is configured to use.</li>
+    <li><strong>Lands in the cloud —</strong> the same telemetry that started as a handful of bytes on a peripheral device arrives as structured, identified data — with the CoAP hop, the bus hop, and the cloud-transport hop each having handled exactly one narrow part of the journey and nothing else.</li>
+  </ol>
+
+  <h2 id="follow-one-byte">Follow one byte, start to finish</h2>
+  <p>
+    A small, concrete exercise tying this whole page together. Suppose a peripheral's message contains a
+    sensor ID field with the value <code>25</code> — the exact wire-level encoding of that one field depends on
+    details specific to the real schema in use, so treat the encoding below as illustrative of the mechanism,
+    not a literal capture:
+  </p>
+  <pre><code>Application value:       sensorId = 25                    (0x19)
+        &darr;
+Structured field encoding: [tag byte][value 25]             e.g. 08 19
+        &darr;
+CoAP payload:             &hellip;OID envelope&hellip; 08 19 &hellip;
+        &darr;
+CoAP packet:               [Ver/T/TKL][Code=0.02 POST][MID][Token][Uri-Path options][0xFF] 08 19 &hellip;
+        &darr;
+UDP payload:               the entire CoAP packet above, unchanged
+        &darr;
+UDP datagram:               [src port][dst port=5683][length][checksum] + CoAP packet
+        &darr;
+IP packet:                  [src IP][dst IP][proto=17] + UDP datagram
+        &darr;
+Ethernet frame:             [dst MAC][src MAC][EtherType] + IP packet + FCS</code></pre>
+  <p>
+    On the way back up at the receiver, this is the exact same list, read bottom to top —
+    <a href="/networking/ethernet/index.html">Ethernet</a> strips its header and hands the IP packet up, IP
+    strips its header and hands the UDP datagram up, UDP strips its 8 bytes and hands the CoAP packet up,
+    CoAP strips its own header/options and hands the raw bytes up to the application, which finally
+    reconstructs <code>sensorId = 25</code>. Every layer in between only ever sees "a payload it doesn't
+    interpret" — the same encapsulation idea covered in full on
+    <a href="/networking/ethernet/index.html#encapsulation">Ethernet's encapsulation section</a> and the
+    domain's own <a href="/networking/index.html#how-they-fit">How the pieces fit together</a>.
+  </p>
+
+  <h2 id="device-by-layer">The whole device, by layer</h2>
+  <p>
+    Reading top to bottom below is reading "what depends on what to function" — applications need the bus, the
+    bus needs a working network link, the link needs the device to have booted at all. Every layer discussed
+    on this page fits into exactly one of these four bands.
+  </p>
+  <figure class="diagram">
+    <svg viewBox="0 0 620 372" role="img" aria-labelledby="device-layers-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="device-layers-title">Four stacked layers on the device: protocol adapters and applications at the top, core messaging infrastructure below them, connectivity below that, and hardware and boot at the bottom — each layer depending on the one beneath it</title>
+
+      <rect class="frame-box block-amber" x="60" y="10" width="500" height="56" rx="8" />
+      <text class="frame-label" x="310" y="34" text-anchor="middle" font-size="12" font-weight="700">Protocol adapters / applications</text>
+      <text class="frame-caption" x="310" y="52" text-anchor="middle" font-size="9">the only layer that actually produces or forwards data</text>
+
+      <line x1="310" y1="66" x2="310" y2="98" class="seq-arrow flow-path" stroke-width="1.6" />
+      <text class="seq-sub" x="322" y="86" font-size="8.5">publish via the message bus</text>
+
+      <rect class="frame-box block-teal" x="60" y="100" width="500" height="56" rx="8" />
+      <text class="frame-label" x="310" y="124" text-anchor="middle" font-size="12" font-weight="700">Core messaging infrastructure</text>
+      <text class="frame-caption" x="310" y="142" text-anchor="middle" font-size="9">the shared local bus, plus the cloud-uplink gateway</text>
+
+      <line x1="310" y1="156" x2="310" y2="188" class="seq-arrow flow-path" stroke-width="1.6" />
+      <text class="seq-sub" x="322" y="176" font-size="8.5">needs a working network path from</text>
+
+      <rect class="frame-box block-blue" x="60" y="190" width="500" height="56" rx="8" />
+      <text class="frame-label" x="310" y="214" text-anchor="middle" font-size="12" font-weight="700">Connectivity (WAN &amp; peripheral links)</text>
+      <text class="frame-caption" x="310" y="232" text-anchor="middle" font-size="9">gets the Linux network stack onto a link at all</text>
+
+      <line x1="310" y1="246" x2="310" y2="278" class="seq-arrow flow-path" stroke-width="1.6" />
+      <text class="seq-sub" x="322" y="266" font-size="8.5">runs as managed daemons on</text>
+
+      <rect class="frame-box block-violet" x="60" y="280" width="500" height="56" rx="8" />
+      <text class="frame-label" x="310" y="304" text-anchor="middle" font-size="12" font-weight="700">Hardware &amp; boot</text>
+      <text class="frame-caption" x="310" y="322" text-anchor="middle" font-size="9">partitions, bootloader, device tree, base filesystem</text>
+
+      <text class="seq-note" x="310" y="358" text-anchor="middle" font-size="9">Dev/diagnostic tooling cuts across every layer, but sits outside the runtime data path entirely.</text>
+    </svg>
+    <figcaption class="diagram__caption">Compare with <a href="/networking/iot-architecture/index.html#layers">IoT Architecture's</a> device/gateway/cloud/application layering — this is the same idea, one layer zoomed in to what's actually running on a single real device.</figcaption>
+  </figure>
+
+  <h2 id="applications">Real-world applications</h2>
+  <ul class="point-list">
+    <li><strong>Sensor-population diversity —</strong> real IoT gateways rarely see one clean protocol from every device; a separate adapter per device population, each scoped narrowly, is a common way to keep them from becoming each other's problem.</li>
+    <li><strong>No shared point of failure between adapters —</strong> because neither adapter's code calls the other, a bug or crash in one doesn't take down the other's ingestion path — only their shared bus and uplink are common risk.</li>
+    <li><strong>Adding a protocol without touching existing ones —</strong> a new device population speaking a third protocol becomes a third adapter publishing onto the same bus, not a change to either existing adapter.</li>
+    <li><strong>Offline-tolerant cloud uplink —</strong> buffering telemetry to disk when the cloud is unreachable (common on LTE-connected field devices) is a standard pattern for exactly the kind of intermittent connectivity real deployments have to tolerate.</li>
+  </ul>
+
+  <h2 id="gotchas">Gotchas</h2>
+  <div class="callout callout--warn">
+    <span class="callout__label">Field notes</span>
+    <ul>
+      <li>Two components appearing together in a device diagram is not evidence one feeds the other — see <a href="#not-a-pipeline">The mistake this section exists to prevent</a>. Verify the actual code path, not the proximity of two boxes.</li>
+      <li>A signal reaching the local bus doesn't guarantee it's durable or cloud-bound — some data paths need an explicit, separately-emitted persisted row, not just a fire-and-forget signal, before they reliably reach the cloud.</li>
+      <li>The same protocol name can mean two unrelated things in the same ecosystem — CoAP here is both an application-level sensor-data protocol <em>and</em>, completely separately, a lower-level control-plane trick used elsewhere on the same device. Sharing a protocol name doesn't imply sharing a purpose.</li>
+      <li>Standard CoAP resource discovery not being implemented here is a reminder worth generalizing: a component being RFC-compliant at the wire-protocol level (retransmission, message matching) says nothing about whether its resource semantics follow the RFC's optional conventions too.</li>
+    </ul>
+  </div>
+
+  <section class="related" id="related"></section>
+  <nav class="pager" id="pager" aria-label="Topic navigation"></nav>
+</main>
+
+<script type="application/json" id="page-meta">
+{
+  "prev": { "href": "/networking/iot-architecture/index.html", "title": "IoT Architecture" },
+  "related": [
+    { "href": "/networking/udp/index.html", "title": "UDP" },
+    { "href": "/networking/coap/index.html", "title": "CoAP" },
+    { "href": "/networking/amqp/index.html", "title": "AMQP" },
+    { "href": "/networking/mqtt/index.html", "title": "MQTT" },
+    { "href": "/networking/websocket/index.html", "title": "WebSocket" },
+    { "href": "/networking/iot-architecture/index.html", "title": "IoT Architecture" }
+  ]
+}
+</script>
+
+<div id="site-footer"></div>
+<script src="/assets/js/theme.js" defer></script>
+<script src="/assets/js/includes.js" defer></script>
+</body>
+</html>
