@@ -40,6 +40,7 @@
     <ul>
       <li><a href="#why">Why not just use HTTP?</a></li>
       <li><a href="#header">Message format</a></li>
+      <li><a href="#on-udp">CoAP over UDP: how a packet is actually sent</a></li>
       <li><a href="#reliability">Reliability on top of UDP</a></li>
       <li><a href="#exchanges">Message exchanges, frame by frame</a></li>
       <li><a href="#rest">REST semantics: methods and response codes</a></li>
@@ -131,6 +132,75 @@
     After the header: an optional token, a set of TLV-encoded options
     (the CoAP equivalent of HTTP headers — URI-Path, Content-Format,
     Observe, etc.), and an optional payload.
+  </p>
+
+  <h2 id="on-udp">CoAP over UDP: how a packet is actually sent</h2>
+  <p>
+    CoAP has no transport of its own — no connection, no streaming, no chunking beyond what Block-wise
+    transfer (further down this page) explicitly implements. Every CoAP message — the entire 4-byte header
+    plus token, options, and payload laid out above — is sent as the <em>whole payload</em> of exactly one
+    <a href="/networking/udp/index.html">UDP</a> datagram, nothing more and nothing less. There's no "opening
+    a CoAP connection" anywhere in this picture — a client just builds those bytes in memory and hands them
+    to the operating system's ordinary UDP socket API, the same one any other UDP program would use.
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 700 230" role="img" aria-labelledby="coap-udp-nest-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="coap-udp-nest-title">A complete CoAP message — header, token, options, and payload — riding unchanged as the entire payload of one UDP datagram, itself inside an IP packet inside an Ethernet frame</title>
+      <rect class="frame-box block-violet" x="20" y="15" width="660" height="200" rx="10" />
+      <text class="frame-label" x="36" y="35" font-size="10">Ethernet frame — MAC → MAC, local network only</text>
+
+      <rect class="frame-box block-blue" x="50" y="48" width="600" height="150" rx="8" />
+      <text class="frame-label" x="66" y="68" font-size="10">IP packet — IP → IP, across networks</text>
+
+      <rect class="frame-box block-teal" x="80" y="82" width="540" height="98" rx="8" />
+      <text class="frame-label" x="96" y="102" font-size="10">UDP datagram — port → port, destination 5683</text>
+
+      <rect class="frame-box block-amber" x="110" y="116" width="480" height="48" rx="6" />
+      <text class="frame-label" x="350" y="133" text-anchor="middle" font-size="11" font-weight="700">CoAP message</text>
+      <text class="frame-caption" x="350" y="149" text-anchor="middle" font-size="8.5">header + token + options + payload</text>
+
+      <text class="frame-caption" x="600" y="176" text-anchor="end" font-size="9">8 B UDP header ↑</text>
+      <text class="frame-caption" x="600" y="195" text-anchor="end" font-size="9">20 B IP header ↑</text>
+      <text class="frame-caption" x="350" y="212" text-anchor="middle" font-size="9">14 B Ethernet header</text>
+    </svg>
+    <figcaption class="diagram__caption">
+      Same nesting as <a href="/networking/ethernet/index.html#encapsulation">Ethernet's general
+      encapsulation diagram</a> — this page just zooms in on what fills the innermost box: an entire CoAP
+      message, byte for byte identical to the layout in <a href="#header">Message format</a> above.
+    </figcaption>
+  </figure>
+
+  <p>Step by step, sending one CoAP request looks like this:</p>
+  <ol>
+    <li>The client builds the entire CoAP message in memory — header, token, options, and payload — exactly as laid out in <a href="#header">Message format</a> above.</li>
+    <li>It makes one ordinary UDP send call (conceptually <code>sendto(socket, coap_bytes, server_ip, 5683)</code>) — no handshake, no connect step, no "opening" anything first.</li>
+    <li>The OS's <a href="/networking/udp/index.html">UDP</a> layer prepends its own 8-byte header (source port, destination port 5683, length, checksum) and hands the result down to IP.</li>
+    <li><a href="/networking/ip/index.html">IP</a> prepends a 20-byte header (source/destination address, protocol number 17 for "this is UDP") and hands it to the link layer.</li>
+    <li>Ethernet or Wi-Fi wraps that in a frame and puts it on the wire — the CoAP bytes themselves never change from this point until they're unwrapped at the other end.</li>
+    <li>On arrival, the server's network stack strips Ethernet's header, then IP's, then UDP's — in reverse order — and delivers exactly the original CoAP bytes to whichever socket is bound to port 5683.</li>
+    <li>The server reads the datagram in one call — UDP is message-oriented, so one <code>recvfrom()</code> returns one complete message, never a partial fragment of it — and parses the first byte as Ver/T/TKL, same as <a href="#header">Message format</a> described.</li>
+    <li>If the request was <span class="seq-tag-con" style="font-family:var(--font-mono); font-size:0.85em;">CON</span>, the server builds a reply CoAP message and sends it back the exact same way: a brand-new, independent UDP datagram addressed to the client's address and port — not a "reply" riding some existing connection, because there isn't one.</li>
+  </ol>
+
+  <div class="callout callout--note">
+    <span class="callout__label">There is no connection, anywhere in this picture</span>
+    <p>
+      Every request and every response is its own standalone UDP datagram — the OS doesn't remember anything
+      about a CoAP "session" between them. That's exactly why CoAP needs its own Message ID and Token fields
+      (next section) to match a response back to the request that caused it. <a href="/networking/tcp/index.html">TCP</a>
+      gets that matching for free from its connection state; CoAP has to rebuild a thin version of it at the
+      application layer instead, because UDP hands it nothing to work with.
+    </p>
+  </div>
+
+  <p>
+    In pure packet count, this is the entire cost of one CoAP exchange: <strong>one UDP datagram out, one
+    back</strong> — zero back for a <span class="seq-tag-non" style="font-family:var(--font-mono); font-size:0.85em;">NON</span>
+    message. Compare that to HTTP over a freshly-opened <a href="/networking/tcp/index.html">TCP</a>
+    connection — SYN, SYN-ACK, ACK, then the HTTP request, then the response, then a FIN/FIN-ACK teardown —
+    six or more packets before either side is even done, which is exactly the overhead
+    <a href="#why">Why not just use HTTP?</a> above was pointing at.
   </p>
 
   <h2 id="reliability">Reliability on top of UDP</h2>
